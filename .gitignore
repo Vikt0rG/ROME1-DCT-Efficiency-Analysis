@@ -39,3 +39,12 @@
 
 # debug information files
 *.dwo
+
+# VSCode stuff
+.vscode/
+
+# Binaries
+*bin/
+
+# Raw Data
+*data/
