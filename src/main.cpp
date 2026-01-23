@@ -5,6 +5,9 @@
 #include <utils.hpp>
 
 
+// Main function is there purely to test utility functions
+// Actual idea is to have ROOT macros in root_macros/ for event processing
+
 int main(int argc, char** argv) {
     // Arguments:
     // argv[1] : input ROOT file name
