@@ -48,3 +48,6 @@
 
 # Raw Data
 *data/
+
+# Some local stuff used for testing
+*local/
