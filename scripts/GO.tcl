@@ -1,8 +1,8 @@
 set nEvts 10
 set timestr 2025-10-15_16-58
-set inputDir BI_DCT_FW
+set firmwareDir BI_DCT_FW
 set outputDir DCT_raw_files
-set inputPath ./$inputDir
+set firmwarePath ../$firmwareDir
 set outputPath ./output/$outputDir
 
 # channel mask
@@ -31,9 +31,9 @@ connect_hw_server
 open_hw_target
 current_hw_device [get_hw_devices xc7a200t_0]
 refresh_hw_device -update_hw_probes false [lindex [get_hw_devices xc7a200t_0] 0]
-set_property PROBES.FILE $inputPath/top.ltx [get_hw_devices xc7a200t_0]
-set_property FULL_PROBES.FILE $inputPath/top.ltx [get_hw_devices xc7a200t_0]
-set_property PROGRAM.FILE $inputPath/top.bit [get_hw_devices xc7a200t_0]
+set_property PROBES.FILE $firmwarePath/top.ltx [get_hw_devices xc7a200t_0]
+set_property FULL_PROBES.FILE $firmwarePath/top.ltx [get_hw_devices xc7a200t_0]
+set_property PROGRAM.FILE $firmwarePath/top.bit [get_hw_devices xc7a200t_0]
 program_hw_devices [get_hw_devices xc7a200t_0]
 refresh_hw_device [lindex [get_hw_devices xc7a200t_0] 0]
 
