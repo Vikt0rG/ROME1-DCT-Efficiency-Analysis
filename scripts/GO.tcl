@@ -1,4 +1,4 @@
-set nEvts 10
+set nEvents 10
 set timestr 2025-10-15_16-58
 set firmwareDir BI_DCT_FW
 set outputDir DCT_raw_files
@@ -54,13 +54,13 @@ commit_hw_vio [get_hw_probes channel_mask_right -of_objects [get_hw_vios -of_obj
 #set timestr [clock format $now -format "%y-%m-%d_%H-%M"]
 #exec mkdir $outputDir/$timestr
 
-for {set i 0} {$i < $nEvts} {incr i} {
+for {set i 0} {$i < $nEvents} {incr i} {
     run_hw_ila [get_hw_ilas -of_objects [get_hw_devices xc7a200t_0] -filter {CELL_NAME=~"ila_elinks_inst"}]
     wait_on_hw_ila [get_hw_ilas -of_objects [get_hw_devices xc7a200t_0] -filter {CELL_NAME=~"ila_elinks_inst"}]
     display_hw_ila_data [upload_hw_ila_data [get_hw_ilas -of_objects [get_hw_devices xc7a200t_0] -filter {CELL_NAME=~"ila_elinks_inst"}]]
     write_hw_ila_data -legacy_csv_file -force -quiet $outputPath/$timestr/tmp_file_$i hw_ila_data_2
     if {($i % 10)==0} {
-    	puts "Events: $i / $nEvts"
+    	puts "Events: $i / $nEvents"
     }
 }
 close_hw_manager
