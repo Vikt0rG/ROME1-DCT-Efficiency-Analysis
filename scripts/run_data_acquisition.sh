@@ -80,10 +80,10 @@ for arg in "${@:3}"; do
 done
 
 # Update TCL script with parameters
-sed -i "1s/.*/set nEvents ${nEvents}/" "$scriptDir/$tcl_script"
-sed -i "2s/.*/set timestr ${timestamp}/" "$scriptDir/$tcl_script"
-sed -i "3s/.*/set firmwareDir ${firmwareDir}/" "$scriptDir/$tcl_script"
-sed -i "4s/.*/set outputDir ${outputDir}/" "$scriptDir/$tcl_script"
+sed -i "1s|.*|set nEvents ${nEvents}|" "$scriptDir/$tcl_script"
+sed -i "2s|.*|set timestr ${timestamp}|" "$scriptDir/$tcl_script"
+sed -i "3s|.*|set firmwareDir ${firmwareDir}|" "$scriptDir/$tcl_script"
+sed -i "4s|.*|set outputDir ${outputDir}|" "$scriptDir/$tcl_script"
 
 # Create output directories if they don't exist
 if [ ! -d "$outputDir" ]; then
@@ -127,10 +127,9 @@ echo "Running process_raw_hits with dt_max=$dt_max, dt_min=$dt_min, and self_tri
 "$rootDir/bin/process_raw_hits" --dt-max "$dt_max" --dt-min "$dt_min" $use_self_trigger
 
 rootfile_name="${timestamp}_${comment}.root"
-plotfile_name="${timestamp}_${comment}.pdf"
 cp ./out.root "$rootfileDir/$rootfile_name"
-cp ./out.pdf "$plotfileDir/$plotfile_name"
 
 # Cleanup
 cd "$rootDir"
 rm -f "$rootDir"/vivado*
+rm -f "$scriptDir"/vivado*
