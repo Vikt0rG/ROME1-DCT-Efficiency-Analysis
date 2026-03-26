@@ -32,6 +32,7 @@ void process_raw_hits() {
     TTree* input_data_tree = new TTree("input_data", "Input DCT data");
     TTree* processed_data_tree = new TTree("processed_data", "Processed DCT data");
     TTree* clusterization_tree = new TTree("clusterization_data", "Data after clusterization and corrections");
+    TTree* track_reconstruction_tree = new TTree("track_reconstruction_data", "Data after track reconstruction");
 
 
     // ============================================================================================================
@@ -114,10 +115,14 @@ void process_raw_hits() {
     processed_data_tree->Branch("proc_tot2",&proc_tot2);
 
     // Branch definitions for clusterization tree
-    clusterization_tree->Branch("cluster_size_eta1", &cluster_size_eta1);
-    clusterization_tree->Branch("cluster_size_eta2", &cluster_size_eta2);
-    clusterization_tree->Branch("v_cluster_tot1", &v_cluster_tot1);
-    clusterization_tree->Branch("v_cluster_tot2", &v_cluster_tot2);
+    clusterization_tree->Branch("cluster_size_eta1", &v_cluster_size_eta1);
+    clusterization_tree->Branch("cluster_size_eta2", &v_cluster_size_eta2);
+    clusterization_tree->Branch("cluster_tot1", &v_cluster_tot1);
+    clusterization_tree->Branch("cluster_tot2", &v_cluster_tot2);
+
+    // Branch definitions for track reconstruction tree (WIP)
+    track_reconstruction_tree->Branch("track_length_eta1", &v_track_length_eta1);
+    track_reconstruction_tree->Branch("track_length_eta2", &v_track_length_eta2);
 
 
     // ============================================================================================================
@@ -487,12 +492,13 @@ void process_raw_hits() {
                     }   // End of finding cluster center and its partners for side η2
 
                     // --------------------------------------------------------------------------------------------
-                    // WIP: Track reconstruction logic subsection
+                    // Track reconstruction logic subsection
 
                     // For side η1
 
+                    // WIP: If hit is the cluster center only
                     // Initialize a new track containing only the current hit if the hit is not already in a track and time information is present
-                    if (track_hit_assinged_eta1.at(idx_hit) == -1 && time1 != -1) {
+                    if (track_hit_assinged_eta1.at(idx_hit) == -1 && v_cluster_hit_is_center_eta1.at(idx_hit) == 1 && time1 != -1) {
 
                         v_track_strip_eta1.clear();                       // Clear track_strip* vector for the new track
                         v_track_time_eta1.clear();                        // Clear track_time* vector for the new track
@@ -508,6 +514,7 @@ void process_raw_hits() {
                         // Iterate through the following hits of the same event and look for the potential track partners
                         for (size_t idx_next_hit = idx_hit + 1; idx_next_hit < n_hits; idx_next_hit++) {
                             if (track_hit_assinged_eta1.at(idx_next_hit) == -1 &&
+                                v_cluster_hit_is_center_eta1.at(idx_next_hit) == 1 &&
                                 hit_time1.at(idx_next_hit) != -1 &&
                                 hit_rise.at(idx_next_hit) == 1 && 
                                 hit_channel.at(idx_next_hit) != trig_channel) { // Only consider rising hits on non-trigger channels with valid time information as potential track partners
@@ -515,12 +522,80 @@ void process_raw_hits() {
                                 int next_layer = hit_layer.at(idx_next_hit);
                                 if (next_layer == layer) continue; // Only consider hits on different layers as potential track partners
 
+                                int next_strip = hit_strip.at(idx_next_hit);
+
+                                // WIP: For now only require the hits to be separated in time by 1 tick (0.833 ns which should be more than enough due to ToF)
+                                int next_time1 = hit_time1_converted.at(idx_next_hit);
+                                if (next_time1 == -1) continue;
+                                for (size_t idx_track_hit = 0; idx_track_hit < track_length_eta1; idx_track_hit++) {
+                                    if (abs(next_time1 - v_track_time_eta1.at(idx_track_hit)) <= 1) {
+                                        track_hit_assinged_eta1.at(idx_next_hit) = n_tracks_eta1;    // Mark the new track partner hit as belonging to the same track
+                                        v_track_strip_eta1.push_back(next_strip); // Push back the strip number of the new track member hit
+                                        v_track_time_eta1.push_back(next_time1);  // Push back the time of the new track member hit
+                                        track_length_eta1++; // Increase track length
+
+                                        break;
+                                    }
+                                }
+                            }
+                        } // End of loop looking for potential track partners
 
                         // If no more potential track partners are found for the current hit, store track length and reset track length variable for the next track
                         v_track_length_eta1.push_back(track_length_eta1);
                         track_length_eta1 = 0;
 
                     } // End of track reconstruction logic for side η1
+
+                    // For side η2
+
+                    // Initialize a new track containing only the current hit if the hit is not already in a track and time information is present
+                    if (track_hit_assinged_eta2.at(idx_hit) == -1 && v_cluster_hit_is_center_eta2.at(idx_hit) == 1 && time2 != -1) {
+
+                        v_track_strip_eta2.clear();                       // Clear track_strip* vector for the new track
+                        v_track_time_eta2.clear();                        // Clear track_time* vector for the new track
+
+                        v_track_strip_eta2.push_back(strip);              // Push back the strip number of the current hit for later checks of strip adjacency between track members
+                        v_track_time_eta2.push_back(time2);               // Push back the time of the current hit for later time window checks between track members and potential track partner hits
+
+                        track_hit_assinged_eta2.at(idx_hit) = n_tracks_eta2;    // Mark current hit as belonging to a track
+
+                        n_tracks_eta2++;
+                        track_length_eta2++;
+
+                        // Iterate through the following hits of the same event and look for the potential track partners
+                        for (size_t idx_next_hit = idx_hit + 1; idx_next_hit < n_hits; idx_next_hit++) {
+                            if (track_hit_assinged_eta2.at(idx_next_hit) == -1 &&
+                                v_cluster_hit_is_center_eta2.at(idx_next_hit) == 1 &&
+                                hit_time2.at(idx_next_hit) != -1 &&
+                                hit_rise.at(idx_next_hit) == 1 && 
+                                hit_channel.at(idx_next_hit) != trig_channel) { // Only consider rising hits on non-trigger channels with valid time information as potential track partners
+
+                                int next_layer = hit_layer.at(idx_next_hit);
+                                if (next_layer == layer) continue; // Only consider hits on different layers as potential track partners
+
+                                int next_strip = hit_strip.at(idx_next_hit);
+
+                                // WIP: For now only require the hits to be separated in time by 1 tick (0.833 ns which should be more than enough due to ToF)
+                                int next_time2 = hit_time2_converted.at(idx_next_hit);
+                                if (next_time2 == -1) continue;
+                                for (size_t idx_track_hit = 0; idx_track_hit < track_length_eta2; idx_track_hit++) {
+                                    if (abs(next_time2 - v_track_time_eta2.at(idx_track_hit)) <= 1) {
+                                        track_hit_assinged_eta2.at(idx_next_hit) = n_tracks_eta2;    // Mark the new track partner hit as belonging to the same track
+                                        v_track_strip_eta2.push_back(next_strip); // Push back the strip number of the new track member hit
+                                        v_track_time_eta2.push_back(next_time2);  // Push back the time of the new track member hit
+                                        track_length_eta2++; // Increase track length
+
+                                        break;
+                                    }
+                                }
+                            }
+                        } // End of loop looking for potential track partners
+
+                        // If no more potential track partners are found for the current hit, store track length and reset track length variable for the next track
+                        v_track_length_eta2.push_back(track_length_eta2);
+                        track_length_eta2 = 0;
+
+                    } // End of track reconstruction logic for side η2
 
                     // --------------------------------------------------------------------------------------------
                     // Efficiency counters update subsection
@@ -605,7 +680,7 @@ void process_raw_hits() {
                     }
 
                     // --------------------------------------------------------------------------------------------
-                    // Clusterization subsection
+                    // OLD: Clusterization subsection
 
                     // TODO: Move clusterization logic to the front to later use the cluster centers in subsequent calculations
                     // TODO: Add IsClusterCenter vector (-1 = not set, 0 = not center, 1 = cluster center) to later use in the track reconstruction
