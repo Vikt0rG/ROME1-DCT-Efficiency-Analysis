@@ -247,6 +247,8 @@ void process_raw_hits() {
                         // NOTE: All time values are expressed in units of 0.833 ns ticks (30 ticks in one BC)
                         // A -1 subtraction is done to hit_time since hit_time starts from 1 (0 := no edge was measured)
                         trigger_time = hit_bcid.at(idx_hit) * 30 + hit_time2.at(idx_hit) - 1;
+                        proc_trigger_time.push_back(trigger_time);
+                        break;  // Should only have one trigger hit per event, so we can break the loop after finding the first one
                     } else {
                         std::cout << "WARNING: Trigger time empty" << std::endl;
                     }
@@ -257,10 +259,10 @@ void process_raw_hits() {
             // Hits loop and calculations section (e.g. efficiency counting, ToT calculation, etc.)
 
             // TODO: Geometry and time arrays for rising hits only
-            std::vector<int> hit_layer(n_hits, -1);             // Detector layer (0, 1 or 2) of the hit (initialized to -1 for hits without time information)
-            std::vector<int> hit_strip(n_hits, -1);             // Strip number (0-47) of the hit (initialized to -1 for hits without time information)
-            std::vector<int> hit_time1_converted(n_hits, -1);   // Time of hit in η1 (if present, otherwise -1), converted from raw time and BCID information
-            std::vector<int> hit_time2_converted(n_hits, -1);   // Time of hit in η2 (if present, otherwise -1), converted from raw time and BCID information
+            std::vector<int> v_hit_layer(n_hits, -1);             // Detector layer (0, 1 or 2) of the hit (initialized to -1 for hits without time information)
+            std::vector<int> v_hit_strip(n_hits, -1);             // Strip number (0-47) of the hit (initialized to -1 for hits without time information)
+            std::vector<int> v_hit_time1_converted(n_hits, -1);   // Time of hit in η1 (if present, otherwise -1), converted from raw time and BCID information
+            std::vector<int> v_hit_time2_converted(n_hits, -1);   // Time of hit in η2 (if present, otherwise -1), converted from raw time and BCID information
 
             // First hits loop to process geometry and time information of rising hits only (to be used in clusterization and track reconstruction)
             for (size_t idx_hit = 0; idx_hit < n_hits; idx_hit++) {
@@ -276,13 +278,13 @@ void process_raw_hits() {
                 int time1 = hit_time1.at(idx_hit) != 0 ? hit_bcid.at(idx_hit) * 30 + hit_time1.at(idx_hit) - 1 : -1; // Time of hit in η1 (if present, otherwise -1)
                 int time2 = hit_time2.at(idx_hit) != 0 ? hit_bcid.at(idx_hit) * 30 + hit_time2.at(idx_hit) - 1 : -1; // Time of hit in η2 (if present, otherwise -1)
 
-                // Store geometry and time information in the hit_layer, hit_strip, hit_time*_converted arrays for later use in clusterization and track reconstruction
-                hit_layer.at(idx_hit) = layer;
-                hit_strip.at(idx_hit) = strip;
-                hit_time1_converted.at(idx_hit) = time1;
-                hit_time2_converted.at(idx_hit) = time2;
+                // Store geometry and time information in the v_hit_layer, v_hit_strip, hit_time*_converted arrays for later use in clusterization and track reconstruction
+                v_hit_layer.at(idx_hit) = layer;
+                v_hit_strip.at(idx_hit) = strip;
+                v_hit_time1_converted.at(idx_hit) = time1;
+                v_hit_time2_converted.at(idx_hit) = time2;
 
-                // Push back 
+                // Push back
                 if (time1 != -1 || time2 != -1) proc_layer.push_back(layer);
                 if (time1 != -1 || time2 != -1) proc_strip.push_back(strip);
                 if (time1 != -1) proc_time1.push_back(time1);
@@ -312,6 +314,10 @@ void process_raw_hits() {
             std::vector<int> cluster_hit_used_tot_eta1(n_hits, -1);      // -1 = initial value or no information, 0 = hit has been used as falling hit, 1 = hit has been used as rising hit 
             std::vector<int> cluster_hit_used_tot_eta2(n_hits, -1);
 
+            // Map of track number and corresponding track length
+            std::map<int, int> track_length_map_eta1;    // Key: track number; Value: track length
+            std::map<int, int> track_length_map_eta2;
+
             // TODO: Decide whether to keep ToT calculation before doing clusterization at all
             // Arrays for ToT calculation (before clusterization)
             std::vector<int> hit_used_tot_eta1(n_hits, -1);              // -1 = initial value or no information, 0 = hit has been used as falling hit, 1 = hit has been used as rising hit
@@ -321,12 +327,12 @@ void process_raw_hits() {
             for (size_t idx_hit = 0; idx_hit < n_hits; idx_hit++) {
 
                 // Detector geometry variables
-                int layer = hit_layer.at(idx_hit);                      // Detector layer (0, 1 or 2)
-                int strip = hit_strip.at(idx_hit);                      // Strip number (0-47)
+                int layer = v_hit_layer.at(idx_hit);                      // Detector layer (0, 1 or 2)
+                int strip = v_hit_strip.at(idx_hit);                      // Strip number (0-47)
 
                 // Time variables to be used in efficiency counting and ToT calculation
-                int time1 = hit_time1_converted.at(idx_hit);            // Time of hit in η1 (if present, otherwise -1)
-                int time2 = hit_time2_converted.at(idx_hit);            // Time of hit in η2 (if present, otherwise -1)
+                int time1 = v_hit_time1_converted.at(idx_hit);            // Time of hit in η1 (if present, otherwise -1)
+                int time2 = v_hit_time2_converted.at(idx_hit);            // Time of hit in η2 (if present, otherwise -1)
                 int tot1 = -1;                                          // Initial Time over Threshold (η1)
                 int tot2 = -1;                                          // Initial Time over Threshold (η2)
 
@@ -334,7 +340,58 @@ void process_raw_hits() {
                 if (hit_rise.at(idx_hit) == 1 && hit_channel.at(idx_hit) != trig_channel) {
 
                     // --------------------------------------------------------------------------------------------
-                    // Clusterization logic subsection
+                    // Rising dt calculation subsection (only when both rising time1 and time2 are present)
+                    if (time1 != -1 && time2 != -1) {
+                        int dt_time1_time2 = time1 - time2;
+                        proc_dt_time1_time2.push_back(dt_time1_time2);
+                    }
+
+                    // --------------------------------------------------------------------------------------------
+                    // OLD: Time over Threshold (ToT) calculation subsecion before clusterization
+                    // Step 0: Define time of rising hit in units of ticks
+                    int time_rising1 = time1;
+                    int time_rising2 = time2;
+                    int idx_rising = idx_hit;   // Purely for clarity, since idx_hit already corresponds to the index of the rising hit
+
+                    // Step 1: Look for corresponding falling hits on both sides (same channel, hit_time* != 0, hit is not in hit_used*) and extract time of falling hit
+                    int time_falling1 = -1;
+                    int time_falling2 = -1;
+                    for (size_t idx_falling = idx_rising + 1; idx_falling < n_hits; idx_falling++) {
+                        if (hit_channel.at(idx_falling) == hit_channel.at(idx_rising) && hit_rise.at(idx_falling) == 0) {
+                            if (hit_time1.at(idx_falling) != 0 &&
+                                hit_used_tot_eta1.at(idx_falling) == -1) {
+
+                                time_falling1 = hit_bcid.at(idx_falling) * 30 + hit_time1.at(idx_falling) - 1;
+                                hit_used_tot_eta1.at(idx_falling) = 0; // Mark hit as used as falling hit for η1
+                            }
+                            if (hit_time2.at(idx_falling) != 0 &&
+                                hit_used_tot_eta2.at(idx_falling) == -1) {
+
+                                time_falling2 = hit_bcid.at(idx_falling) * 30 + hit_time2.at(idx_falling) - 1;
+                                hit_used_tot_eta2.at(idx_falling) = 0; // Mark hit as used as falling hit for η2
+                            }
+                            break; // Assuming that the first falling hit after the rising hit corresponds to the same signal (which should be the case if the readout window is not too crowded)
+                        }
+                    } // End of the loop looking for falling hits
+
+                    // Step 2: If corresponding falling hit is found, calculate ToT as time_falling - time_rising
+                    if (time_falling1 != -1 && time_rising1 != -1) {
+                        int tot1 = time_falling1 - time_rising1;
+                        if (tot1 < 0) { // Assuming a positive ToT
+                            tot1 = -1; // Set ToT back to -1 if negative (invalid value)
+                        }
+                        proc_tot1.push_back(tot1);
+                    }
+                    if (time_falling2 != -1 && time_rising2 != -1) {
+                        int tot2 = time_falling2 - time_rising2;
+                        if (tot2 < 0) { // Assuming a positive ToT
+                            tot2 = -1; // Set ToT back to -1 if negative (invalid value)
+                        }
+                        proc_tot2.push_back(tot2);
+                    }
+
+                    // --------------------------------------------------------------------------------------------
+                    // UPDATED: Clusterization logic subsection
 
                     // For side η1
                     std::cout << "------------------------------------------------------------------" << std::endl;
@@ -363,13 +420,13 @@ void process_raw_hits() {
                                 hit_rise.at(idx_next_hit) == 1 && 
                                 hit_channel.at(idx_next_hit) != trig_channel) { // Only consider rising hits on non-trigger channels with valid time information as potential cluster partners
 
-                                int next_layer = hit_layer.at(idx_next_hit);
+                                int next_layer = v_hit_layer.at(idx_next_hit);
                                 if (next_layer != layer) continue;
 
                                 // TODO: Decide whether to introduce any kind of metric in time and strip for clusterization and track reconstruction
                                 // Only consider hits on the same or neighboring strips as potential cluster partners
                                 bool strip_adjacent = false;
-                                int next_strip = hit_strip.at(idx_next_hit);
+                                int next_strip = v_hit_strip.at(idx_next_hit);
                                 for (size_t idx_cluster_hit = 0; idx_cluster_hit < cluster_size_eta1; idx_cluster_hit++) {
                                     if (abs(next_strip - v_cluster_strip_eta1.at(idx_cluster_hit)) <= 1) {
                                         // If at least one hit in the cluster is on the same or neighboring strip as the potential cluster partner hit, we can consider this potential cluster partner hit for further checks
@@ -381,7 +438,7 @@ void process_raw_hits() {
                                 std::cout << "  Potential cluster partner: Hit " << idx_next_hit << "; Layer: " << next_layer << "; Strip: " << next_strip << "; Time " << hit_time1.at(idx_next_hit) << std::endl;
 
                                 // Check if the potential cluster partner hit is within a certain time window (e.g. 15 ns = 18 ticks) from any of the hits already belonging to the cluster
-                                int next_time1 = hit_time1_converted.at(idx_next_hit);
+                                int next_time1 = v_hit_time1_converted.at(idx_next_hit);
                                 if (next_time1 == -1) continue;
                                 for (size_t idx_cluster_hit = 0; idx_cluster_hit < cluster_size_eta1; idx_cluster_hit++) {
                                     if (abs(next_time1 - v_cluster_time_eta1.at(idx_cluster_hit)) < 18) {
@@ -444,13 +501,13 @@ void process_raw_hits() {
                                 hit_rise.at(idx_next_hit) == 1 && 
                                 hit_channel.at(idx_next_hit) != trig_channel) { // Only consider rising hits on non-trigger channels with valid time information as potential cluster partners
 
-                                int next_layer = hit_layer.at(idx_next_hit);
+                                int next_layer = v_hit_layer.at(idx_next_hit);
                                 if (next_layer != layer) continue;
 
                                 // TODO: Decide whether to introduce any kind of metric in time and strip for clusterization and track reconstruction
                                 // Only consider hits on the same or neighboring strips as potential cluster partners
                                 bool strip_adjacent = false;
-                                int next_strip = hit_strip.at(idx_next_hit);
+                                int next_strip = v_hit_strip.at(idx_next_hit);
                                 for (size_t idx_cluster_hit = 0; idx_cluster_hit < cluster_size_eta2; idx_cluster_hit++) {
                                     if (abs(next_strip - v_cluster_strip_eta2.at(idx_cluster_hit)) <= 1) {
                                         // If at least one hit in the cluster is on the same or neighboring strip as the potential cluster partner hit, we can consider this potential cluster partner hit for further checks
@@ -461,7 +518,7 @@ void process_raw_hits() {
                                 if (!strip_adjacent) continue; // If none of the hits in the cluster are on the same or neighboring strip as the potential cluster partner hit, skip this potential cluster partner hits
 
                                 // Check if the potential cluster partner hit is within a certain time window (e.g. 15 ns = 18 ticks) from any of the hits already belonging to the cluster
-                                int next_time2 = hit_time2_converted.at(idx_next_hit);
+                                int next_time2 = v_hit_time2_converted.at(idx_next_hit);
                                 if (next_time2 == -1) continue;
                                 for (size_t idx_cluster_hit = 0; idx_cluster_hit < cluster_size_eta2; idx_cluster_hit++) {
                                     if (abs(next_time2 - v_cluster_time_eta2.at(idx_cluster_hit)) < 18) {
@@ -492,7 +549,7 @@ void process_raw_hits() {
                     }   // End of finding cluster center and its partners for side η2
 
                     // --------------------------------------------------------------------------------------------
-                    // Track reconstruction logic subsection
+                    // NEW: Track reconstruction logic subsection
 
                     // For side η1
 
@@ -519,13 +576,13 @@ void process_raw_hits() {
                                 hit_rise.at(idx_next_hit) == 1 && 
                                 hit_channel.at(idx_next_hit) != trig_channel) { // Only consider rising hits on non-trigger channels with valid time information as potential track partners
 
-                                int next_layer = hit_layer.at(idx_next_hit);
+                                int next_layer = v_hit_layer.at(idx_next_hit);
                                 if (next_layer == layer) continue; // Only consider hits on different layers as potential track partners
 
-                                int next_strip = hit_strip.at(idx_next_hit);
+                                int next_strip = v_hit_strip.at(idx_next_hit);
 
                                 // WIP: For now only require the hits to be separated in time by 1 tick (0.833 ns which should be more than enough due to ToF)
-                                int next_time1 = hit_time1_converted.at(idx_next_hit);
+                                int next_time1 = v_hit_time1_converted.at(idx_next_hit);
                                 if (next_time1 == -1) continue;
                                 for (size_t idx_track_hit = 0; idx_track_hit < track_length_eta1; idx_track_hit++) {
                                     if (abs(next_time1 - v_track_time_eta1.at(idx_track_hit)) <= 1) {
@@ -540,7 +597,8 @@ void process_raw_hits() {
                             }
                         } // End of loop looking for potential track partners
 
-                        // If no more potential track partners are found for the current hit, store track length and reset track length variable for the next track
+                        // If no more potential track partners are found for the current hit, store track length into the map and push it back and reset track length variable for the next track
+                        track_length_map_eta1[n_tracks_eta1] = track_length_eta1;
                         v_track_length_eta1.push_back(track_length_eta1);
                         track_length_eta1 = 0;
 
@@ -570,13 +628,13 @@ void process_raw_hits() {
                                 hit_rise.at(idx_next_hit) == 1 && 
                                 hit_channel.at(idx_next_hit) != trig_channel) { // Only consider rising hits on non-trigger channels with valid time information as potential track partners
 
-                                int next_layer = hit_layer.at(idx_next_hit);
+                                int next_layer = v_hit_layer.at(idx_next_hit);
                                 if (next_layer == layer) continue; // Only consider hits on different layers as potential track partners
 
-                                int next_strip = hit_strip.at(idx_next_hit);
+                                int next_strip = v_hit_strip.at(idx_next_hit);
 
                                 // WIP: For now only require the hits to be separated in time by 1 tick (0.833 ns which should be more than enough due to ToF)
-                                int next_time2 = hit_time2_converted.at(idx_next_hit);
+                                int next_time2 = v_hit_time2_converted.at(idx_next_hit);
                                 if (next_time2 == -1) continue;
                                 for (size_t idx_track_hit = 0; idx_track_hit < track_length_eta2; idx_track_hit++) {
                                     if (abs(next_time2 - v_track_time_eta2.at(idx_track_hit)) <= 1) {
@@ -598,9 +656,8 @@ void process_raw_hits() {
                     } // End of track reconstruction logic for side η2
 
                     // --------------------------------------------------------------------------------------------
-                    // Efficiency counters update subsection
-                    // TODO: Move efficiency calculation after clusterization and track reconstruction
-                    // TODO: Require hits from close-lying strips (add distance metric as an argument)
+                    // OLD: Efficiency counters update subsection using any hits as signal
+                    /*
                     if (time1 != -1) {
                         int dt_time1_trigger = time1 - trigger_time;
                         proc_dt_time1_trigger.push_back(dt_time1_trigger);
@@ -627,244 +684,110 @@ void process_raw_hits() {
                             }
                         }
                     }
-
-                    // --------------------------------------------------------------------------------------------
-                    // Rising dt calculation subsection (only when both rising time1 and time2 are present)
-                    if (time1 != -1 && time2 != -1) {
-                        int dt_time1_time2 = time1 - time2;
-                        proc_dt_time1_time2.push_back(dt_time1_time2);
-                    }
-
-                    // --------------------------------------------------------------------------------------------
-                    // Time over Threshold (ToT) calculation subsecion
-                    // Step 0: Define time of rising hit in units of ticks
-                    int time_rising1 = time1;
-                    int time_rising2 = time2;
-                    int idx_rising = idx_hit;   // Purely for clarity, since idx_hit already corresponds to the index of the rising hit
-
-                    // Step 1: Look for corresponding falling hits on both sides (same channel, hit_time* != 0, hit is not in hit_used*) and extract time of falling hit
-                    int time_falling1 = -1;
-                    int time_falling2 = -1;
-                    for (size_t idx_falling = idx_rising + 1; idx_falling < n_hits; idx_falling++) {
-                        if (hit_channel.at(idx_falling) == hit_channel.at(idx_rising) && hit_rise.at(idx_falling) == 0) {
-                            if (hit_time1.at(idx_falling) != 0 &&
-                                hit_used_tot_eta1.at(idx_falling) == -1) {
-
-                                time_falling1 = hit_bcid.at(idx_falling) * 30 + hit_time1.at(idx_falling) - 1;
-                                hit_used_tot_eta1.at(idx_falling) = 0; // Mark hit as used as falling hit for η1
-                            }
-                            if (hit_time2.at(idx_falling) != 0 &&
-                                hit_used_tot_eta2.at(idx_falling) == -1) {
-
-                                time_falling2 = hit_bcid.at(idx_falling) * 30 + hit_time2.at(idx_falling) - 1;
-                                hit_used_tot_eta2.at(idx_falling) = 0; // Mark hit as used as falling hit for η2
-                            }
-                            break; // Assuming that the first falling hit after the rising hit corresponds to the same signal (which should be the case if the readout window is not too crowded)
-                        }
-                    } // End of the loop looking for falling hits
-
-                    // Step 2: If corresponding falling hit is found, calculate ToT as time_falling - time_rising
-                    if (time_falling1 != -1 && time_rising1 != -1) {
-                        int tot1 = time_falling1 - time_rising1;
-                        if (tot1 < 0) { // Assuming a positive ToT
-                            tot1 = -1; // Set ToT back to -1 if negative (invalid value)
-                        }
-                        proc_tot1.push_back(tot1);
-                    }
-                    if (time_falling2 != -1 && time_rising2 != -1) {
-                        int tot2 = time_falling2 - time_rising2;
-                        if (tot2 < 0) { // Assuming a positive ToT
-                            tot2 = -1; // Set ToT back to -1 if negative (invalid value)
-                        }
-                        proc_tot2.push_back(tot2);
-                    }
-
-                    // --------------------------------------------------------------------------------------------
-                    // OLD: Clusterization subsection
-
-                    // TODO: Move clusterization logic to the front to later use the cluster centers in subsequent calculations
-                    // TODO: Add IsClusterCenter vector (-1 = not set, 0 = not center, 1 = cluster center) to later use in the track reconstruction
-                    // TODO: In the clusterization logic only do clusterization and calculate the ToT in it's own section
-
-                    // For side η1
-                    std::cout << "------------------------------------------------------------------" << std::endl;
-                    std::cout << "Processing: Hit: " << idx_hit << "; Layer " << layer << "; Strip: " << strip << "; Time " << time1 << std::endl;
-
-                    // Step 0: Initialize a new cluster containing only the current hit if the hit is not already in a cluster and time information is present
-                    if (v_cluster_hit_assinged_eta1.at(idx_hit) == 0 && time1 != -1) {
-                        v_cluster_strip_eta1.clear();                       // Clear cluster_strip* vector for the new cluster
-                        v_cluster_time_eta1.clear();                        // Clear cluster_time* vector for the new cluster
-                        v_cluster_strip_eta1.push_back(strip);              // Push back the strip number of the current hit for later checks of strip adjacency between cluster members
-                        v_cluster_time_eta1.push_back(time1);               // Push back the time of the current hit for later time window checks between cluster members and potential cluster partner hits
-                        v_cluster_hit_assinged_eta1.at(idx_hit) = 1;              // Mark current hit as belonging to a cluster
-                        cluster_hit_used_tot_eta1.at(idx_hit) = 1;            // Mark hit as used as rising hit for η1 in clusterization (to avoid using the same hit again as a rising hit when looking for cluster partners for other hits in ToT calculation)
-                        int idx_hit_cluster_center = idx_hit;         // Define current hit as initial cluster center (to be updated later if another hit in the cluster has smaller rising time)
-
-                        // Step 1: Iterate through the following hits of the same event and look for the potential cluster partners
-                        for (size_t idx_next_hit = idx_hit + 1; idx_next_hit < n_hits; idx_next_hit++) {
-                            if (v_cluster_hit_assinged_eta1.at(idx_next_hit) == 0 &&
-                                hit_time1.at(idx_next_hit) != -1 &&
-                                hit_rise.at(idx_next_hit) == 1 && 
-                                hit_channel.at(idx_next_hit) != trig_channel) { // Only consider rising hits on non-trigger channels as potential cluster partners
-
-                                int next_layer = (hit_channel.at(idx_next_hit) % 24) / 8;
-                                if (next_layer != layer) {
-                                    // std::cout << "Skipping Hit No. " << idx_next_hit << " since it's on another layer: " << layer << " vs. " << next_layer << std::endl;
-                                    continue;
-                                }
-
-                                // Only consider hits on the same or neighboring strips as potential cluster partners
-                                bool strip_adjacent = false;
-                                int next_column = hit_channel.at(idx_next_hit) / 24;
-                                int next_strip = 8 * next_column + hit_channel.at(idx_next_hit) % 8;
-                                for (size_t idx_cluster_hit = 0; idx_cluster_hit < v_cluster_strip_eta1.size(); idx_cluster_hit++) {
-                                    if (abs(next_strip - v_cluster_strip_eta1.at(idx_cluster_hit)) <= 1) {
-                                        // If at least one hit in the cluster is on the same or neighboring strip as the potential cluster partner hit, we can consider this potential cluster partner hit for further checks
-                                        strip_adjacent = true;
-                                        break;
-                                    }
-                                }
-                                if (!strip_adjacent) continue; // If none of the hits in the cluster are on the same or neighboring strip as the potential cluster partner hit, skip this potential cluster partner hits
-                                std::cout << "  Potential cluster partner: Hit " << idx_next_hit << "; Layer: " << next_layer << "; Strip: " << next_strip << "; Time " << hit_time1.at(idx_next_hit) << std::endl;
-
-                                // Check if the potential cluster partner hit is within a certain time window (e.g. 15 ns = 18 ticks) from any of the hits already belonging to the cluster
-                                int next_time1 = hit_time1.at(idx_next_hit) != 0 ? hit_bcid.at(idx_next_hit) * 30 + hit_time1.at(idx_next_hit) - 1 : -1;
-                                if (next_time1 != -1) {
-                                    for (size_t idx_cluster_hit = 0; idx_cluster_hit < v_cluster_time_eta1.size(); idx_cluster_hit++) {
-                                        if (abs(next_time1 - v_cluster_time_eta1.at(idx_cluster_hit)) < 18) {
-                                            v_cluster_hit_assinged_eta1.at(idx_next_hit) = 1; // Mark hit as belonging to a cluster
-                                            v_cluster_strip_eta1.push_back(next_strip); // Push back the strip number of the new cluster member hit
-                                            v_cluster_time_eta1.push_back(next_time1);  // Push back the time of the new cluster member hit
-                                            if (next_time1 < time1) idx_hit_cluster_center = idx_next_hit;
-                                            break; // No need to check other hits in the v_cluster_time_eta1 vector, since we just need at least one hit in the cluster to be within the time window from the potential cluster partner hit
-                                        }
-                                    }
-                                }
-
-                            }
-                        } // End of loop looking for potential cluster partners
-
-                        // Step 2: If no more potential cluster partners are found for the current hit, store cluster size
-                        v_cluster_size_eta1.push_back(v_cluster_time_eta1.size());
-
-                        // DEBUG: Print out parameters of the hits belonging to the cluster for the current hit
-                        std::cout << "******************************************************************" << std::endl;
-                        std::cout << "Resulting cluster: " << std::endl;
-                        for (size_t idx_cluster_hit = 0; idx_cluster_hit < v_cluster_time_eta1.size(); idx_cluster_hit++) {
-                            std::cout << idx_cluster_hit << ": strip = " << v_cluster_strip_eta1.at(idx_cluster_hit) << ", time = " << v_cluster_time_eta1.at(idx_cluster_hit) << std::endl;
-                        }
-                        std::cout << "\n";
-
-                        // Step 3: Calculate the ToT for the cluster center
-                        int time_rising_cluster_center = hit_time1.at(idx_hit_cluster_center) != 0 ? hit_bcid.at(idx_hit_cluster_center) * 30 + hit_time1.at(idx_hit_cluster_center) - 1 : -1;
-                        int time_falling_cluster_center = -1;
-
-                        for (size_t idx_falling = idx_hit_cluster_center + 1; idx_falling < n_hits; idx_falling++) {
-                            if (hit_channel.at(idx_falling) == hit_channel.at(idx_hit_cluster_center) && hit_rise.at(idx_falling) == 0) {
-                                if (hit_time1.at(idx_falling) != 0 &&
-                                    cluster_hit_used_tot_eta1.at(idx_falling) == -1) {
-
-                                    time_falling_cluster_center = hit_bcid.at(idx_falling) * 30 + hit_time1.at(idx_falling) - 1;
-                                    cluster_hit_used_tot_eta1.at(idx_falling) = 0; // Mark hit as used as falling hit for η1
-                                }
-                                break; // Assuming that the first falling hit after the rising hit corresponds to the same signal (which should be the case if the readout window is not too crowded)
-                            }
-                        }
-
-                        if (time_rising_cluster_center != -1 && time_falling_cluster_center != -1) {
-                            int tot_cluster_center = time_falling_cluster_center - time_rising_cluster_center;
-                            if (tot_cluster_center < 0) { // Assuming a positive ToT
-                                tot_cluster_center = -1; // Set ToT back to -1 if negative (invalid value)
-                            }
-                            v_cluster_tot1.push_back(tot_cluster_center);
-                        }
-                    }   // End of finding a cluster and its ToT for the current hit for the side η1
-
-
-                    // For side η2
-                    // Step 0: Initialize a new cluster containing only the current hit if the hit is not already in a cluster and time information is present
-                    if (v_cluster_hit_assinged_eta2.at(idx_hit) == 0 && time2 != -1) {
-                        v_cluster_strip_eta2.clear();                       // Clear cluster_strip* vector for the new cluster
-                        v_cluster_time_eta2.clear();                        // Clear cluster_time* vector for the new cluster
-                        v_cluster_strip_eta2.push_back(strip);              // Push back the strip number of the current hit
-                        v_cluster_time_eta2.push_back(time2);               // Push back the time of the current hit
-                        v_cluster_hit_assinged_eta2.at(idx_hit) = 1;              // Mark current hit as belonging to a cluster
-                        cluster_hit_used_tot_eta2.at(idx_hit) = 1;            // Mark current hit as used as rising hit for η2 in clusterization (to avoid using the same hit again as a rising hit when looking for cluster partners for other hits in ToT calculation)
-                        int idx_hit_cluster_center = idx_hit;         // Define current hit as initial cluster center (to be updated later if another hit in the cluster has smaller rising time)
-
-                        // Step 1: Iterate through the following hits of the same event and look for the potential cluster partners
-                        for (size_t idx_next_hit = idx_hit + 1; idx_next_hit < n_hits; idx_next_hit++) {
-                            if (hit_rise.at(idx_next_hit) == 1 && hit_channel.at(idx_next_hit) != trig_channel) { // Only consider rising hits on non-trigger channels as potential cluster partners
-
-                                int next_layer = (hit_channel.at(idx_next_hit) % 24) / 8;
-                                if (next_layer != layer) continue; // Only consider hits in the same layer as potential cluster partners
-
-                                // Only consider hits on the same or neighboring strips as potential cluster partners
-                                bool strip_adjacent = false;
-                                int next_column = hit_channel.at(idx_next_hit) / 24;
-                                int next_strip = 8 * next_column + hit_channel.at(idx_next_hit) % 8;
-                                for (size_t idx_cluster_hit = 0; idx_cluster_hit < v_cluster_strip_eta2.size(); idx_cluster_hit++) {
-                                    if (abs(next_strip - v_cluster_strip_eta2.at(idx_cluster_hit)) <= 1) {
-                                        // If at least one hit in the cluster is on the same or neighboring strip as the potential cluster partner hit, we can consider this potential cluster partner hit for further checks
-                                        strip_adjacent = true;
-                                        break;
-                                    }
-                                }
-                                if (!strip_adjacent) continue; // If none of the hits in the cluster are on the same or neighboring strip as the potential cluster partner hit, skip this potential cluster partner hits
-
-                                // Check if the potential cluster partner hit is within a certain time window (e.g. 15 ns = 18 ticks) from any of the hits already belonging to the cluster
-                                int next_time2 = hit_time2.at(idx_next_hit) != 0 ? hit_bcid.at(idx_next_hit) * 30 + hit_time2.at(idx_next_hit) - 1 : -1;
-                                if (v_cluster_hit_assinged_eta2.at(idx_next_hit) == 0 && next_time2 != -1) {
-                                    for (size_t idx_cluster_hit = 0; idx_cluster_hit < v_cluster_time_eta2.size(); idx_cluster_hit++) {
-                                        if (abs(next_time2 - v_cluster_time_eta2.at(idx_cluster_hit)) < 18) {
-                                            v_cluster_hit_assinged_eta2.at(idx_next_hit) = 1; // Mark hit as belonging to a cluster
-                                            v_cluster_strip_eta2.push_back(next_strip); // Push back the strip number of the new cluster member hit to cluster_strip* vector for later strip window checks with other potential cluster partners
-                                            v_cluster_time_eta2.push_back(next_time2);  // Push back the time of the new cluster member hit to cluster_time* vector for later time window checks with other potential cluster partners
-                                            if (next_time2 < time2) idx_hit_cluster_center = idx_next_hit;
-                                            break; // No need to check other hits in the v_cluster_time_eta2 vector, since we just need at least one hit in the cluster to be within the time window from the potential cluster partner hit
-                                        }
-                                    }
-                                }
-
-                            }
-                        } // End of loop looking for potential cluster partners
-
-                        // Step 2: If no more potential cluster partners are found for the current hit, store cluster size
-                        v_cluster_size_eta2.push_back(v_cluster_time_eta2.size());
-
-                        // Step 3: Calculate the ToT for the cluster center
-                        int time_rising_cluster_center = hit_time2.at(idx_hit_cluster_center) != 0 ? hit_bcid.at(idx_hit_cluster_center) * 30 + hit_time2.at(idx_hit_cluster_center) - 1 : -1;
-                        int time_falling_cluster_center = -1;
-
-                        for (size_t idx_falling = idx_hit_cluster_center + 1; idx_falling < n_hits; idx_falling++) {
-                            if (hit_channel.at(idx_falling) == hit_channel.at(idx_hit_cluster_center) && hit_rise.at(idx_falling) == 0) {
-                                if (hit_time2.at(idx_falling) != 0 &&
-                                    cluster_hit_used_tot_eta2.at(idx_falling) == -1) {
-
-                                    time_falling_cluster_center = hit_bcid.at(idx_falling) * 30 + hit_time2.at(idx_falling) - 1;
-                                    hit_used_tot_eta2.at(idx_falling) = 0; // Mark hit as used as falling hit for η2
-                                }
-                                break; // Assuming that the first falling hit after the rising hit corresponds to the same signal (which should be the case if the readout window is not too crowded)
-                            }
-                        }
-
-                        if (time_rising_cluster_center != -1 && time_falling_cluster_center != -1) {
-                            int tot_cluster_center = time_falling_cluster_center - time_rising_cluster_center;
-                            if (tot_cluster_center < 0) { // Assuming a positive ToT
-                                tot_cluster_center = -1; // Set ToT back to -1 if negative (invalid value)
-                            }
-                            v_cluster_tot2.push_back(tot_cluster_center);
-                        }
-                    }   // End of finding a cluster and its ToT for the current hit for the side η2
-
-                    // --------------------------------------------------------------------------------------------
-                    // WIP: Track reconstruction subsection
+                    */
 
                 } // End of if statement checking for rising hits on non-trigger channel
 
             } // End of hits loop
 
-            proc_trigger_time.push_back(trigger_time);
+            // ----------------------------------------------------------------------------------------------------
+            // UPDATED: ToT Calculation subsection after clusterization (only for cluster centers)
+
+            for (size_t idx_cluster_hit = 0; idx_cluster_hit < n_hits; idx_cluster_hit++) {
+
+                // For η1 side
+                if (v_cluster_hit_is_center_eta1.at(idx_cluster_hit) == 1 && cluster_hit_used_tot_eta1.at(idx_cluster_hit) == -1) {
+
+                    int time_rising = v_hit_time1_converted.at(idx_cluster_hit);
+                    int time_falling = -1;
+
+                    for (size_t idx_falling = idx_cluster_hit + 1; idx_falling < n_hits; idx_falling++) {
+                        if (hit_channel.at(idx_falling) == hit_channel.at(idx_cluster_hit) && hit_rise.at(idx_falling) == 0) {
+                            if (hit_time1.at(idx_falling) != 0 &&
+                                cluster_hit_used_tot_eta1.at(idx_falling) == -1) {
+
+                                time_falling = hit_bcid.at(idx_falling) * 30 + hit_time1.at(idx_falling) - 1;
+                                cluster_hit_used_tot_eta1.at(idx_falling) = 0; // Mark hit as used as falling hit for η1 in clusterization
+                            }
+                            break; // Assuming that the first falling hit after the rising hit corresponds to the same signal (which should be the case if the readout window is not too crowded)
+                        }
+                    }
+
+                    if (time_rising != -1 && time_falling != -1) {
+                        int tot_cluster_center = time_falling - time_rising;
+                        if (tot_cluster_center < 0) { // Assuming a positive ToT
+                            tot_cluster_center = -1; // Set ToT back to -1 if negative (invalid value)
+                        }
+                        v_cluster_tot1.push_back(tot_cluster_center);
+                    }
+                    cluster_hit_used_tot_eta1.at(idx_cluster_hit) = 1; // Mark hit as used as rising hit for η1 in clusterization
+                }
+
+                // For η2 side
+                if (v_cluster_hit_is_center_eta2.at(idx_cluster_hit) == 1 && cluster_hit_used_tot_eta2.at(idx_cluster_hit) == -1) {
+                    
+                    int time_rising = v_hit_time2_converted.at(idx_cluster_hit);
+                    int time_falling = -1;
+
+                    for (size_t idx_falling = idx_cluster_hit + 1; idx_falling < n_hits; idx_falling++) {
+                        if (hit_channel.at(idx_falling) == hit_channel.at(idx_cluster_hit) && hit_rise.at(idx_falling) == 0) {
+                            if (hit_time2.at(idx_falling) != 0 &&
+                                cluster_hit_used_tot_eta2.at(idx_falling) == -1) {
+
+                                time_falling = hit_bcid.at(idx_falling) * 30 + hit_time2.at(idx_falling) - 1;
+                                cluster_hit_used_tot_eta2.at(idx_falling) = 0; // Mark hit as used as falling hit for η2 in clusterization
+                            }
+                            break; // Assuming that the first falling hit after the rising hit corresponds to the same signal (which should be the case if the readout window is not too crowded)
+                        }
+                    }
+
+                    if (time_rising != -1 && time_falling != -1) {
+                        int tot_cluster_center = time_falling - time_rising;
+                        if (tot_cluster_center < 0) { // Assuming a positive ToT
+                            tot_cluster_center = -1; // Set ToT back to -1 if negative (invalid value)
+                        }
+                        v_cluster_tot2.push_back(tot_cluster_center);
+                    }
+                    cluster_hit_used_tot_eta2.at(idx_cluster_hit) = 1; // Mark hit as used as rising hit for η2 in clusterization
+                }
+            } // End of loop for ToT calculation
+
+            // ----------------------------------------------------------------------------------------------------
+            // NEW: Efficiency counters update subsection using tracks as signal
+
+            for (size_t idx_hit = 0; idx_hit < n_hits; idx_hit++) {
+
+                // For η1 side
+                int track_number = track_hit_assinged_eta1.at(idx_hit);
+                if (track_number != -1) {
+                    int dt_time1_trigger = v_hit_time1_converted.at(idx_hit) - trigger_time;
+                    proc_dt_time1_trigger.push_back(dt_time1_trigger);
+
+                    // Require the hit to be within the time window from the trigger and belonging to a track of length >= 2 (WIP) (to exclude isolated hits)
+                    if (dt_time1_trigger < dt_max && dt_time1_trigger > dt_min && track_length_map_eta1[track_number] >= 2) {
+                        eta1_hits_counter[v_hit_layer.at(idx_hit)]++;
+                        if (eta1_hit_flags[v_hit_layer.at(idx_hit)] == false) {
+                            eta1_hit_flags[v_hit_layer.at(idx_hit)] = true;
+                        }
+                    }
+                }
+
+                // For η2 side
+                track_number = track_hit_assinged_eta2.at(idx_hit);
+                if (track_number != -1) {
+                    int dt_time2_trigger = v_hit_time2_converted.at(idx_hit) - trigger_time;
+                    proc_dt_time2_trigger.push_back(dt_time2_trigger);
+                
+                    // Require the hit to be within the time window from the trigger and belonging to a track of length >= 2 (WIP) (to exclude isolated hits)
+                    if (dt_time2_trigger < dt_max && dt_time2_trigger > dt_min && track_length_map_eta2[track_number] >= 2) {
+                        eta2_hits_counter[v_hit_layer.at(idx_hit)]++;
+                        if (eta2_hit_flags[v_hit_layer.at(idx_hit)] == false) {
+                            eta2_hit_flags[v_hit_layer.at(idx_hit)] = true;
+                        }
+                    }
+                }
+            }   // End of yet another god forsaken hit loop for efficiency counting using tracks as signal
+
 
             // ----------------------------------------------------------------------------------------------------
             // Efficiency calculation based on hit flags for each layer and update of efficiency counters
