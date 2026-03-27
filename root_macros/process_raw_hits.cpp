@@ -10,6 +10,7 @@
 
 // #include "utils.hpp"
 
+// FIX: proc_time 1/2
 
 void process_raw_hits() {
 
@@ -18,7 +19,7 @@ void process_raw_hits() {
     int dt_min = -180;
 
     // TODO: Add self-trigger option (if True, skip events that have more than 20 hits)
-    bool self_trigger = true;
+    bool self_trigger = false;
 
     std::ifstream tmp_file("tmp.strip");
     if (!tmp_file.is_open()) {
@@ -146,14 +147,35 @@ void process_raw_hits() {
     int eta_or_efficiency_counter_rpc[3] = {0, 0, 0};   // Efficiency counters for OR of both sides in each η layer
     int eta_and_efficiency_counter_rpc[3] = {0, 0, 0};  // Efficiency counters for AND of both sides in each η layer
 
+    // WIP: Temporary clones of the efficiency counters for tracks in coincidence
+    // Efficiency counters
+    int track_triggered_events_external = 0;                  // Counter for number of triggered events with an external trigger
+    int track_triggered_events_rpc[3] = {0, 0, 0};            // Counter for number of triggered events with an RPC as a trigger
+
+    // External trigger only efficiency counter arrays
+    int track_eta1_efficiency_counter[3] = {0, 0, 0};         // Efficiency counters for each η layer
+    int track_eta2_efficiency_counter[3] = {0, 0, 0};
+    int track_eta_or_efficiency_counter[3] = {0, 0, 0};       // Efficiency counters for OR of both sides in each η layer
+    int track_eta_and_efficiency_counter[3] = {0, 0, 0};      // Efficiency counters for AND of both sides in each η layer
+
+    // External trigger + RPC as a trigger efficiency counter arrays
+    int track_eta1_efficiency_counter_rpc[3] = {0, 0, 0};     // Efficiency counters for each η layer
+    int track_eta2_efficiency_counter_rpc[3] = {0, 0, 0};
+    int track_eta_or_efficiency_counter_rpc[3] = {0, 0, 0};   // Efficiency counters for OR of both sides in each η layer
+    int track_eta_and_efficiency_counter_rpc[3] = {0, 0, 0};  // Efficiency counters for AND of both sides in each η layer
+
     // Start main loop to process raw data/words.
     while (tmp_file >> std::dec >> clk >> std::hex >> word >> raw_bcout) {
     
         // Local counters and flags
-        int eta1_hits_counter[3] = {0, 0, 0};           // Counters for number of hits in each η layer (for later analysis)
+        int eta1_hits_counter[3] = {0, 0, 0};           // WIP: Don't know if actually need those at this point; Counters for number of hits in each η layer (for later analysis)
         int eta2_hits_counter[3] = {0, 0, 0};
         bool eta1_hit_flags[3] = {false, false, false}; // Flags to identify if at least one hit is present in each η layer (for efficiency calculation)
         bool eta2_hit_flags[3] = {false, false, false};
+
+        // WIP: Temporary flags for tracks in coincidence
+        bool track_eta1_hit_flags[3] = {false, false, false}; //
+        bool track_eta2_hit_flags[3] = {false, false, false};
 
         // Extract information from the word
         int channel = (word >> 20) & 0xFF;    // Bits 20-27
@@ -230,9 +252,9 @@ void process_raw_hits() {
         if (clk == 127) {
             n_event++;
             std::cout << "\n" << std::endl;
-            std::cout << "==================================================================" << std::endl;
-            std::cout << "Processing event No. " << n_event << std::endl;
-
+            std::cout << "╔═════════════════════════════════════════════════════════════════╗" << std::endl;
+            std::cout << "║ Processing event No. " << n_event << " with " << n_hits << " hits" << std::endl;
+            
             // Verify n_hits
             if (n_hits != hit_channel.size()) {
                 std::cerr << "ERROR: n_hits " << n_hits << " does not match size of hit_channel vector " << hit_channel.size() << "!" << std::endl;
@@ -247,13 +269,14 @@ void process_raw_hits() {
                         // NOTE: All time values are expressed in units of 0.833 ns ticks (30 ticks in one BC)
                         // A -1 subtraction is done to hit_time since hit_time starts from 1 (0 := no edge was measured)
                         trigger_time = hit_bcid.at(idx_hit) * 30 + hit_time2.at(idx_hit) - 1;
-                        proc_trigger_time.push_back(trigger_time);
                         break;  // Should only have one trigger hit per event, so we can break the loop after finding the first one
                     } else {
                         std::cout << "WARNING: Trigger time empty" << std::endl;
                     }
 	            }
             }
+            // NOTE; WIP: Actually see some trigger with eta2 = 0, which is weird and needs to be investigated;
+            proc_trigger_time.push_back(trigger_time);
 
             // ----------------------------------------------------------------------------------------------------
             // Hits loop and calculations section (e.g. efficiency counting, ToT calculation, etc.)
@@ -267,6 +290,7 @@ void process_raw_hits() {
             // First hits loop to process geometry and time information of rising hits only (to be used in clusterization and track reconstruction)
             for (size_t idx_hit = 0; idx_hit < n_hits; idx_hit++) {
 
+                // WIP: Decide whether to only store geometry and time information for rising hits
                 if (hit_rise.at(idx_hit) == 0) continue;                // Skip falling hits
 
                 // Detector geometry variables
@@ -394,8 +418,10 @@ void process_raw_hits() {
                     // UPDATED: Clusterization logic subsection
 
                     // For side η1
-                    std::cout << "------------------------------------------------------------------" << std::endl;
-                    std::cout << "Processing side η1: Hit: " << idx_hit << "; Layer " << layer << "; Strip: " << strip << "; Time " << time1 << std::endl;
+                    if (time1 != -1 && v_cluster_hit_assinged_eta1.at(idx_hit) == -1) {
+                        std::cout << "------------------------------------------------------------------" << std::endl;
+                        std::cout << "Processing side η1: Hit: " << idx_hit << "; Layer " << layer << "; Strip: " << strip << "; Time " << time1 << std::endl;
+                    }
 
                     // Initialize a new cluster containing only the current hit if the hit is not already in a cluster and time information is present
                     if (v_cluster_hit_assinged_eta1.at(idx_hit) == -1 && time1 != -1) {
@@ -408,10 +434,10 @@ void process_raw_hits() {
 
                         v_cluster_hit_assinged_eta1.at(idx_hit) = n_clusters_eta1;    // Mark current hit as belonging to a cluster
                         v_cluster_hit_is_center_eta1.at(idx_hit) = 1;       // Define current hit as initial cluster center (to be updated later if another hit in the cluster has smaller rising time)
-                        int idx_hit_cluster_center = idx_hit;             // Define current hit as initial cluster center (to be updated later if another hit in the cluster has smaller rising time)
+                        int idx_hit_cluster_center = idx_hit;               // Define current hit as initial cluster center (to be updated later if another hit in the cluster has smaller rising time)
 
                         n_clusters_eta1++;
-                        cluster_size_eta1++;
+                        cluster_size_eta1 = 1;
 
                         // Iterate through the following hits of the same event and look for the potential cluster partners
                         for (size_t idx_next_hit = idx_hit + 1; idx_next_hit < n_hits; idx_next_hit++) {
@@ -492,7 +518,7 @@ void process_raw_hits() {
                         int idx_hit_cluster_center = idx_hit;             // Define current hit as initial cluster center (to be updated later if another hit in the cluster has smaller rising time)
 
                         n_clusters_eta2++;
-                        cluster_size_eta2++;
+                        cluster_size_eta2 = 1;
 
                         // Iterate through the following hits of the same event and look for the potential cluster partners
                         for (size_t idx_next_hit = idx_hit + 1; idx_next_hit < n_hits; idx_next_hit++) {
@@ -549,115 +575,7 @@ void process_raw_hits() {
                     }   // End of finding cluster center and its partners for side η2
 
                     // --------------------------------------------------------------------------------------------
-                    // NEW: Track reconstruction logic subsection
-
-                    // For side η1
-
-                    // WIP: If hit is the cluster center only
-                    // Initialize a new track containing only the current hit if the hit is not already in a track and time information is present
-                    if (track_hit_assinged_eta1.at(idx_hit) == -1 && v_cluster_hit_is_center_eta1.at(idx_hit) == 1 && time1 != -1) {
-
-                        v_track_strip_eta1.clear();                       // Clear track_strip* vector for the new track
-                        v_track_time_eta1.clear();                        // Clear track_time* vector for the new track
-
-                        v_track_strip_eta1.push_back(strip);              // Push back the strip number of the current hit for later checks of strip adjacency between track members
-                        v_track_time_eta1.push_back(time1);               // Push back the time of the current hit for later time window checks between track members and potential track partner hits
-
-                        track_hit_assinged_eta1.at(idx_hit) = n_tracks_eta1;    // Mark current hit as belonging to a track
-
-                        n_tracks_eta1++;
-                        track_length_eta1++;
-
-                        // Iterate through the following hits of the same event and look for the potential track partners
-                        for (size_t idx_next_hit = idx_hit + 1; idx_next_hit < n_hits; idx_next_hit++) {
-                            if (track_hit_assinged_eta1.at(idx_next_hit) == -1 &&
-                                v_cluster_hit_is_center_eta1.at(idx_next_hit) == 1 &&
-                                hit_time1.at(idx_next_hit) != -1 &&
-                                hit_rise.at(idx_next_hit) == 1 && 
-                                hit_channel.at(idx_next_hit) != trig_channel) { // Only consider rising hits on non-trigger channels with valid time information as potential track partners
-
-                                int next_layer = v_hit_layer.at(idx_next_hit);
-                                if (next_layer == layer) continue; // Only consider hits on different layers as potential track partners
-
-                                int next_strip = v_hit_strip.at(idx_next_hit);
-
-                                // WIP: For now only require the hits to be separated in time by 1 tick (0.833 ns which should be more than enough due to ToF)
-                                int next_time1 = v_hit_time1_converted.at(idx_next_hit);
-                                if (next_time1 == -1) continue;
-                                for (size_t idx_track_hit = 0; idx_track_hit < track_length_eta1; idx_track_hit++) {
-                                    if (abs(next_time1 - v_track_time_eta1.at(idx_track_hit)) <= 1) {
-                                        track_hit_assinged_eta1.at(idx_next_hit) = n_tracks_eta1;    // Mark the new track partner hit as belonging to the same track
-                                        v_track_strip_eta1.push_back(next_strip); // Push back the strip number of the new track member hit
-                                        v_track_time_eta1.push_back(next_time1);  // Push back the time of the new track member hit
-                                        track_length_eta1++; // Increase track length
-
-                                        break;
-                                    }
-                                }
-                            }
-                        } // End of loop looking for potential track partners
-
-                        // If no more potential track partners are found for the current hit, store track length into the map and push it back and reset track length variable for the next track
-                        track_length_map_eta1[n_tracks_eta1] = track_length_eta1;
-                        v_track_length_eta1.push_back(track_length_eta1);
-                        track_length_eta1 = 0;
-
-                    } // End of track reconstruction logic for side η1
-
-                    // For side η2
-
-                    // Initialize a new track containing only the current hit if the hit is not already in a track and time information is present
-                    if (track_hit_assinged_eta2.at(idx_hit) == -1 && v_cluster_hit_is_center_eta2.at(idx_hit) == 1 && time2 != -1) {
-
-                        v_track_strip_eta2.clear();                       // Clear track_strip* vector for the new track
-                        v_track_time_eta2.clear();                        // Clear track_time* vector for the new track
-
-                        v_track_strip_eta2.push_back(strip);              // Push back the strip number of the current hit for later checks of strip adjacency between track members
-                        v_track_time_eta2.push_back(time2);               // Push back the time of the current hit for later time window checks between track members and potential track partner hits
-
-                        track_hit_assinged_eta2.at(idx_hit) = n_tracks_eta2;    // Mark current hit as belonging to a track
-
-                        n_tracks_eta2++;
-                        track_length_eta2++;
-
-                        // Iterate through the following hits of the same event and look for the potential track partners
-                        for (size_t idx_next_hit = idx_hit + 1; idx_next_hit < n_hits; idx_next_hit++) {
-                            if (track_hit_assinged_eta2.at(idx_next_hit) == -1 &&
-                                v_cluster_hit_is_center_eta2.at(idx_next_hit) == 1 &&
-                                hit_time2.at(idx_next_hit) != -1 &&
-                                hit_rise.at(idx_next_hit) == 1 && 
-                                hit_channel.at(idx_next_hit) != trig_channel) { // Only consider rising hits on non-trigger channels with valid time information as potential track partners
-
-                                int next_layer = v_hit_layer.at(idx_next_hit);
-                                if (next_layer == layer) continue; // Only consider hits on different layers as potential track partners
-
-                                int next_strip = v_hit_strip.at(idx_next_hit);
-
-                                // WIP: For now only require the hits to be separated in time by 1 tick (0.833 ns which should be more than enough due to ToF)
-                                int next_time2 = v_hit_time2_converted.at(idx_next_hit);
-                                if (next_time2 == -1) continue;
-                                for (size_t idx_track_hit = 0; idx_track_hit < track_length_eta2; idx_track_hit++) {
-                                    if (abs(next_time2 - v_track_time_eta2.at(idx_track_hit)) <= 1) {
-                                        track_hit_assinged_eta2.at(idx_next_hit) = n_tracks_eta2;    // Mark the new track partner hit as belonging to the same track
-                                        v_track_strip_eta2.push_back(next_strip); // Push back the strip number of the new track member hit
-                                        v_track_time_eta2.push_back(next_time2);  // Push back the time of the new track member hit
-                                        track_length_eta2++; // Increase track length
-
-                                        break;
-                                    }
-                                }
-                            }
-                        } // End of loop looking for potential track partners
-
-                        // If no more potential track partners are found for the current hit, store track length and reset track length variable for the next track
-                        v_track_length_eta2.push_back(track_length_eta2);
-                        track_length_eta2 = 0;
-
-                    } // End of track reconstruction logic for side η2
-
-                    // --------------------------------------------------------------------------------------------
                     // OLD: Efficiency counters update subsection using any hits as signal
-                    /*
                     if (time1 != -1) {
                         int dt_time1_trigger = time1 - trigger_time;
                         proc_dt_time1_trigger.push_back(dt_time1_trigger);
@@ -684,11 +602,156 @@ void process_raw_hits() {
                             }
                         }
                     }
-                    */
 
                 } // End of if statement checking for rising hits on non-trigger channel
 
             } // End of hits loop
+
+
+            // ----------------------------------------------------------------------------------------------------
+            // NEW: Track reconstruction logic loop (after clusterization)
+            for (size_t idx_hit = 0; idx_hit < n_hits; idx_hit++) {
+
+                // Detector geometry variables
+                int layer = v_hit_layer.at(idx_hit);                      // Detector layer (0, 1 or 2)
+                int strip = v_hit_strip.at(idx_hit);                      // Strip number (0-47)
+
+                // Time variables to be used in efficiency counting and ToT calculation
+                int time1 = v_hit_time1_converted.at(idx_hit);            // Time of hit in η1 (if present, otherwise -1)
+                int time2 = v_hit_time2_converted.at(idx_hit);            // Time of hit in η2 (if present, otherwise -1)
+
+                // Clusterization and track reconstruction logics as well as efficiency counting and ToT calculation for each hit in the event
+                if (hit_rise.at(idx_hit) == 1 && hit_channel.at(idx_hit) != trig_channel) {
+
+                    // For side η1
+
+                    // Initialize a new track containing only the current hit if the hit is not already in a track and time information is present
+                    if (track_hit_assinged_eta1.at(idx_hit) == -1 && v_cluster_hit_is_center_eta1.at(idx_hit) == 1 && time1 != -1) {
+
+                        v_track_strip_eta1.clear();                       // Clear track_strip* vector for the new track
+                        v_track_time_eta1.clear();                        // Clear track_time* vector for the new track
+
+                        v_track_strip_eta1.push_back(strip);              // Push back the strip number of the current hit for later checks of strip adjacency between track members
+                        v_track_time_eta1.push_back(time1);               // Push back the time of the current hit for later time window checks between track members and potential track partner hits
+
+                        track_hit_assinged_eta1.at(idx_hit) = ++n_tracks_eta1;    // Mark current hit as belonging to a track (also use pre-increment to have track numbering start from 1)
+                        track_length_eta1++;
+
+                        // Iterate through the following hits of the same event and look for the potential track partners
+                        for (size_t idx_next_hit = idx_hit + 1; idx_next_hit < n_hits; idx_next_hit++) {
+                            // std::cout << "Looking for potential track partners for hit " << idx_hit << ": checking hit " << idx_next_hit << std::endl;
+                            if (track_hit_assinged_eta1.at(idx_next_hit) == -1 &&
+                                v_cluster_hit_is_center_eta1.at(idx_next_hit) == 1 &&
+                                hit_time1.at(idx_next_hit) != -1 &&
+                                hit_rise.at(idx_next_hit) == 1 &&
+                                hit_channel.at(idx_next_hit) != trig_channel) { // Only consider cluster centers rising hits on non-trigger channels with valid time information as potential track partners
+
+                                int next_layer = v_hit_layer.at(idx_next_hit);
+                                if (next_layer == layer) continue; // Only consider hits on different layers as potential track partners
+                                // std::cout << "  Potential track partner: Hit " << idx_next_hit << "; Layer: " << next_layer << "; Strip: " << v_hit_strip.at(idx_next_hit) << "; Time " << hit_time1.at(idx_next_hit) << std::endl;
+
+                                int next_strip = v_hit_strip.at(idx_next_hit);
+                                if (abs(next_strip - strip) > 5) continue; // WIP: Only consider hits on the same or neighboring strips as potential track partners
+
+                                // WIP: For now only require the hits to be separated in time by 2 ticks (2x0.833 ns which should be more than enough due to ToF)
+                                int next_time1 = v_hit_time1_converted.at(idx_next_hit);
+                                if (next_time1 == -1) continue;
+                                for (size_t idx_track_hit = 0; idx_track_hit < track_length_eta1; idx_track_hit++) {
+                                    if (abs(next_time1 - v_track_time_eta1.at(idx_track_hit)) <= 2) {
+                                        track_hit_assinged_eta1.at(idx_next_hit) = n_tracks_eta1;    // Mark the new track partner hit as belonging to the same track
+                                        v_track_strip_eta1.push_back(next_strip); // Push back the strip number of the new track member hit
+                                        v_track_time_eta1.push_back(next_time1);  // Push back the time of the new track member hit
+                                        track_length_eta1++; // Increase track length
+
+                                        // std::cout << "    Hit " << idx_next_hit << " added to track " << n_tracks_eta1 << std::endl;
+
+                                        break;
+                                    }
+                                }
+                            }
+                        } // End of loop looking for potential track partners
+
+                        // If no more potential track partners are found for the current hit, store track length into the map and push it back and reset track length variable for the next track
+                        track_length_map_eta1[n_tracks_eta1] = track_length_eta1;
+                        v_track_length_eta1.push_back(track_length_eta1);
+                        track_length_eta1 = 0;
+                        
+                    } // End of track reconstruction logic for side η1
+                    
+                    // For side η2
+
+                    // Initialize a new track containing only the current hit if the hit is not already in a track and time information is present
+                    if (track_hit_assinged_eta2.at(idx_hit) == -1 && v_cluster_hit_is_center_eta2.at(idx_hit) == 1 && time2 != -1) {
+
+                        v_track_strip_eta2.clear();                       // Clear track_strip* vector for the new track
+                        v_track_time_eta2.clear();                        // Clear track_time* vector for the new track
+
+                        v_track_strip_eta2.push_back(strip);              // Push back the strip number of the current hit for later checks of strip adjacency between track members
+                        v_track_time_eta2.push_back(time2);               // Push back the time of the current hit for later time window checks between track members and potential track partner hits
+
+                        track_hit_assinged_eta2.at(idx_hit) = ++n_tracks_eta2;    // Mark current hit as belonging to a track
+                        track_length_eta2++;
+
+                        // Iterate through the following hits of the same event and look for the potential track partners
+                        for (size_t idx_next_hit = idx_hit + 1; idx_next_hit < n_hits; idx_next_hit++) {
+                            if (track_hit_assinged_eta2.at(idx_next_hit) == -1 &&
+                                v_cluster_hit_is_center_eta2.at(idx_next_hit) == 1 &&
+                                hit_time2.at(idx_next_hit) != -1 &&
+                                hit_rise.at(idx_next_hit) == 1 && 
+                                hit_channel.at(idx_next_hit) != trig_channel) { // Only consider rising hits on non-trigger channels with valid time information as potential track partners
+
+                                int next_layer = v_hit_layer.at(idx_next_hit);
+                                if (next_layer == layer) continue; // Only consider hits on different layers as potential track partners
+
+                                int next_strip = v_hit_strip.at(idx_next_hit);
+                                if (abs(next_strip - strip) > 5) continue; // WIP: Only consider hits on the same or neighboring strips as potential track partners
+
+                                // WIP: For now only require the hits to be separated in time by 2 ticks (2x0.833 ns which should be more than enough due to ToF)
+                                int next_time2 = v_hit_time2_converted.at(idx_next_hit);
+                                if (next_time2 == -1) continue;
+                                for (size_t idx_track_hit = 0; idx_track_hit < track_length_eta2; idx_track_hit++) {
+                                    if (abs(next_time2 - v_track_time_eta2.at(idx_track_hit)) <= 2) {
+                                        track_hit_assinged_eta2.at(idx_next_hit) = n_tracks_eta2;    // Mark the new track partner hit as belonging to the same track
+                                        v_track_strip_eta2.push_back(next_strip); // Push back the strip number of the new track member hit
+                                        v_track_time_eta2.push_back(next_time2);  // Push back the time of the new track member hit
+                                        track_length_eta2++; // Increase track length
+
+                                        break;
+                                    }
+                                }
+                            }
+                        } // End of loop looking for potential track partners
+
+                        // If no more potential track partners are found for the current hit, store track length and reset track length variable for the next track
+                        track_length_map_eta2[n_tracks_eta2] = track_length_eta2;
+                        v_track_length_eta2.push_back(track_length_eta2);
+                        track_length_eta2 = 0;
+                    }
+                } // End of track reconstruction logic for side η2
+            }
+
+            // DEBUG
+            std::cout << "╭─────────────────────────────────────────────────────────────────╮" << std::endl;
+            std::cout << "│ Cluster centers for side η1: Event: " << n_event << std::endl;
+            for (size_t idx_cluster_hit = 0; idx_cluster_hit < n_hits; idx_cluster_hit++) {
+                if (v_cluster_hit_is_center_eta1.at(idx_cluster_hit) == 1) {
+                    std::cout << "│ Hit " << idx_cluster_hit << "; Layer: " << v_hit_layer.at(idx_cluster_hit) << "; Strip: " << v_hit_strip.at(idx_cluster_hit) << "; Time: " << v_hit_time1_converted.at(idx_cluster_hit) << std::endl;
+                }
+            }
+            std::cout << "╰─────────────────────────────────────────────────────────────────╯" << std::endl;
+
+            std::cout << "╭─────────────────────────────────────────────────────────────────╮" << std::endl;
+            std::cout << "│ Tracks reconstructed for side η1: Event: " << n_event << std::endl;
+            for (size_t idx_track = 1; idx_track < n_tracks_eta1 + 1; idx_track++) {
+                std::cout << "│ Hits belonging to track " << idx_track << " with length " << track_length_map_eta1[idx_track] << ": " << std::endl;
+                for (size_t idx_hit = 0; idx_hit < n_hits; idx_hit++) {
+                    if (track_hit_assinged_eta1.at(idx_hit) == idx_track) {
+                        std::cout << "│ Hit " << idx_hit << "; Layer: " << v_hit_layer.at(idx_hit) << "; Strip: " << v_hit_strip.at(idx_hit) << "; Time: " << v_hit_time1_converted.at(idx_hit) << std::endl;
+                    }
+                }
+            }
+
+            std::cout << "╰─────────────────────────────────────────────────────────────────╯" << std::endl;
 
             // ----------------------------------------------------------------------------------------------------
             // UPDATED: ToT Calculation subsection after clusterization (only for cluster centers)
@@ -715,10 +778,10 @@ void process_raw_hits() {
 
                     if (time_rising != -1 && time_falling != -1) {
                         int tot_cluster_center = time_falling - time_rising;
-                        if (tot_cluster_center < 0) { // Assuming a positive ToT
-                            tot_cluster_center = -1; // Set ToT back to -1 if negative (invalid value)
+                        if (tot_cluster_center > 0) { // Assuming a positive ToT
+                            v_cluster_tot1.push_back(tot_cluster_center);
+                            // tot_cluster_center = -1; // Set ToT back to -1 if negative (invalid value)
                         }
-                        v_cluster_tot1.push_back(tot_cluster_center);
                     }
                     cluster_hit_used_tot_eta1.at(idx_cluster_hit) = 1; // Mark hit as used as rising hit for η1 in clusterization
                 }
@@ -743,10 +806,9 @@ void process_raw_hits() {
 
                     if (time_rising != -1 && time_falling != -1) {
                         int tot_cluster_center = time_falling - time_rising;
-                        if (tot_cluster_center < 0) { // Assuming a positive ToT
-                            tot_cluster_center = -1; // Set ToT back to -1 if negative (invalid value)
+                        if (tot_cluster_center > 0) { // Assuming a positive ToT
+                            v_cluster_tot2.push_back(tot_cluster_center);
                         }
-                        v_cluster_tot2.push_back(tot_cluster_center);
                     }
                     cluster_hit_used_tot_eta2.at(idx_cluster_hit) = 1; // Mark hit as used as rising hit for η2 in clusterization
                 }
@@ -766,8 +828,8 @@ void process_raw_hits() {
                     // Require the hit to be within the time window from the trigger and belonging to a track of length >= 2 (WIP) (to exclude isolated hits)
                     if (dt_time1_trigger < dt_max && dt_time1_trigger > dt_min && track_length_map_eta1[track_number] >= 2) {
                         eta1_hits_counter[v_hit_layer.at(idx_hit)]++;
-                        if (eta1_hit_flags[v_hit_layer.at(idx_hit)] == false) {
-                            eta1_hit_flags[v_hit_layer.at(idx_hit)] = true;
+                        if (track_eta1_hit_flags[v_hit_layer.at(idx_hit)] == false) {
+                            track_eta1_hit_flags[v_hit_layer.at(idx_hit)] = true;
                         }
                     }
                 }
@@ -781,8 +843,8 @@ void process_raw_hits() {
                     // Require the hit to be within the time window from the trigger and belonging to a track of length >= 2 (WIP) (to exclude isolated hits)
                     if (dt_time2_trigger < dt_max && dt_time2_trigger > dt_min && track_length_map_eta2[track_number] >= 2) {
                         eta2_hits_counter[v_hit_layer.at(idx_hit)]++;
-                        if (eta2_hit_flags[v_hit_layer.at(idx_hit)] == false) {
-                            eta2_hit_flags[v_hit_layer.at(idx_hit)] = true;
+                        if (track_eta2_hit_flags[v_hit_layer.at(idx_hit)] == false) {
+                            track_eta2_hit_flags[v_hit_layer.at(idx_hit)] = true;
                         }
                     }
                 }
@@ -790,7 +852,7 @@ void process_raw_hits() {
 
 
             // ----------------------------------------------------------------------------------------------------
-            // Efficiency calculation based on hit flags for each layer and update of efficiency counters
+            // OLD: Efficiency calculation based on hit flags for each layer and update of efficiency counters
             if (trigger_time != -1) { // Only consider events with a valid trigger time (i.e. with a trigger hit)
 
                 // External trigger only efficiency counting
@@ -832,10 +894,53 @@ void process_raw_hits() {
             } // End of if statement checking for valid trigger time in efficiency counting
 
             // ----------------------------------------------------------------------------------------------------
+            // NEW: Efficiency calculation with tracks in coincidence
+            if (trigger_time != -1) { // Only consider events with a valid trigger time (i.e. with a trigger hit)
+
+                // External trigger only efficiency counting
+                track_triggered_events_external++;
+                for (int layer = 0; layer < 3; layer++) {
+                    if (track_eta1_hit_flags[layer]) track_eta1_efficiency_counter[layer]++;
+                    if (track_eta2_hit_flags[layer]) track_eta2_efficiency_counter[layer]++;
+                    if (track_eta1_hit_flags[layer] || track_eta2_hit_flags[layer]) track_eta_or_efficiency_counter[layer]++;
+                    if (track_eta1_hit_flags[layer] && track_eta2_hit_flags[layer]) track_eta_and_efficiency_counter[layer]++;
+                }
+
+                // External trigger + RPC as a trigger efficiency counting
+                // L0
+                if ((track_eta1_hit_flags[1] && track_eta1_hit_flags[2]) || (track_eta2_hit_flags[1] && track_eta2_hit_flags[2])) {
+                    track_triggered_events_rpc[0]++;
+                    if (track_eta1_hit_flags[0]) track_eta1_efficiency_counter_rpc[0]++;
+                    if (track_eta2_hit_flags[0]) track_eta2_efficiency_counter_rpc[0]++;
+                    if (track_eta1_hit_flags[0] || track_eta2_hit_flags[0]) track_eta_or_efficiency_counter_rpc[0]++;
+                    if (track_eta1_hit_flags[0] && track_eta2_hit_flags[0]) track_eta_and_efficiency_counter_rpc[0]++;
+                }
+
+                // L1
+                if ((track_eta1_hit_flags[0] && track_eta1_hit_flags[2]) || (track_eta2_hit_flags[0] && track_eta2_hit_flags[2])) {
+                    track_triggered_events_rpc[1]++;
+                    if (track_eta1_hit_flags[1]) track_eta1_efficiency_counter_rpc[1]++;
+                    if (track_eta2_hit_flags[1]) track_eta2_efficiency_counter_rpc[1]++;
+                    if (track_eta1_hit_flags[1] || track_eta2_hit_flags[1]) track_eta_or_efficiency_counter_rpc[1]++;
+                    if (track_eta1_hit_flags[1] && track_eta2_hit_flags[1]) track_eta_and_efficiency_counter_rpc[1]++;
+                }
+
+                // L2
+                if ((track_eta1_hit_flags[0] && track_eta1_hit_flags[1]) || (track_eta2_hit_flags[0] && track_eta2_hit_flags[1])) {
+                    track_triggered_events_rpc[2]++;
+                    if (track_eta1_hit_flags[2]) track_eta1_efficiency_counter_rpc[2]++;
+                    if (track_eta2_hit_flags[2]) track_eta2_efficiency_counter_rpc[2]++;
+                    if (track_eta1_hit_flags[2] || track_eta2_hit_flags[2]) track_eta_or_efficiency_counter_rpc[2]++;
+                    if (track_eta1_hit_flags[2] && track_eta2_hit_flags[2]) track_eta_and_efficiency_counter_rpc[2]++;
+                }
+            } // End of if statement checking for valid trigger time in efficiency counting
+
+            // ----------------------------------------------------------------------------------------------------
             // Fill trees with hit and event information
             input_data_tree->Fill();
             processed_data_tree->Fill();
             clusterization_tree->Fill();
+            track_reconstruction_tree->Fill();
 
             // Clear hit vectors for next event
             hit_clk.clear();
@@ -863,6 +968,10 @@ void process_raw_hits() {
             v_cluster_size_eta2.clear();
             v_cluster_tot1.clear();
             v_cluster_tot2.clear();
+
+            // Clear track length vectors for next event
+            v_track_length_eta1.clear();
+            v_track_length_eta2.clear();
 
             // Reset variables for next event
             n_hits = 0;
@@ -972,6 +1081,104 @@ void process_raw_hits() {
         hist_eff_rpc_trigger->SetBinError(3, eta_or_efficiency_rpc_error[layer]);
         hist_eff_rpc_trigger->SetBinContent(4, eta_and_efficiency_rpc[layer]);
         hist_eff_rpc_trigger->SetBinError(4, eta_and_efficiency_rpc_error[layer]);
+    }
+
+    // ============================================================================================================
+    // NEW: Efficiency calculation section using tracks in coincidence
+
+    // External trigger only efficiency results
+    double track_eta1_efficiency_external[3] = {0.0, 0.0, 0.0};
+    double track_eta2_efficiency_external[3] = {0.0, 0.0, 0.0};
+    double track_eta_or_efficiency_external[3] = {0.0, 0.0, 0.0};
+    double track_eta_and_efficiency_external[3] = {0.0, 0.0, 0.0};
+
+    double track_eta1_efficiency_external_error[3] = {0.0, 0.0, 0.0};
+    double track_eta2_efficiency_external_error[3] = {0.0, 0.0, 0.0};
+    double track_eta_or_efficiency_external_error[3] = {0.0, 0.0, 0.0};
+    double track_eta_and_efficiency_external_error[3] = {0.0, 0.0, 0.0};
+
+    if (track_triggered_events_external > 0) {
+        for (int layer = 0; layer < 3; layer++) {
+            track_eta1_efficiency_external[layer] = static_cast<double>(track_eta1_efficiency_counter[layer]) / track_triggered_events_external;
+            track_eta2_efficiency_external[layer] = static_cast<double>(track_eta2_efficiency_counter[layer]) / track_triggered_events_external;
+            track_eta_or_efficiency_external[layer] = static_cast<double>(track_eta_or_efficiency_counter[layer]) / track_triggered_events_external;
+            track_eta_and_efficiency_external[layer] = static_cast<double>(track_eta_and_efficiency_counter[layer]) / track_triggered_events_external;
+
+            track_eta1_efficiency_external_error[layer] = sqrt(track_eta1_efficiency_external[layer] * (1 - track_eta1_efficiency_external[layer]) / track_triggered_events_external);
+            track_eta2_efficiency_external_error[layer] = sqrt(track_eta2_efficiency_external[layer] * (1 - track_eta2_efficiency_external[layer]) / track_triggered_events_external);
+            track_eta_or_efficiency_external_error[layer] = sqrt(track_eta_or_efficiency_external[layer] * (1 - track_eta_or_efficiency_external[layer]) / track_triggered_events_external);
+            track_eta_and_efficiency_external_error[layer] = sqrt(track_eta_and_efficiency_external[layer] * (1 - track_eta_and_efficiency_external[layer]) / track_triggered_events_external);
+        }
+    }
+
+    // External trigger + RPC as a trigger efficiency results
+    double track_eta1_efficiency_rpc[3] = {0.0, 0.0, 0.0};
+    double track_eta2_efficiency_rpc[3] = {0.0, 0.0, 0.0};
+    double track_eta_or_efficiency_rpc[3] = {0.0, 0.0, 0.0};
+    double track_eta_and_efficiency_rpc[3] = {0.0, 0.0, 0.0};
+
+    double track_eta1_efficiency_rpc_error[3] = {0.0, 0.0, 0.0};
+    double track_eta2_efficiency_rpc_error[3] = {0.0, 0.0, 0.0};
+    double track_eta_or_efficiency_rpc_error[3] = {0.0, 0.0, 0.0};
+    double track_eta_and_efficiency_rpc_error[3] = {0.0, 0.0, 0.0};
+
+    for (int layer = 0; layer < 3; layer++) {
+        if (track_triggered_events_rpc[layer] > 0) {
+            track_eta1_efficiency_rpc[layer] = static_cast<double>(track_eta1_efficiency_counter_rpc[layer]) / track_triggered_events_rpc[layer];
+            track_eta2_efficiency_rpc[layer] = static_cast<double>(track_eta2_efficiency_counter_rpc[layer]) / track_triggered_events_rpc[layer];
+            track_eta_or_efficiency_rpc[layer] = static_cast<double>(track_eta_or_efficiency_counter_rpc[layer]) / track_triggered_events_rpc[layer];
+            track_eta_and_efficiency_rpc[layer] = static_cast<double>(track_eta_and_efficiency_counter_rpc[layer]) / track_triggered_events_rpc[layer];
+
+            track_eta1_efficiency_rpc_error[layer] = sqrt(track_eta1_efficiency_rpc[layer] * (1 - track_eta1_efficiency_rpc[layer]) / track_triggered_events_rpc[layer]);
+            track_eta2_efficiency_rpc_error[layer] = sqrt(track_eta2_efficiency_rpc[layer] * (1 - track_eta2_efficiency_rpc[layer]) / track_triggered_events_rpc[layer]);
+            track_eta_or_efficiency_rpc_error[layer] = sqrt(track_eta_or_efficiency_rpc[layer] * (1 - track_eta_or_efficiency_rpc[layer]) / track_triggered_events_rpc[layer]);
+            track_eta_and_efficiency_rpc_error[layer] = sqrt(track_eta_and_efficiency_rpc[layer] * (1 - track_eta_and_efficiency_rpc[layer]) / track_triggered_events_rpc[layer]);
+        }
+    }
+
+    // Create histograms to store efficiency results in efficiencies_histograms directory in output ROOT file
+    output_file->cd();
+    output_file->mkdir("efficiencies_histograms/track_external_trigger");
+    output_file->cd("efficiencies_histograms/track_external_trigger");
+
+    // External trigger only first
+    for (int layer = 0; layer < 3; layer++) {
+        TH1F* hist_track_eff_external_trigger = new TH1F(Form("track_eff_external_trigger%d", layer), Form("Layer %d Efficiency (Track and External Trigger)", layer), 4, 0.5, 4.5);
+        hist_track_eff_external_trigger->GetXaxis()->SetBinLabel(1, "eta1");
+        hist_track_eff_external_trigger->GetXaxis()->SetBinLabel(2, "eta2");
+        hist_track_eff_external_trigger->GetXaxis()->SetBinLabel(3, "OR");
+        hist_track_eff_external_trigger->GetXaxis()->SetBinLabel(4, "AND");
+
+        hist_track_eff_external_trigger->SetBinContent(1, track_eta1_efficiency_external[layer]);
+        hist_track_eff_external_trigger->SetBinError(1, track_eta1_efficiency_external_error[layer]);
+        hist_track_eff_external_trigger->SetBinContent(2, track_eta2_efficiency_external[layer]);
+        hist_track_eff_external_trigger->SetBinError(2, track_eta2_efficiency_external_error[layer]);
+        hist_track_eff_external_trigger->SetBinContent(3, track_eta_or_efficiency_external[layer]);
+        hist_track_eff_external_trigger->SetBinError(3, track_eta_or_efficiency_external_error[layer]);
+        hist_track_eff_external_trigger->SetBinContent(4, track_eta_and_efficiency_external[layer]);
+        hist_track_eff_external_trigger->SetBinError(4, track_eta_and_efficiency_external_error[layer]);
+    }
+
+    // Then external trigger + RPC as a trigger
+    output_file->cd();
+    output_file->mkdir("efficiencies_histograms/track_external_plus_rpc_trigger");
+    output_file->cd("efficiencies_histograms/track_external_plus_rpc_trigger");
+
+    for (int layer = 0; layer < 3; layer++) {
+        TH1F* hist_track_eff_rpc_trigger = new TH1F(Form("track_eff_rpc_layer%d", layer), Form("Layer %d Efficiency (Track and RPC Trigger)", layer), 4, 0.5, 4.5);
+        hist_track_eff_rpc_trigger->GetXaxis()->SetBinLabel(1, "eta1");
+        hist_track_eff_rpc_trigger->GetXaxis()->SetBinLabel(2, "eta2");
+        hist_track_eff_rpc_trigger->GetXaxis()->SetBinLabel(3, "OR");
+        hist_track_eff_rpc_trigger->GetXaxis()->SetBinLabel(4, "AND");
+
+        hist_track_eff_rpc_trigger->SetBinContent(1, track_eta1_efficiency_rpc[layer]);
+        hist_track_eff_rpc_trigger->SetBinError(1, track_eta1_efficiency_rpc_error[layer]);
+        hist_track_eff_rpc_trigger->SetBinContent(2, track_eta2_efficiency_rpc[layer]);
+        hist_track_eff_rpc_trigger->SetBinError(2, track_eta2_efficiency_rpc_error[layer]);
+        hist_track_eff_rpc_trigger->SetBinContent(3, track_eta_or_efficiency_rpc[layer]);
+        hist_track_eff_rpc_trigger->SetBinError(3, track_eta_or_efficiency_rpc_error[layer]);
+        hist_track_eff_rpc_trigger->SetBinContent(4, track_eta_and_efficiency_rpc[layer]);
+        hist_track_eff_rpc_trigger->SetBinError(4, track_eta_and_efficiency_rpc_error[layer]);
     }
 
     // ============================================================================================================
