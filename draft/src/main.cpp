@@ -1,12 +1,4 @@
-#include <iostream>
-#include <fstream>
-
-#include <vector>
-
-#include <TFile.h>
-#include <TTree.h>
-
-#include "draft.hpp"
+#include "dataAnalyzer.hpp"
 
 
 int main(int argc, char** argv) {

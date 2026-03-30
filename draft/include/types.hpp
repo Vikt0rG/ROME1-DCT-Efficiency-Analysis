@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+
+
 struct EfficiencyCounters {
     int triggered_events_external;
     int triggered_events_rpc[3];
