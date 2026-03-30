@@ -4,6 +4,12 @@
 #include <map>
 #include <cmath>
 
+#include <TFile.h>
+#include <TTree.h>
+
+#include <utils/utils.hpp>
+#include <types.hpp>
+
 // ============================================================
 // Hit Class: Represents a single detector hit
 // ============================================================
@@ -14,7 +20,7 @@ private:
     int raw_time_eta1, raw_time_eta2, rise;
 
     // Processed data
-    int bcid, bcout;              // After BC wrap-around correction
+    int bcid;                     // After BC wrap-around correction
     int layer, strip;             // Geometry info
     int time_eta1, time_eta2;     // Converted times
 
@@ -25,7 +31,7 @@ private:
 
 public:
     // Constructor from raw word
-    Hit(int clk, int word, int raw_bcout);
+    Hit(int clk, int word, int BC0);
 
     // Accessors
     int getClk() const { return clk; }
@@ -35,7 +41,6 @@ public:
     int getTimeEta1() const { return time_eta1; }
     int getTimeEta2() const { return time_eta2; }
     int getBCID() const { return bcid; }
-    int getBCOut() const { return bcout; }
     int getRawTimeEta1() const { return raw_time_eta1; }
     int getRawTimeEta2() const { return raw_time_eta2; }
     int getRise() const { return rise; }
@@ -47,6 +52,7 @@ public:
 
     // Predicates for clustering and track reconstruction
     bool inCluster();
+    bool inTrack();
 
     // Query methods
     bool hasEta1Time() const { return time_eta1 != -1; }
@@ -193,32 +199,80 @@ public:
 
 
 // ============================================================
-// DataAnalysis Class: Main analysis section
+// DataAnalysis Class: Main analysis section: WIP
 // ============================================================
-class DataAnalysis {
+class DataAnalyzer {
 private:
-    std::vector<Event> events;
-
-    // Efficiency counters
-    int triggered_events_external;
-    int triggered_events_rpc[3];
-
-    int eta1_efficiency_counter[3];
-    int eta2_efficiency_counter[3];
-    int eta_or_efficiency_counter[3];
-    int eta_and_efficiency_counter[3];
+    TFile* output_file;
+    TTree* input_data_tree;
+    TTree* processed_data_tree;
+    TTree* clusterization_tree;
+    TTree* track_reconstruction_tree;
+    EfficiencyCounters efficiency_counters;
     
+    // Raw data vectors
+    std::vector<int> hit_clk, hit_channel, hit_raw_bcid, hit_bcid;
+    std::vector<int> hit_time1, hit_time2, hit_rise, hit_raw_bcout, hit_bcout;
+    
+    // Processed data vectors
+    std::vector<int> proc_layer, proc_strip, proc_time1, proc_time2;
+    std::vector<int> proc_dt_time1_time2, proc_trigger_time;
+    std::vector<int> proc_dt_time1_trigger, proc_dt_time2_trigger;
+    std::vector<int> proc_tot1, proc_tot2;
+    
+    // Cluster and track vectors
+    std::vector<int> cluster_size_eta1, cluster_size_eta2, cluster_tot1, cluster_tot2;
+    std::vector<int> track_length_eta1, track_length_eta2;
+
 public:
-    // Constructor
-    DataAnalysis();
-
-    // Main analysis pipeline
-    void processRawData(const std::string& input_file);
-    void analyzeEfficiency();
-    void writeResults(const std::string& output_file);
-
-    // Accessors
-    int getEventCount() const { return events.size(); }
-    const std::vector<Event>& getEvents() const { return events; }
+    DataAnalyzer();
+    ~DataAnalyzer();
+    
+    // Setup
+    void setupOutputFile();
+    void setupBranches();
+    void initializeCounters();
+    
+    // Accessors for vectors
+    std::vector<int>& getHitClk() { return hit_clk; }
+    std::vector<int>& getHitChannel() { return hit_channel; }
+    std::vector<int>& getHitRawBcid() { return hit_raw_bcid; }
+    std::vector<int>& getHitBcid() { return hit_bcid; }
+    std::vector<int>& getHitTime1() { return hit_time1; }
+    std::vector<int>& getHitTime2() { return hit_time2; }
+    std::vector<int>& getHitRise() { return hit_rise; }
+    std::vector<int>& getHitRawBcout() { return hit_raw_bcout; }
+    std::vector<int>& getHitBcout() { return hit_bcout; }
+    
+    std::vector<int>& getProcLayer() { return proc_layer; }
+    std::vector<int>& getProcStrip() { return proc_strip; }
+    std::vector<int>& getProcTime1() { return proc_time1; }
+    std::vector<int>& getProcTime2() { return proc_time2; }
+    std::vector<int>& getProcDtTime1Time2() { return proc_dt_time1_time2; }
+    std::vector<int>& getProcTriggerTime() { return proc_trigger_time; }
+    std::vector<int>& getProcDtTime1Trigger() { return proc_dt_time1_trigger; }
+    std::vector<int>& getProcDtTime2Trigger() { return proc_dt_time2_trigger; }
+    std::vector<int>& getProcTot1() { return proc_tot1; }
+    std::vector<int>& getProcTot2() { return proc_tot2; }
+    
+    std::vector<int>& getClusterSizeEta1() { return cluster_size_eta1; }
+    std::vector<int>& getClusterSizeEta2() { return cluster_size_eta2; }
+    std::vector<int>& getClusterTot1() { return cluster_tot1; }
+    std::vector<int>& getClusterTot2() { return cluster_tot2; }
+    
+    std::vector<int>& getTrackLengthEta1() { return track_length_eta1; }
+    std::vector<int>& getTrackLengthEta2() { return track_length_eta2; }
+    
+    // Processing
+    void processEvent(int event_number, const std::vector<Hit>& hits);
+    int extractTriggerTime(/* params */);
+    
+    // Analysis
+    void calculateEfficiencies();
+    void createHistograms();
+    
+    // Cleanup
+    void clearEventVectors();
+    void writeAndClose();
 };
 
