@@ -4,7 +4,7 @@
 // Hit class implementation
 // ==========================================================================================
 /// Constructor that takes raw DCT word and BC0 for processing
-Hit::Hit(int clk, int word, int BC0) : clk(clk) {
+Hit::Hit(int clk, int word, int bcout, int BC0) : clk(clk), bcout(bcout) {
     // Decode the raw DCT word to extract channel, BCID, time information and rise/fall edge
     decodeDCTWord(word);
 
@@ -41,6 +41,10 @@ void Hit::applyBCWrapAround(int BC0) {
     bcid = raw_bcid - BC0;
     if (bcid < -128) bcid += 256;
     if (bcid > 128) bcid -= 256;
+
+    bcout = (raw_bcout - BC0) % 256;
+    if (bcout < -128) bcout += 256;
+    if (bcout > 128) bcout -= 256;
 }
 
 /// Utility function for mapping channel number to detector layer and strip
@@ -72,6 +76,9 @@ DataAnalyzer::DataAnalyzer() {
     processed_data_tree = nullptr;
     clusterization_tree = nullptr;
     track_reconstruction_tree = nullptr;
+    current_event = nullptr;
+    current_event_number = 0;
+    BC0 = 0;
 }
 
 DataAnalyzer::~DataAnalyzer() {
@@ -157,4 +164,128 @@ void DataAnalyzer::clearEventVectors() {
 
     track_length_eta1.clear();
     track_length_eta2.clear();
+}
+
+void DataAnalyzer::pushBackHitData(const Hit& hit) {
+    hit_clk.push_back(hit.getClk());
+    hit_channel.push_back(hit.getChannel());
+    hit_raw_bcid.push_back(hit.getRawBCID());
+    hit_bcid.push_back(hit.getBCID());
+    hit_time1.push_back(hit.getTimeEta1());
+    hit_time2.push_back(hit.getTimeEta2());
+    hit_rise.push_back(hit.getRise());
+    hit_raw_bcout.push_back(hit.getRawBCOut());
+    hit_bcout.push_back(hit.getBCOut());
+}
+
+/// Main entry point for processing input data from file or directory
+void DataAnalyzer::processInputData(const std::string& input_path) {
+    namespace fs = std::filesystem;
+
+    if (!fs::exists(input_path)) {
+        std::cerr << "ERROR: Input path does not exist: " << input_path << std::endl;
+        return;
+    }
+
+    // Check if input_path is a file or directory
+    if (fs::is_regular_file(input_path)) {
+        // Single file - process it directly
+        std::cout << "Processing single file: " << input_path << std::endl;
+        processFile(input_path);
+    } else if (fs::is_directory(input_path)) {
+        // Directory - process all files in it
+        std::cout << "Processing files in directory: " << input_path << std::endl;
+        for (const auto& entry : fs::directory_iterator(input_path)) {
+            if (fs::is_regular_file(entry)) {
+                std::cout << "Processing file: " << entry.path() << std::endl;
+                processFile(entry.path().string());
+            }
+        }
+    } else {
+        std::cerr << "ERROR: Input path is neither a file nor a directory!" << std::endl;
+    }
+
+    // Process any remaining event at the end of input
+    if (current_event_hits.size() > 0) {
+        processEvent();
+    }
+}
+
+/// Process a single file by reading lines and extracting word data
+void DataAnalyzer::processFile(const std::string& file_path) {
+    std::ifstream infile(file_path);
+    if (!infile.is_open()) {
+        std::cerr << "ERROR: Cannot open file: " << file_path << std::endl;
+        return;
+    }
+
+    int clk, word, raw_bcout;
+
+    // Read words from file: "clk word raw_bcout" format (clk and raw_bcout in decimal, word in hex)
+    while (infile >> std::dec >> clk >> std::hex >> word >> std::dec >> raw_bcout) {
+        processSingleWord(clk, word, raw_bcout);
+    }
+
+    infile.close();
+}
+
+/// Helper function to extract raw BCID from DCT word
+int DataAnalyzer::extractRawBCID(int word) {
+    int rise = word & 0x01;               // Bit 0
+    int raw_bcid;
+    
+    if (rise == 1) {  // Rising edge
+        raw_bcid = (word >> 12) & 0xFF;   // Bits 12-19
+    } else {          // Falling edge
+        raw_bcid = (word >> 11) & 0x1FF;  // Bits 11-19
+    }
+    
+    return raw_bcid;
+}
+
+/// Process a single word and accumulate into events
+/// When CLK reaches 127 (end of BC frame), process the accumulated event
+void DataAnalyzer::processSingleWord(int clk, int word, int raw_bcout) {
+    // Skip empty words
+    if (word == EMPTY_WORD) {
+        return;
+    }
+
+    // Calculate BC0 if this is the first hit of an event
+    if (current_event_hits.empty()) {
+        int raw_bcid = extractRawBCID(word);
+        BC0 = raw_bcid % 256;
+    }
+
+    // Create a Hit object from the raw word data
+    Hit hit(clk, word, raw_bcout, BC0);
+    current_event_hits.push_back(hit);
+
+    // Check for end of event and process it
+    if (clk == 127 && current_event_hits.size() > 0) {
+        processEvent();
+        current_event_number++;
+        current_event_hits.clear();
+        clearEventVectors();
+    }
+    
+    // Accumulate raw data into vectors
+    pushBackHitData(hit);
+}
+
+/// Process a complete event that has been accumulated
+void DataAnalyzer::processEvent() {
+    std::cout << "Processing event #" << current_event_number 
+              << " with " << current_event_hits.size() << " hits" << std::endl;
+    
+    // Fill the input data tree with raw hit information
+    if (input_data_tree && hit_clk.size() > 0) {
+        input_data_tree->Fill();
+    }
+    
+    // TODO: Implement clusterization, track reconstruction, efficiency calculation
+    // - Call current_event->clusterize()
+    // - Call current_event->reconstructTracks()
+    // - Call current_event->calculateEfficiency()
+    // - Fill processed_data_tree, clusterization_tree, track_reconstruction_tree
 }
