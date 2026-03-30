@@ -3,6 +3,9 @@
 #include <vector>
 #include <map>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
 
 #include <TFile.h>
 #include <TTree.h>
@@ -16,11 +19,11 @@
 class Hit {
 private:
     // Raw data from the DCT
-    int clk, channel, raw_bcid, raw_bcout;
+    int clk, channel, raw_bcid, raw_bcout, bcout;
     int raw_time_eta1, raw_time_eta2, rise;
 
     // Processed data
-    int bcid;                     // After BC wrap-around correction
+    int bcid, bcout;              // After BC wrap-around correction
     int layer, strip;             // Geometry info
     int time_eta1, time_eta2;     // Converted times
 
@@ -31,7 +34,7 @@ private:
 
 public:
     // Constructor from raw word
-    Hit(int clk, int word, int BC0);
+    Hit(int clk, int word, int bcout, int BC0);
 
     // Accessors
     int getClk() const { return clk; }
@@ -41,6 +44,9 @@ public:
     int getTimeEta1() const { return time_eta1; }
     int getTimeEta2() const { return time_eta2; }
     int getBCID() const { return bcid; }
+    int getBCOut() const { return bcout; }
+    int getRawBCID() const { return raw_bcid; }
+    int getRawBCOut() const { return raw_bcout; }
     int getRawTimeEta1() const { return raw_time_eta1; }
     int getRawTimeEta2() const { return raw_time_eta2; }
     int getRise() const { return rise; }
@@ -160,7 +166,8 @@ private:
     int trigger_time;
     int trigger_channel;
 
-    // Clusterization and global parameters
+    // Global parameters
+    static constexpr int EMPTY_WORD = 0x5555555;
     static constexpr int CLUSTERING_TIME_WINDOW = 18;  // ticks
     static constexpr int TRIGGER_CHANNEL = 143;
 
@@ -224,6 +231,15 @@ private:
     std::vector<int> cluster_size_eta1, cluster_size_eta2, cluster_tot1, cluster_tot2;
     std::vector<int> track_length_eta1, track_length_eta2;
 
+    // Event state management
+    Event* current_event;
+    int current_event_number;
+    std::vector<Hit> current_event_hits;
+    int BC0;  // BC0 reference for current event
+    
+    // Constants
+    static constexpr int EMPTY_WORD = 0x5555555;  // Pattern indicating empty/skipped word
+
 public:
     DataAnalyzer();
     ~DataAnalyzer();
@@ -264,8 +280,12 @@ public:
     std::vector<int>& getTrackLengthEta2() { return track_length_eta2; }
     
     // Processing
-    void processEvent(int event_number, const std::vector<Hit>& hits);
-    int extractTriggerTime(/* params */);
+    void processInputData(const std::string& input_path);
+    void processFile(const std::string& file_path);
+    void processSingleWord(int clk, int word, int raw_bcout);
+    int extractRawBCID(int word);
+    void pushBackHitData(const Hit& hit);
+    void processEvent();
     
     // Analysis
     void calculateEfficiencies();
