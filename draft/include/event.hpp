@@ -10,42 +10,42 @@
 // ============================================================
 class Event {
 private:
+    // Event metadata
     int event_number;
-
-    // Raw and processed hits
-    std::vector<Hit> hits;
-
-    // Clusters for each coordinate
-    std::vector<Cluster> clusters_eta1;
-    std::vector<Cluster> clusters_eta2;
-
-    // Tracks for each coordinate
-    std::vector<Track> tracks_eta1;
-    std::vector<Track> tracks_eta2;
 
     // Trigger information
     int trigger_time;
     int trigger_channel;
 
+    // Raw and processed hits
+    std::vector<Hit> hits;
+
+    // Cluster vectorsz
+    std::vector<Cluster> clusters_eta1;
+    std::vector<Cluster> clusters_eta2;
+
+    // Track vectors
+    std::vector<Track> tracks_eta1;
+    std::vector<Track> tracks_eta2;
+
     // Global parameters
     static constexpr int EMPTY_WORD = 0x5555555;
-    static constexpr int CLUSTERING_TIME_WINDOW = 18;  // ticks
+    static constexpr int CLUSTERING_TIME_WINDOW = 18;
     static constexpr int TRIGGER_CHANNEL = 143;
 
 public:
     // Constructor
     Event(int event_number);
+    Event(int event_number, std::vector<Hit>&& hits_in);  // Move constructor for hits
+    ~Event();  // Destructor
 
-    // Data input
-    void addHit(int clk, int word, int raw_bcout);
+    // Extract trigger information
+    void extractTriggerTime();
 
     // Processing pipeline
     void clusterize();                    // Form clusters from hits
     void reconstructTracks();             // Form tracks from clusters/hits
     void calculateEfficiency();           // Efficiency counters and calculations
-
-    // Extract trigger information
-    void extractTriggerTime(int dt_min, int dt_max);
 
     // Accessors
     int getEventNumber() const { return event_number; }
@@ -57,6 +57,8 @@ public:
     const std::vector<Cluster>& getClustersEta2() const { return clusters_eta2; }
     const std::vector<Track>& getTracksEta1() const { return tracks_eta1; }
     const std::vector<Track>& getTracksEta2() const { return tracks_eta2; }
+
+
 
     // Query methods for efficiency
     int getClusterCountEta1() const { return clusters_eta1.size(); }

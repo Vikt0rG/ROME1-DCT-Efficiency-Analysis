@@ -22,7 +22,7 @@ public:
     Cluster(Hit* first_hit);
 
     // Core clustering logic
-    bool addHit(Hit* hit, int time_window_ticks = TIME_WINDOW_TICKS);
+    bool addHit(Hit* hit);
 
     // Accessors
     Hit* getCenterHit() const { return hits[center_hit_index]; }
