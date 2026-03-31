@@ -51,9 +51,10 @@ void Event::clusterize() {
             // Check logic for cluster membership (time window and strip adjacency)
             if (cluster.addHit(&potential_partner)) potential_partner.setClusterID(cluster_id_counter_eta1);
         }
+
+        // If no more cluster partners are found for the current hit, increment cluster ID counter for the next cluster
+        cluster_id_counter_eta1++;
     }
-    // Increment cluster ID counter for the next cluster
-    cluster_id_counter_eta1++;
 
     // Side η2 clusterization (same logic as for η1)
     int cluster_id_counter_eta2 = 0;
@@ -68,6 +69,6 @@ void Event::clusterize() {
 
             if (cluster.addHit(&potential_partner)) potential_partner.setClusterID(cluster_id_counter_eta2);
         }
+        cluster_id_counter_eta2++;
     }
-    cluster_id_counter_eta2++;
 }
