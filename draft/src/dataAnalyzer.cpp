@@ -113,6 +113,21 @@ void DataAnalyzer::pushBackHitData(const Hit& hit) {
     hit_bcout.push_back(hit.getBCOut());
 }
 
+/// Utility function to push processed hit data into the corresponding vectors for tree filling
+void DataAnalyzer::pushBackProcessedData(const Hit& hit, const Event& event, const Cluster& cluster) {
+    proc_layer.push_back(hit.getLayer());
+    proc_strip.push_back(hit.getStrip());
+    proc_time1.push_back(hit.getTimeEta1());
+    proc_time2.push_back(hit.getTimeEta2());
+    proc_dt_time1_time2.push_back(hit.getTimeEta1() - hit.getTimeEta2());
+    // WIP
+    proc_trigger_time.push_back(event.getTriggerTime());                            // Placeholder for actual trigger time
+    proc_dt_time1_trigger.push_back(hit.getTimeEta1() - event.getTriggerTime());    // Placeholder for actual trigger time
+    proc_dt_time2_trigger.push_back(hit.getTimeEta2() - event.getTriggerTime());    // Placeholder for actual trigger time
+    proc_tot1.push_back(cluster.getTOT1());                                         // Placeholder for TOT calculation
+    proc_tot2.push_back(cluster.getTOT2());                                         // Placeholder for TOT calculation
+}
+
 /// Main entry point for processing input data from file or directory
 void DataAnalyzer::processInputData(const std::string& input_path) {
     namespace fs = std::filesystem;
@@ -217,7 +232,16 @@ void DataAnalyzer::processEvent() {
     if (input_data_tree && hit_clk.size() > 0) {
         input_data_tree->Fill();
     }
-    
+
+    // Create an Event object and transfer hits using move semantics
+    Event event(current_event_number, std::move(current_event_hits));
+
+    // Extract trigger information from the event
+    event.extractTriggerTime();
+
+    // Clusterization section
+    event.clusterize();
+
     // TODO: Implement clusterization, track reconstruction, efficiency calculation
     // - Call current_event->clusterize()
     // - Call current_event->reconstructTracks()

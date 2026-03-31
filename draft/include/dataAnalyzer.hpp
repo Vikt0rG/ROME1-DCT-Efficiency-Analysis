@@ -10,6 +10,8 @@
 #include "types.hpp"
 #include "hit.hpp"
 #include "event.hpp"
+#include "cluster.hpp"
+#include "track.hpp"
 
 
 // ============================================================
@@ -92,6 +94,7 @@ public:
     void processSingleWord(int clk, int word, int raw_bcout);
     int extractRawBCID(int word);
     void pushBackHitData(const Hit& hit);
+    void pushBackProcessedData(const Hit& hit);
     void processEvent();
     
     // Analysis
