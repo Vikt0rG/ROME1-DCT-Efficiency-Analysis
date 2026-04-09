@@ -1,5 +1,6 @@
 #include "event.hpp"
-#include <iostream>
+
+
 // ============================================================
 // Event class implementation
 // ============================================================
@@ -139,7 +140,6 @@ void Event::clusterize() {
         clusters_eta2.push_back(cluster);
         cluster_id_counter_eta2++;
 
-        // DEBUG: Print out parameters of the hits belonging to the cluster for the current hit
         std::cout << "******************************************************************" << std::endl;
         std::cout << "Resulting cluster: " << std::endl;
         for (Hit* cluster_hit : cluster.getHits()) {
@@ -147,17 +147,56 @@ void Event::clusterize() {
         }
         std::cout << "\n";
     }
-
-    // NOTE: Clusters are retained for later access (not cleared here)
 }
 
-/// WIP: Time-over-threshold calculation for each cluster
+/// NEW: Time-over-threshold calculation for cluster centers (after clusterization)
 void Event::calculateTOTCluster() {
+    // Calculate TOT for eta1 cluster centers
     for (Cluster& cluster : clusters_eta1) {
-        cluster.calculateToTCluster();
+        Hit* center_hit = cluster.getCenterHit();
+        int tot1 = -1;
+        
+        // Find closest falling edge partner on the same channel (after the rising edge)
+        Hit* best_partner = nullptr;
+        int min_dt = INT_MAX;
+        
+        for (Hit& potential_partner : hits) {
+            if (potential_partner.getChannel() != center_hit->getChannel()) continue;
+            if (potential_partner.getRise() != 0) continue;  // Must be falling edge
+            
+            int dt = potential_partner.getTimeEta1() - center_hit->getTimeEta1();
+            if (dt > 0 && dt < min_dt) {
+                min_dt = dt;
+                best_partner = &potential_partner;
+            }
+        }
+        
+        if (best_partner && min_dt > 0) tot1 = min_dt;
+        cluster.setTot1(tot1);
     }
+    
+    // Calculate TOT for eta2 cluster centers
     for (Cluster& cluster : clusters_eta2) {
-        cluster.calculateToTCluster();
+        Hit* center_hit = cluster.getCenterHit();
+        int tot2 = -1;
+        
+        // Find closest falling edge partner on the same channel (after the rising edge)
+        Hit* best_partner = nullptr;
+        int min_dt = INT_MAX;
+        
+        for (Hit& potential_partner : hits) {
+            if (potential_partner.getChannel() != center_hit->getChannel()) continue;
+            if (potential_partner.getRise() != 0) continue;  // Must be falling edge
+            
+            int dt = potential_partner.getTimeEta2() - center_hit->getTimeEta2();
+            if (dt > 0 && dt < min_dt) {
+                min_dt = dt;
+                best_partner = &potential_partner;
+            }
+        }
+        
+        if (best_partner && min_dt > 0) tot2 = min_dt;
+        cluster.setTot2(tot2);
     }
 }
 

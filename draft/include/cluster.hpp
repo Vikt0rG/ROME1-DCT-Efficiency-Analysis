@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include "types.hpp"
 #include "hit.hpp"
 
@@ -39,6 +40,8 @@ public:
     int getCenterTime() const { return getCenterHit()->getTimeEta1(); }
     int getTot1() const { return tot1; }
     int getTot2() const { return tot2; }
+    void setTot1(int value) { tot1 = value; }
+    void setTot2(int value) { tot2 = value; }
 
     const std::vector<Hit*>& getHits() const { return cluster_hits; }
 };
