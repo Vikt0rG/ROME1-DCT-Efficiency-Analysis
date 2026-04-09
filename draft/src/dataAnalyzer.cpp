@@ -152,12 +152,12 @@ void DataAnalyzer::pushBackProcessedData(const Event& event) {
 /// TODO: Utility function to push cluster-level data into the corresponding vectors for tree filling
 void DataAnalyzer::pushBackClusterDataEta1(const Cluster& cluster) {
     cluster_size_eta1.push_back(cluster.getSize()); // Total cluster size
-    cluster_tot1.push_back(cluster.getTot1());
+    if (cluster.getTot1() > 0) cluster_tot1.push_back(cluster.getTot1());
 }
 
 void DataAnalyzer::pushBackClusterDataEta2(const Cluster& cluster) {
     cluster_size_eta2.push_back(cluster.getSize()); // Total cluster size
-    cluster_tot2.push_back(cluster.getTot2());
+    if (cluster.getTot2() > 0) cluster_tot2.push_back(cluster.getTot2());
 }
 
 /// TODO: Utility function to push track-level data into the corresponding vectors for tree filling
@@ -293,6 +293,9 @@ void DataAnalyzer::processEvent() {
 
     // Clusterization
     event.clusterize();
+
+    // Calculate ToT for cluster centers
+    event.calculateTOTCluster();
 
     // Push back cluster-level data for both eta1 and eta2 sides
     for (const auto& cluster : event.getClustersEta1()) {

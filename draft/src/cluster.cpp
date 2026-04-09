@@ -1,5 +1,5 @@
 #include "cluster.hpp"
-#include <iostream>
+
 
 // ============================================================
 // Cluster class implementation
@@ -10,10 +10,11 @@ Cluster::Cluster(Hit* first_hit, EtaSide side) : cluster_id(0), center_hit_index
 }
 
 /// NEW: Core clustering logic: Add a hit to the cluster if it is within the time window and strip distance
+// A hit is added ONLY if it satisfies BOTH strip AND time conditions with AT LEAST ONE existing member
 bool Cluster::addHit(Hit* hit) {
     // Check against each existing cluster member
-    // A hit is added ONLY if it satisfies BOTH strip AND time conditions with AT LEAST ONE existing member
     for (size_t idx = 0; idx < cluster_hits.size(); idx++) {
+
         // Check if hit is on the same or neighboring strip
         int strip_diff = abs(hit->getStrip() - cluster_hits[idx]->getStrip());
         if (strip_diff > MAX_STRIP_DISTANCE) continue;
@@ -46,9 +47,4 @@ bool Cluster::addHit(Hit* hit) {
     }
 
     return false;
-}
-
-/// TODO: ToT calculation by pairing rising and falling edge hits
-void Cluster::calculateToTCluster() {
-    return;  // Placeholder for now - ToT calculation logic to be implemented
 }
