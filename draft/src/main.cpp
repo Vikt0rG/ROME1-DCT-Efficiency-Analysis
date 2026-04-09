@@ -21,6 +21,11 @@ int main(int argc, char** argv) {
     }
     
     bool self_trigger = (argc > 4 && std::string(argv[4]) == "--self");
+    
+    // Suppress unused variable warnings (TODO: integrate these parameters into analysis)
+    (void)dt_max;
+    (void)dt_min;
+    (void)self_trigger;
 
     // Setup output file and trees
     DataAnalyzer analyzer;
