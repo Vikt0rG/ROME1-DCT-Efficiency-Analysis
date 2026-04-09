@@ -43,6 +43,7 @@ private:
     // Event state management
     Event* current_event;
     int current_event_number;
+    int n_hits;
     std::vector<Hit> current_event_hits;
     int BC0;  // BC0 reference for current event
     
@@ -94,7 +95,10 @@ public:
     void processSingleWord(int clk, int word, int raw_bcout);
     int extractRawBCID(int word);
     void pushBackHitData(const Hit& hit);
-    void pushBackProcessedData(const Hit& hit);
+    void pushBackProcessedData(const Event& event);
+    void pushBackClusterDataEta1(const Cluster& cluster);
+    void pushBackClusterDataEta2(const Cluster& cluster);
+    void pushBackTrackData(const Track& track);
     void processEvent();
     
     // Analysis

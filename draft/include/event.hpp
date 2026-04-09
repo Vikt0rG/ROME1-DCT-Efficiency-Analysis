@@ -31,7 +31,6 @@ private:
     // Global parameters
     static constexpr int EMPTY_WORD = 0x5555555;
     static constexpr int CLUSTERING_TIME_WINDOW = 18;
-    static constexpr int TRIGGER_CHANNEL = 143;
 
 public:
     // Constructor
@@ -43,12 +42,15 @@ public:
     void extractTriggerTime();
 
     // Processing pipeline
+    void calculateTOT();                  // Calculate Time-over-Threshold for hits
     void clusterize();                    // Form clusters from hits
+    void calculateTOTCluster();           // Calculate Time-over-Threshold for clusters
     void reconstructTracks();             // Form tracks from clusters/hits
     void calculateEfficiency();           // Efficiency counters and calculations
 
     // Accessors
     int getEventNumber() const { return event_number; }
+    int getTriggerChannel() const { return trigger_channel; }
     int getTriggerTime() const { return trigger_time; }
     int getHitCount() const { return hits.size(); }
 
@@ -57,8 +59,6 @@ public:
     const std::vector<Cluster>& getClustersEta2() const { return clusters_eta2; }
     const std::vector<Track>& getTracksEta1() const { return tracks_eta1; }
     const std::vector<Track>& getTracksEta2() const { return tracks_eta2; }
-
-
 
     // Query methods for efficiency
     int getClusterCountEta1() const { return clusters_eta1.size(); }
