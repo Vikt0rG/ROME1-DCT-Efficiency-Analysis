@@ -5,7 +5,8 @@
 // Hit class implementation
 // ==========================================================================================
 /// Constructor that takes raw DCT word and BC0 for processing
-Hit::Hit(int clk, int word, int bcout, int BC0) : clk(clk), bcout(bcout) {
+Hit::Hit(int clk, int word, int bcout, int BC0)
+    : clk(clk), raw_bcout(bcout) {
     // Decode the raw DCT word to extract channel, BCID, time information and rise/fall edge
     decodeDCTWord(word);
 
@@ -18,6 +19,16 @@ Hit::Hit(int clk, int word, int bcout, int BC0) : clk(clk), bcout(bcout) {
 
     // Map channel to layer and strip
     geometryMapping();
+
+    // Initialize ToT values to -1
+    tot1 = -1;
+    tot2 = -1;
+
+    // Initialize IDs to -1 (indicating not assigned)
+    hit_id = -1;
+    cluster_id_eta1 = -1;
+    cluster_id_eta2 = -1;
+    track_id = -1;
 }
 
 /// Utility function for extracting information from the raw DCT word
