@@ -29,14 +29,21 @@ private:
     std::vector<Track> tracks_eta1;
     std::vector<Track> tracks_eta2;
 
+    // Efficiency flags and counters
+    EfficiencyFlags efficiency_flags;
+
+    // Reference to shared efficiency counters (for updating throughout event lifetime)
+    EfficiencyCounters& efficiency_counters;
+    EfficiencyCountersTracks& efficiency_counters_tracks;
+
     // Global parameters
     static constexpr int EMPTY_WORD = 0x5555555;
     static constexpr int CLUSTERING_TIME_WINDOW = 18;
 
 public:
     // Constructor
-    Event(int event_number);
-    Event(int event_number, std::vector<Hit>&& hits_in);  // Move constructor for hits
+    Event(int event_number, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
+    Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);  // Move constructor for hits
     ~Event();  // Destructor
 
     // Extract trigger information
@@ -47,7 +54,10 @@ public:
     void clusterize();                    // Form clusters from hits
     void calculateTOTCluster();           // Calculate Time-over-Threshold for clusters
     void reconstructTracks();             // Form tracks from clusters/hits
-    void calculateEfficiency();           // Efficiency counters and calculations
+    void updateEfficiencyFlags(
+        const int dt_max,
+        const int dt_min);                // Update efficiency flags based on time window
+    void updateEfficiencyCounters();      // Update efficiency counters based on reconstructed tracks
 
     // Accessors
     int getEventNumber() const { return event_number; }

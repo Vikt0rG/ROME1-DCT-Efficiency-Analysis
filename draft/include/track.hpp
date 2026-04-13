@@ -8,29 +8,32 @@
 // Track Class: Hits aligned across detector layers
 // ============================================================
 class Track {
+public:
+    enum EtaSide { ETA1 = 0, ETA2 = 1 };
+
 private:
-    std::vector<Hit*> hits;       // All hits in track (NOT copied, referenced)
-    int track_id;
+    int track_id;                 // Unique identifier for the track
+    std::vector<Hit*> track_hits;       // All hits in track (NOT copied, referenced)
+    EtaSide eta_side;             // Track which eta side this track belongs to (ETA1 or ETA2)
 
     // Layer occupancy flags (for efficiency calculations)
     bool eta1_layers[3];          // Layer 0, 1, 2 for η1 coordinate
     bool eta2_layers[3];          // Layer 0, 1, 2 for η2 coordinate
 
     // Track quality parameters
-    static constexpr int MIN_TRACK_LENGTH = 2;    // Minimum hits required
+    static constexpr int MIN_TRACK_LENGTH = 2;    // TODO: Move to constants. Minimum hits required
     static constexpr int LAYER_COUNT = 3;
 
 public:
     // Constructor
-    Track(int id, Hit* first_hit);
+    Track(int id, Hit* first_hit, EtaSide side);
 
     // Track reconstruction logic
     bool addHit(Hit* hit);        // Add hit if aligned with existing hits
 
     // Accessors
     int getId() const { return track_id; }
-    int getLength() const { return hits.size(); }
-    const std::vector<Hit*>& getHits() const { return hits; }
+    const std::vector<Hit*>& getHits() const { return track_hits; }
 
     // Layer occupancy queries (for efficiency calculations)
     bool hasEta1Layer(int layer) const;
@@ -40,6 +43,8 @@ public:
     bool hasAllLayers() const;    // Both eta1 and eta2 in all layers
 
     // Track quality methods
-    bool isValidTrack() const { return hits.size() >= MIN_TRACK_LENGTH; }
-    int getLayerCount(int coordinate) const;  // coordinate: 0=eta1, 1=eta2
+    bool isValidTrack() const { return track_hits.size() >= MIN_TRACK_LENGTH; }
+    int getSize(int side) const;  // side: 0=eta1, 1=eta2
+    int getWidth(int side) const;
+    int getLayerCount(int side) const;
 };
