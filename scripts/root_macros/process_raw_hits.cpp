@@ -287,10 +287,10 @@ void process_raw_hits() {
             std::vector<int> v_hit_time1_converted(n_hits, -1);   // Time of hit in η1 (if present, otherwise -1), converted from raw time and BCID information
             std::vector<int> v_hit_time2_converted(n_hits, -1);   // Time of hit in η2 (if present, otherwise -1), converted from raw time and BCID information
 
-            // First hits loop to process geometry and time information of rising hits only (to be used in clusterization and track reconstruction)
+            // First hits loop: NEW Geometry and time information processing for rising hits only
             for (size_t idx_hit = 0; idx_hit < n_hits; idx_hit++) {
 
-                // WIP: Decide whether to only store geometry and time information for rising hits
+                // WIP: Decide whether store geometry and time information for rising only hits
                 if (hit_rise.at(idx_hit) == 0) continue;                // Skip falling hits
 
                 // Detector geometry variables
@@ -347,7 +347,7 @@ void process_raw_hits() {
             std::vector<int> hit_used_tot_eta1(n_hits, -1);              // -1 = initial value or no information, 0 = hit has been used as falling hit, 1 = hit has been used as rising hit
             std::vector<int> hit_used_tot_eta2(n_hits, -1);
 
-            // Second hits loop to process all hits and do clusterization, track reconstruction, efficiency counting, ToT calculation, etc.
+            // Second hits loop: UPDATED Clusterization logic and OLD ToT calculation
             for (size_t idx_hit = 0; idx_hit < n_hits; idx_hit++) {
 
                 // Detector geometry variables
@@ -506,6 +506,8 @@ void process_raw_hits() {
 
                     // Initialize a new cluster containing only the current hit if the hit is not already in a cluster and time information is present
                     if (v_cluster_hit_assinged_eta2.at(idx_hit) == -1 && time2 != -1) {
+                        std::cout << "------------------------------------------------------------------" << std::endl;
+                        std::cout << "Processing side η2: Hit: " << idx_hit << "; Layer " << layer << "; Strip: " << strip << "; Time " << time2 << std::endl;
 
                         v_cluster_strip_eta2.clear();                       // Clear cluster_strip* vector for the new cluster
                         v_cluster_time_eta2.clear();                        // Clear cluster_time* vector for the new cluster
@@ -572,6 +574,14 @@ void process_raw_hits() {
                         v_cluster_size_eta2.push_back(cluster_size_eta2);
                         n_clusters_eta2 = 0;
 
+                        // DEBUG: Print out parameters of the hits belonging to the cluster for the current hit
+                        std::cout << "******************************************************************" << std::endl;
+                        std::cout << "Resulting cluster: " << std::endl;
+                        for (size_t idx_cluster_hit = 0; idx_cluster_hit < v_cluster_time_eta2.size(); idx_cluster_hit++) {
+                            std::cout << "strip = " << v_cluster_strip_eta2.at(idx_cluster_hit) << ", time = " << v_cluster_time_eta2.at(idx_cluster_hit) << std::endl;
+                        }
+                        std::cout << "\n";
+
                     }   // End of finding cluster center and its partners for side η2
 
                     // --------------------------------------------------------------------------------------------
@@ -609,7 +619,7 @@ void process_raw_hits() {
 
 
             // ----------------------------------------------------------------------------------------------------
-            // NEW: Track reconstruction logic loop (after clusterization)
+            // Third hits loop: NEW Track reconstruction logic
             for (size_t idx_hit = 0; idx_hit < n_hits; idx_hit++) {
 
                 // Detector geometry variables
@@ -620,7 +630,7 @@ void process_raw_hits() {
                 int time1 = v_hit_time1_converted.at(idx_hit);            // Time of hit in η1 (if present, otherwise -1)
                 int time2 = v_hit_time2_converted.at(idx_hit);            // Time of hit in η2 (if present, otherwise -1)
 
-                // Clusterization and track reconstruction logics as well as efficiency counting and ToT calculation for each hit in the event
+                // Track reconstruction logic for each hit in the event
                 if (hit_rise.at(idx_hit) == 1 && hit_channel.at(idx_hit) != trig_channel) {
 
                     // For side η1
@@ -689,7 +699,7 @@ void process_raw_hits() {
                         v_track_strip_eta2.push_back(strip);              // Push back the strip number of the current hit for later checks of strip adjacency between track members
                         v_track_time_eta2.push_back(time2);               // Push back the time of the current hit for later time window checks between track members and potential track partner hits
 
-                        track_hit_assinged_eta2.at(idx_hit) = ++n_tracks_eta2;    // Mark current hit as belonging to a track
+                        track_hit_assinged_eta2.at(idx_hit) = ++n_tracks_eta2;    // Mark current hit as belonging to a track (also use pre-increment to have track numbering start from 1)
                         track_length_eta2++;
 
                         // Iterate through the following hits of the same event and look for the potential track partners
@@ -698,7 +708,7 @@ void process_raw_hits() {
                                 v_cluster_hit_is_center_eta2.at(idx_next_hit) == 1 &&
                                 hit_time2.at(idx_next_hit) != -1 &&
                                 hit_rise.at(idx_next_hit) == 1 && 
-                                hit_channel.at(idx_next_hit) != trig_channel) { // Only consider rising hits on non-trigger channels with valid time information as potential track partners
+                                hit_channel.at(idx_next_hit) != trig_channel) { // Only consider cluster centers rising hits on non-trigger channels with valid time information as potential track partners
 
                                 int next_layer = v_hit_layer.at(idx_next_hit);
                                 if (next_layer == layer) continue; // Only consider hits on different layers as potential track partners
@@ -722,7 +732,7 @@ void process_raw_hits() {
                             }
                         } // End of loop looking for potential track partners
 
-                        // If no more potential track partners are found for the current hit, store track length and reset track length variable for the next track
+                        // If no more potential track partners are found for the current hit, store track length into the map and push it back and reset track length variable for the next track
                         track_length_map_eta2[n_tracks_eta2] = track_length_eta2;
                         v_track_length_eta2.push_back(track_length_eta2);
                         track_length_eta2 = 0;
@@ -823,11 +833,11 @@ void process_raw_hits() {
                 int track_number = track_hit_assinged_eta1.at(idx_hit);
                 if (track_number != -1) {
                     int dt_time1_trigger = v_hit_time1_converted.at(idx_hit) - trigger_time;
-                    proc_dt_time1_trigger.push_back(dt_time1_trigger);
+                    // WIP: Avoid double pushing (since the old version is still there for now) proc_dt_time1_trigger.push_back(dt_time1_trigger);
 
                     // Require the hit to be within the time window from the trigger and belonging to a track of length >= 2 (WIP) (to exclude isolated hits)
                     if (dt_time1_trigger < dt_max && dt_time1_trigger > dt_min && track_length_map_eta1[track_number] >= 2) {
-                        eta1_hits_counter[v_hit_layer.at(idx_hit)]++;
+                        // eta1_hits_counter[v_hit_layer.at(idx_hit)]++;
                         if (track_eta1_hit_flags[v_hit_layer.at(idx_hit)] == false) {
                             track_eta1_hit_flags[v_hit_layer.at(idx_hit)] = true;
                         }
@@ -838,11 +848,11 @@ void process_raw_hits() {
                 track_number = track_hit_assinged_eta2.at(idx_hit);
                 if (track_number != -1) {
                     int dt_time2_trigger = v_hit_time2_converted.at(idx_hit) - trigger_time;
-                    proc_dt_time2_trigger.push_back(dt_time2_trigger);
+                    // WIP: Avoid double pushing (since the old version is still there for now) proc_dt_time2_trigger.push_back(dt_time2_trigger);
                 
                     // Require the hit to be within the time window from the trigger and belonging to a track of length >= 2 (WIP) (to exclude isolated hits)
                     if (dt_time2_trigger < dt_max && dt_time2_trigger > dt_min && track_length_map_eta2[track_number] >= 2) {
-                        eta2_hits_counter[v_hit_layer.at(idx_hit)]++;
+                        // eta2_hits_counter[v_hit_layer.at(idx_hit)]++;
                         if (track_eta2_hit_flags[v_hit_layer.at(idx_hit)] == false) {
                             track_eta2_hit_flags[v_hit_layer.at(idx_hit)] = true;
                         }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "utils/utils.hpp"
+#include "utils.hpp"
 
 // ============================================================
 // Hit Class: Represents a single detector hit

@@ -151,10 +151,10 @@ void analysis (const char* input_data_dir) {
     std::vector<double> eff_eta2_values;
     std::vector<double> eff_eta2_errors;
 
-    std::vector<double> cluster_size1_means;
-    std::vector<double> cluster_size2_means;
-    std::vector<double> cluster_size1_errors;
-    std::vector<double> cluster_size2_errors;
+    std::vector<double> cluster_size_eta1_means;
+    std::vector<double> cluster_size_eta2_means;
+    std::vector<double> cluster_size_eta1_errors;
+    std::vector<double> cluster_size_eta2_errors;
 
     for(const auto &file_path: external_trigger_files) {
         std::string file_name = file_path.substr(file_path.find_last_of('/')+1);
@@ -214,9 +214,9 @@ void analysis (const char* input_data_dir) {
         
         TTree *clusterization_tree = (TTree*)root_file->Get("clusterization_data");
         if(clusterization_tree) {
-            // For cluster_size1
+            // For cluster_size_eta1
             std::string tmp_histo_name = std::string("__tmp_cs1_") + std::to_string(hv_values.size());
-            clusterization_tree->Draw((std::string("cluster_size1>>") + tmp_histo_name).c_str(), "", "goff");
+            clusterization_tree->Draw((std::string("cluster_size_eta1>>") + tmp_histo_name).c_str(), "", "goff");
             TH1 *histo_tmp = (TH1*)gDirectory->Get(tmp_histo_name.c_str());
             if(histo_tmp) {
                 mean_cs1 = histo_tmp->GetMean();
@@ -229,9 +229,9 @@ void analysis (const char* input_data_dir) {
                 gDirectory->Delete(tmp_histo_name.c_str());
             }
 
-            // For cluster_size2
+            // For cluster_size_eta2
             tmp_histo_name = std::string("__tmp_cs2_") + std::to_string(hv_values.size());
-            clusterization_tree->Draw((std::string("cluster_size2>>") + tmp_histo_name).c_str(), "", "goff");
+            clusterization_tree->Draw((std::string("cluster_size_eta2>>") + tmp_histo_name).c_str(), "", "goff");
             histo_tmp = (TH1*)gDirectory->Get(tmp_histo_name.c_str());
             if(histo_tmp) {
                 mean_cs2 = histo_tmp->GetMean();
@@ -253,10 +253,10 @@ void analysis (const char* input_data_dir) {
         eff_eta2_values.push_back(val_eta2);
         eff_eta2_errors.push_back(err_eta2);
 
-        cluster_size1_means.push_back(mean_cs1);
-        cluster_size2_means.push_back(mean_cs2);
-        cluster_size1_errors.push_back(error_cs1);
-        cluster_size2_errors.push_back(error_cs2);
+        cluster_size_eta1_means.push_back(mean_cs1);
+        cluster_size_eta2_means.push_back(mean_cs2);
+        cluster_size_eta1_errors.push_back(error_cs1);
+        cluster_size_eta2_errors.push_back(error_cs2);
 
         root_file->Close();
     }
@@ -273,7 +273,7 @@ void analysis (const char* input_data_dir) {
 
     std::vector<double> hv_sorted, eff_eta1_values_sorted, eff_eta1_errors_sorted, eff_eta2_values_sorted, eff_eta2_errors_sorted;
     std::vector<std::string> hv_files_sorted;
-    std::vector<double> cluster_size1_means_sorted, cluster_size2_means_sorted;
+    std::vector<double> cluster_size_eta1_means_sorted, cluster_size_eta2_means_sorted;
     for(int i: idx) {
         hv_sorted.push_back(hv_values[i]);
         hv_files_sorted.push_back(hv_file_paths[i]);
@@ -283,8 +283,8 @@ void analysis (const char* input_data_dir) {
         eff_eta2_values_sorted.push_back(eff_eta2_values[i]);
         eff_eta2_errors_sorted.push_back(eff_eta2_errors[i]);
 
-        cluster_size1_means_sorted.push_back(cluster_size1_means[i]);
-        cluster_size2_means_sorted.push_back(cluster_size2_means[i]);
+        cluster_size_eta1_means_sorted.push_back(cluster_size_eta1_means[i]);
+        cluster_size_eta2_means_sorted.push_back(cluster_size_eta2_means[i]);
     }
 
     // ------------------------------------------------------------------------------------------------------------
@@ -416,14 +416,14 @@ void analysis (const char* input_data_dir) {
     for(int idx = 0; idx < n_data_points; idx++) {
         if(hv_sorted[idx] > 4900) {
             hv_filtered.push_back(hv_sorted[idx]);
-            cs1_filtered.push_back(cluster_size1_means_sorted[idx]);
-            cs2_filtered.push_back(cluster_size2_means_sorted[idx]);
+            cs1_filtered.push_back(cluster_size_eta1_means_sorted[idx]);
+            cs2_filtered.push_back(cluster_size_eta2_means_sorted[idx]);
         }
     }
 
     // Create graphs with filtered data
-    TGraph *cg1 = new TGraphErrors(hv_filtered.size(), hv_filtered.data(), cs1_filtered.data(), nullptr, cluster_size1_errors.data());
-    TGraph *cg2 = new TGraphErrors(hv_filtered.size(), hv_filtered.data(), cs2_filtered.data(), nullptr, cluster_size2_errors.data());
+    TGraph *cg1 = new TGraphErrors(hv_filtered.size(), hv_filtered.data(), cs1_filtered.data(), nullptr, cluster_size_eta1_errors.data());
+    TGraph *cg2 = new TGraphErrors(hv_filtered.size(), hv_filtered.data(), cs2_filtered.data(), nullptr, cluster_size_eta2_errors.data());
 
     TCanvas *cluster_means_canvas = new TCanvas("c_cluster_means", "Cluster size means vs. High Voltage", 1200, 800);
 
@@ -481,7 +481,7 @@ void analysis (const char* input_data_dir) {
             TTree *t1 = (TTree*)f1->Get("clusterization_data");
             if(t1) {
                 std::string tmp_histo_name = "__tmp_cs1_hist";
-                t1->Draw((std::string("cluster_size1>>") + tmp_histo_name + "(20,0,20)").c_str(), "", "goff");
+                t1->Draw((std::string("cluster_size_eta1>>") + tmp_histo_name + "(20,0,20)").c_str(), "", "goff");
                 cs_hist1 = (TH1F*)gDirectory->Get(tmp_histo_name.c_str());
                 cs_hist1->SetDirectory(0);  // Detach from file
             }
@@ -496,7 +496,7 @@ void analysis (const char* input_data_dir) {
             TTree *t2 = (TTree*)f2->Get("clusterization_data");
             if(t2) {
                 std::string tmp_histo_name = "__tmp_cs2_hist";
-                t2->Draw((std::string("cluster_size2>>") + tmp_histo_name + "(20,0,20)").c_str(), "", "goff");
+                t2->Draw((std::string("cluster_size_eta2>>") + tmp_histo_name + "(20,0,20)").c_str(), "", "goff");
                 cs_hist2 = (TH1F*)gDirectory->Get(tmp_histo_name.c_str());
                 cs_hist2->SetDirectory(0);  // Detach from file
             }
@@ -1128,8 +1128,8 @@ void analysis (const char* input_data_dir) {
     of.cd();
     of.mkdir("cluster_means");
     of.cd("cluster_means");
-    if(cg1) { cg1->Write("cluster_size1_means_graph"); }
-    if(cg2) { cg2->Write("cluster_size2_means_graph"); }
+    if(cg1) { cg1->Write("cluster_size_eta1_means_graph"); }
+    if(cg2) { cg2->Write("cluster_size_eta2_means_graph"); }
 
     // Finally save all the canvases into output file under canvases
     of.cd();
