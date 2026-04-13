@@ -24,7 +24,7 @@ private:
 
 public:
     // Constructor
-    Cluster(Hit* first_hit, EtaSide side = ETA1);
+    Cluster(Hit* first_hit, EtaSide side);
 
     // Core clustering logic
     bool addHit(Hit* hit);

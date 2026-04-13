@@ -1,5 +1,7 @@
 #include "dataAnalyzer.hpp"
 
+#include <TH1F.h>
+
 
 // ==========================================================================================
 // DataAnalyzer class implementation
@@ -15,6 +17,9 @@ DataAnalyzer::DataAnalyzer() {
     current_event_number = 0;
     n_hits = 0;
     BC0 = 0;
+    dt_max = -100;    // Default time window (ticks)
+    dt_min = -180;    // Default time window (ticks)
+    initializeCounters();
 }
 
 DataAnalyzer::~DataAnalyzer() {
@@ -74,9 +79,196 @@ void DataAnalyzer::setupBranches() {
     // Branch definitions for track reconstruction tree
     track_reconstruction_tree->Branch("track_length_eta1", &track_length_eta1);
     track_reconstruction_tree->Branch("track_length_eta2", &track_length_eta2);
+    track_reconstruction_tree->Branch("track_width_eta1", &track_width_eta1);
+    track_reconstruction_tree->Branch("track_width_eta2", &track_width_eta2);
+    track_reconstruction_tree->Branch("track_size_eta1", &track_size_eta1);
+    track_reconstruction_tree->Branch("track_size_eta2", &track_size_eta2);
 }
 
-/// Utility function to clear all event-level vectors before processing the next event
+/// Utility function to initialize efficiency counters and results
+void DataAnalyzer::initializeCounters() {
+    efficiency_counters = {};
+    efficiency_counters_tracks = {};
+    efficiency_results = {};
+    efficiency_results_tracks = {};
+}
+
+/// NEW: Efficiency live calculation based on reconstructed tracks (WIP)
+void DataAnalyzer::updateEfficiencies() {
+    // External trigger only efficiency results
+    if (efficiency_counters.triggered_events_external > 0) {
+        for (int layer = 0; layer < 3; layer++) {
+            efficiency_results.eta1_efficiency_external[layer] = static_cast<double>(efficiency_counters.eta1_efficiency_counter[layer]) / efficiency_counters.triggered_events_external;
+            efficiency_results.eta2_efficiency_external[layer] = static_cast<double>(efficiency_counters.eta2_efficiency_counter[layer]) / efficiency_counters.triggered_events_external;
+            efficiency_results.eta_or_efficiency_external[layer] = static_cast<double>(efficiency_counters.eta_or_efficiency_counter[layer]) / efficiency_counters.triggered_events_external;
+            efficiency_results.eta_and_efficiency_external[layer] = static_cast<double>(efficiency_counters.eta_and_efficiency_counter[layer]) / efficiency_counters.triggered_events_external;
+
+            efficiency_results.eta1_efficiency_external_error[layer] = sqrt(efficiency_results.eta1_efficiency_external[layer] * (1 - efficiency_results.eta1_efficiency_external[layer]) / efficiency_counters.triggered_events_external);
+            efficiency_results.eta2_efficiency_external_error[layer] = sqrt(efficiency_results.eta2_efficiency_external[layer] * (1 - efficiency_results.eta2_efficiency_external[layer]) / efficiency_counters.triggered_events_external);
+            efficiency_results.eta_or_efficiency_external_error[layer] = sqrt(efficiency_results.eta_or_efficiency_external[layer] * (1 - efficiency_results.eta_or_efficiency_external[layer]) / efficiency_counters.triggered_events_external);
+            efficiency_results.eta_and_efficiency_external_error[layer] = sqrt(efficiency_results.eta_and_efficiency_external[layer] * (1 - efficiency_results.eta_and_efficiency_external[layer]) / efficiency_counters.triggered_events_external);
+        }
+    }
+    if (efficiency_counters_tracks.track_triggered_events_external > 0) {
+        for (int layer = 0; layer < 3; layer++) {
+            efficiency_results_tracks.track_eta1_efficiency_external[layer] = static_cast<double>(efficiency_counters_tracks.track_eta1_efficiency_counter[layer]) / efficiency_counters_tracks.track_triggered_events_external;
+            efficiency_results_tracks.track_eta2_efficiency_external[layer] = static_cast<double>(efficiency_counters_tracks.track_eta2_efficiency_counter[layer]) / efficiency_counters_tracks.track_triggered_events_external;
+            efficiency_results_tracks.track_eta_or_efficiency_external[layer] = static_cast<double>(efficiency_counters_tracks.track_eta_or_efficiency_counter[layer]) / efficiency_counters_tracks.track_triggered_events_external;
+            efficiency_results_tracks.track_eta_and_efficiency_external[layer] = static_cast<double>(efficiency_counters_tracks.track_eta_and_efficiency_counter[layer]) / efficiency_counters_tracks.track_triggered_events_external;
+
+            efficiency_results_tracks.track_eta1_efficiency_external_error[layer] = sqrt(efficiency_results_tracks.track_eta1_efficiency_external[layer] * (1 - efficiency_results_tracks.track_eta1_efficiency_external[layer]) / efficiency_counters_tracks.track_triggered_events_external);
+            efficiency_results_tracks.track_eta2_efficiency_external_error[layer] = sqrt(efficiency_results_tracks.track_eta2_efficiency_external[layer] * (1 - efficiency_results_tracks.track_eta2_efficiency_external[layer]) / efficiency_counters_tracks.track_triggered_events_external);
+            efficiency_results_tracks.track_eta_or_efficiency_external_error[layer] = sqrt(efficiency_results_tracks.track_eta_or_efficiency_external[layer] * (1 - efficiency_results_tracks.track_eta_or_efficiency_external[layer]) / efficiency_counters_tracks.track_triggered_events_external);
+            efficiency_results_tracks.track_eta_and_efficiency_external_error[layer] = sqrt(efficiency_results_tracks.track_eta_and_efficiency_external[layer] * (1 - efficiency_results_tracks.track_eta_and_efficiency_external[layer]) / efficiency_counters_tracks.track_triggered_events_external);
+        }
+    }
+    // External trigger + RPC as a trigger efficiency results
+    for (int layer = 0; layer < 3; layer++) {
+        if (efficiency_counters.triggered_events_rpc[layer] > 0) {
+            efficiency_results.eta1_efficiency_rpc[layer] = static_cast<double>(efficiency_counters.eta1_efficiency_counter_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer];
+            efficiency_results.eta2_efficiency_rpc[layer] = static_cast<double>(efficiency_counters.eta2_efficiency_counter_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer];
+            efficiency_results.eta_or_efficiency_rpc[layer] = static_cast<double>(efficiency_counters.eta_or_efficiency_counter_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer];
+            efficiency_results.eta_and_efficiency_rpc[layer] = static_cast<double>(efficiency_counters.eta_and_efficiency_counter_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer];
+
+            efficiency_results.eta1_efficiency_rpc_error[layer] = sqrt(efficiency_results.eta1_efficiency_rpc[layer] * (1 - efficiency_results.eta1_efficiency_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer]);
+            efficiency_results.eta2_efficiency_rpc_error[layer] = sqrt(efficiency_results.eta2_efficiency_rpc[layer] * (1 - efficiency_results.eta2_efficiency_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer]);
+            efficiency_results.eta_or_efficiency_rpc_error[layer] = sqrt(efficiency_results.eta_or_efficiency_rpc[layer] * (1 - efficiency_results.eta_or_efficiency_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer]);
+            efficiency_results.eta_and_efficiency_rpc_error[layer] = sqrt(efficiency_results.eta_and_efficiency_rpc[layer] * (1 - efficiency_results.eta_and_efficiency_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer]);
+        }
+        if (efficiency_counters_tracks.track_triggered_events_rpc[layer] > 0) {
+            efficiency_results_tracks.track_eta1_efficiency_rpc[layer] = static_cast<double>(efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer];
+            efficiency_results_tracks.track_eta2_efficiency_rpc[layer] = static_cast<double>(efficiency_counters_tracks.track_eta2_efficiency_counter_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer];
+            efficiency_results_tracks.track_eta_or_efficiency_rpc[layer] = static_cast<double>(efficiency_counters_tracks.track_eta_or_efficiency_counter_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer];
+            efficiency_results_tracks.track_eta_and_efficiency_rpc[layer] = static_cast<double>(efficiency_counters_tracks.track_eta_and_efficiency_counter_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer];
+
+            efficiency_results_tracks.track_eta1_efficiency_rpc_error[layer] = sqrt(efficiency_results_tracks.track_eta1_efficiency_rpc[layer] * (1 - efficiency_results_tracks.track_eta1_efficiency_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer]);
+            efficiency_results_tracks.track_eta2_efficiency_rpc_error[layer] = sqrt(efficiency_results_tracks.track_eta2_efficiency_rpc[layer] * (1 - efficiency_results_tracks.track_eta2_efficiency_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer]);
+            efficiency_results_tracks.track_eta_or_efficiency_rpc_error[layer] = sqrt(efficiency_results_tracks.track_eta_or_efficiency_rpc[layer] * (1 - efficiency_results_tracks.track_eta_or_efficiency_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer]);
+            efficiency_results_tracks.track_eta_and_efficiency_rpc_error[layer] = sqrt(efficiency_results_tracks.track_eta_and_efficiency_rpc[layer] * (1 - efficiency_results_tracks.track_eta_and_efficiency_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer]);
+        }
+    }
+}
+
+/// Utility function to create efficiency histograms in nested directories
+void DataAnalyzer::createHistograms() {
+    if (!output_file) return;
+
+    // External trigger only efficiency histograms
+    output_file->mkdir("efficiencies_histograms/external_trigger");
+    output_file->cd("efficiencies_histograms/external_trigger");
+
+    for (int layer = 0; layer < 3; layer++) {
+        TH1F* hist_eff_external_trigger = new TH1F(
+            Form("eff_external_trigger_layer%d", layer),
+            Form("Layer %d Efficiency (External Trigger)", layer),
+            4, 0.5, 4.5
+        );
+        hist_eff_external_trigger->GetXaxis()->SetBinLabel(1, "eta1");
+        hist_eff_external_trigger->GetXaxis()->SetBinLabel(2, "eta2");
+        hist_eff_external_trigger->GetXaxis()->SetBinLabel(3, "OR");
+        hist_eff_external_trigger->GetXaxis()->SetBinLabel(4, "AND");
+
+        hist_eff_external_trigger->SetBinContent(1, efficiency_results.eta1_efficiency_external[layer]);
+        hist_eff_external_trigger->SetBinError(1, efficiency_results.eta1_efficiency_external_error[layer]);
+        hist_eff_external_trigger->SetBinContent(2, efficiency_results.eta2_efficiency_external[layer]);
+        hist_eff_external_trigger->SetBinError(2, efficiency_results.eta2_efficiency_external_error[layer]);
+        hist_eff_external_trigger->SetBinContent(3, efficiency_results.eta_or_efficiency_external[layer]);
+        hist_eff_external_trigger->SetBinError(3, efficiency_results.eta_or_efficiency_external_error[layer]);
+        hist_eff_external_trigger->SetBinContent(4, efficiency_results.eta_and_efficiency_external[layer]);
+        hist_eff_external_trigger->SetBinError(4, efficiency_results.eta_and_efficiency_external_error[layer]);
+
+        hist_eff_external_trigger->Write();
+    }
+
+    // External trigger + RPC as trigger efficiency histograms
+    output_file->cd();
+    output_file->mkdir("efficiencies_histograms/external_plus_rpc_trigger");
+    output_file->cd("efficiencies_histograms/external_plus_rpc_trigger");
+    
+    for (int layer = 0; layer < 3; layer++) {
+        TH1F* hist_eff_rpc_trigger = new TH1F(
+            Form("eff_rpc_layer%d", layer),
+            Form("Layer %d Efficiency (External and RPC Trigger)", layer),
+            4, 0.5, 4.5
+        );
+        hist_eff_rpc_trigger->GetXaxis()->SetBinLabel(1, "eta1");
+        hist_eff_rpc_trigger->GetXaxis()->SetBinLabel(2, "eta2");
+        hist_eff_rpc_trigger->GetXaxis()->SetBinLabel(3, "OR");
+        hist_eff_rpc_trigger->GetXaxis()->SetBinLabel(4, "AND");
+
+        hist_eff_rpc_trigger->SetBinContent(1, efficiency_results.eta1_efficiency_rpc[layer]);
+        hist_eff_rpc_trigger->SetBinError(1, efficiency_results.eta1_efficiency_rpc_error[layer]);
+        hist_eff_rpc_trigger->SetBinContent(2, efficiency_results.eta2_efficiency_rpc[layer]);
+        hist_eff_rpc_trigger->SetBinError(2, efficiency_results.eta2_efficiency_rpc_error[layer]);
+        hist_eff_rpc_trigger->SetBinContent(3, efficiency_results.eta_or_efficiency_rpc[layer]);
+        hist_eff_rpc_trigger->SetBinError(3, efficiency_results.eta_or_efficiency_rpc_error[layer]);
+        hist_eff_rpc_trigger->SetBinContent(4, efficiency_results.eta_and_efficiency_rpc[layer]);
+        hist_eff_rpc_trigger->SetBinError(4, efficiency_results.eta_and_efficiency_rpc_error[layer]);
+
+        hist_eff_rpc_trigger->Write();
+    }
+
+    // Track-based external trigger efficiency histograms
+    output_file->cd();
+    output_file->mkdir("efficiencies_histograms/track_external_trigger");
+    output_file->cd("efficiencies_histograms/track_external_trigger");
+
+    for (int layer = 0; layer < 3; layer++) {
+        TH1F* hist_track_eff_external_trigger = new TH1F(
+            Form("track_eff_external_trigger_layer%d", layer),
+            Form("Layer %d Efficiency (Track and External Trigger)", layer),
+            4, 0.5, 4.5
+        );
+        hist_track_eff_external_trigger->GetXaxis()->SetBinLabel(1, "eta1");
+        hist_track_eff_external_trigger->GetXaxis()->SetBinLabel(2, "eta2");
+        hist_track_eff_external_trigger->GetXaxis()->SetBinLabel(3, "OR");
+        hist_track_eff_external_trigger->GetXaxis()->SetBinLabel(4, "AND");
+
+        hist_track_eff_external_trigger->SetBinContent(1, efficiency_results_tracks.track_eta1_efficiency_external[layer]);
+        hist_track_eff_external_trigger->SetBinError(1, efficiency_results_tracks.track_eta1_efficiency_external_error[layer]);
+        hist_track_eff_external_trigger->SetBinContent(2, efficiency_results_tracks.track_eta2_efficiency_external[layer]);
+        hist_track_eff_external_trigger->SetBinError(2, efficiency_results_tracks.track_eta2_efficiency_external_error[layer]);
+        hist_track_eff_external_trigger->SetBinContent(3, efficiency_results_tracks.track_eta_or_efficiency_external[layer]);
+        hist_track_eff_external_trigger->SetBinError(3, efficiency_results_tracks.track_eta_or_efficiency_external_error[layer]);
+        hist_track_eff_external_trigger->SetBinContent(4, efficiency_results_tracks.track_eta_and_efficiency_external[layer]);
+        hist_track_eff_external_trigger->SetBinError(4, efficiency_results_tracks.track_eta_and_efficiency_external_error[layer]);
+
+        hist_track_eff_external_trigger->Write();
+    }
+
+    // Track-based external trigger + RPC as trigger efficiency histograms
+    output_file->cd();
+    output_file->mkdir("efficiencies_histograms/track_external_plus_rpc_trigger");
+    output_file->cd("efficiencies_histograms/track_external_plus_rpc_trigger");
+
+    for (int layer = 0; layer < 3; layer++) {
+        TH1F* hist_track_eff_rpc_trigger = new TH1F(
+            Form("track_eff_rpc_layer%d", layer),
+            Form("Layer %d Efficiency (Track and RPC Trigger)", layer),
+            4, 0.5, 4.5
+        );
+        hist_track_eff_rpc_trigger->GetXaxis()->SetBinLabel(1, "eta1");
+        hist_track_eff_rpc_trigger->GetXaxis()->SetBinLabel(2, "eta2");
+        hist_track_eff_rpc_trigger->GetXaxis()->SetBinLabel(3, "OR");
+        hist_track_eff_rpc_trigger->GetXaxis()->SetBinLabel(4, "AND");
+
+        hist_track_eff_rpc_trigger->SetBinContent(1, efficiency_results_tracks.track_eta1_efficiency_rpc[layer]);
+        hist_track_eff_rpc_trigger->SetBinError(1, efficiency_results_tracks.track_eta1_efficiency_rpc_error[layer]);
+        hist_track_eff_rpc_trigger->SetBinContent(2, efficiency_results_tracks.track_eta2_efficiency_rpc[layer]);
+        hist_track_eff_rpc_trigger->SetBinError(2, efficiency_results_tracks.track_eta2_efficiency_rpc_error[layer]);
+        hist_track_eff_rpc_trigger->SetBinContent(3, efficiency_results_tracks.track_eta_or_efficiency_rpc[layer]);
+        hist_track_eff_rpc_trigger->SetBinError(3, efficiency_results_tracks.track_eta_or_efficiency_rpc_error[layer]);
+        hist_track_eff_rpc_trigger->SetBinContent(4, efficiency_results_tracks.track_eta_and_efficiency_rpc[layer]);
+        hist_track_eff_rpc_trigger->SetBinError(4, efficiency_results_tracks.track_eta_and_efficiency_rpc_error[layer]);
+
+        hist_track_eff_rpc_trigger->Write();
+    }
+
+    // Return to root directory
+    output_file->cd();
+}
+
+
 void DataAnalyzer::clearEventVectors() {
     hit_clk.clear();
     hit_channel.clear();
@@ -106,6 +298,10 @@ void DataAnalyzer::clearEventVectors() {
 
     track_length_eta1.clear();
     track_length_eta2.clear();
+    track_width_eta1.clear();
+    track_width_eta2.clear();
+    track_size_eta1.clear();
+    track_size_eta2.clear();
 }
 
 /// Utility function to push raw hit data into the corresponding vectors for tree filling
@@ -149,7 +345,7 @@ void DataAnalyzer::pushBackProcessedData(const Event& event) {
     }
 }
 
-/// TODO: Utility function to push cluster-level data into the corresponding vectors for tree filling
+/// Utility functions to push cluster-level data into the corresponding vectors for tree filling
 void DataAnalyzer::pushBackClusterDataEta1(const Cluster& cluster) {
     cluster_size_eta1.push_back(cluster.getSize()); // Total cluster size
     if (cluster.getTot1() > 0) cluster_tot1.push_back(cluster.getTot1());
@@ -160,14 +356,25 @@ void DataAnalyzer::pushBackClusterDataEta2(const Cluster& cluster) {
     if (cluster.getTot2() > 0) cluster_tot2.push_back(cluster.getTot2());
 }
 
-/// TODO: Utility function to push track-level data into the corresponding vectors for tree filling
-void DataAnalyzer::pushBackTrackData(const Track& track) {
+/// Utility functions to push track-level data into the corresponding vectors for tree filling
+void DataAnalyzer::pushBackTrackDataEta1(const Track& track) {
     track_length_eta1.push_back(track.getLayerCount(0)); // Eta1 layer count
+    track_width_eta1.push_back(track.getWidth(0));       // Eta1 width
+    track_size_eta1.push_back(track.getSize(0));         // Eta1 size
+}
+
+void DataAnalyzer::pushBackTrackDataEta2(const Track& track) {
     track_length_eta2.push_back(track.getLayerCount(1)); // Eta2 layer count
+    track_width_eta2.push_back(track.getWidth(1));       // Eta2 width
+    track_size_eta2.push_back(track.getSize(1));         // Eta2 size
 }
 
 /// Main entry point for processing input data from file or directory
-void DataAnalyzer::processInputData(const std::string& input_path) {
+void DataAnalyzer::processInputData(const std::string& input_path, const int dt_max_arg, const int dt_min_arg) {
+    // Store time window parameters for use throughout processing
+    dt_max = dt_max_arg;
+    dt_min = dt_min_arg;
+    
     namespace fs = std::filesystem;
 
     if (!fs::exists(input_path)) {
@@ -192,11 +399,6 @@ void DataAnalyzer::processInputData(const std::string& input_path) {
     } else {
         std::cerr << "ERROR: Input path is neither a file nor a directory!" << std::endl;
     }
-
-    // Process any remaining event at the end of input
-    if (current_event_hits.size() > 0) {
-        processEvent();
-    }
 }
 
 /// Process a single file by reading lines and extracting word data
@@ -209,10 +411,31 @@ void DataAnalyzer::processFile(const std::string& file_path) {
 
     int clk, word, raw_bcout;
 
-    // Read words from file: "clk word raw_bcout" format (all in hexadecimal or as they appear
+    // Initialize efficiency counters and struct once before processing all words in this file
+    // Use member variables so they persist after processing
+    efficiency_counters = {};
+    efficiency_counters_tracks = {};
+
+    // Read words from file: "clk word raw_bcout" format (all in hexadecimal or as they appear)
     while (infile >> std::dec >> clk >> std::hex >> word >> raw_bcout) {
-        processSingleWord(clk, word, raw_bcout);
+        processSingleWord(clk, word, raw_bcout, efficiency_counters, efficiency_counters_tracks);
     }
+
+    // Process any remaining event at the end of file (rare, but handles incomplete final events)
+    if (current_event_hits.size() > 0) {
+        processEvent(efficiency_counters, efficiency_counters_tracks);
+        current_event_number++;
+        current_event_hits.clear();
+        clearEventVectors();
+    }
+
+    // Update efficiencies from counters before writing histograms
+    updateEfficiencies();
+    
+    // Create and write efficiency histograms to output file
+    createHistograms();
+
+    // TODO: Write counters to output or print statistics
 
     infile.close();
 }
@@ -233,7 +456,7 @@ int DataAnalyzer::extractRawBCID(int word) {
 
 /// Process a single word and accumulate into events
 /// When CLK reaches 127 (end of BC frame), process the accumulated event
-void DataAnalyzer::processSingleWord(int clk, int word, int raw_bcout) {
+void DataAnalyzer::processSingleWord(int clk, int word, int raw_bcout, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks) {
     // Only process not empty words
     if (word != EMPTY_WORD) {
         // Calculate BC0 if this is the first hit of an event
@@ -253,7 +476,7 @@ void DataAnalyzer::processSingleWord(int clk, int word, int raw_bcout) {
 
     // Check for end of event and process it
     if (clk == 127 && current_event_hits.size() > 0) {
-        processEvent();
+        processEvent(counters, counters_tracks);
         current_event_number++;
         current_event_hits.clear();
 
@@ -263,7 +486,7 @@ void DataAnalyzer::processSingleWord(int clk, int word, int raw_bcout) {
 }
 
 /// Process a complete event that has been accumulated
-void DataAnalyzer::processEvent() {
+void DataAnalyzer::processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks) {
     n_hits = current_event_hits.size();
     std::cout << "\n" << std::endl;
     std::cout << "╔═════════════════════════════════════════════════════════════════╗" << std::endl;
@@ -274,8 +497,8 @@ void DataAnalyzer::processEvent() {
         input_data_tree->Fill();
     }
 
-    // Create an Event object and transfer hits using move semantics
-    Event event(current_event_number, std::move(current_event_hits));
+    // Create an Event object and transfer hits using move semantics, passing the counters reference
+    Event event(current_event_number, std::move(current_event_hits), counters, counters_tracks);
 
     // Extract trigger information from the event
     event.extractTriggerTime();
@@ -310,13 +533,25 @@ void DataAnalyzer::processEvent() {
         clusterization_tree->Fill();
     }
 
-    /// WIP: Track reconstruction
+    // Track reconstruction
     event.reconstructTracks();
 
-    /// TODO: Implement track reconstruction, efficiency calculation
-    /// UPDATE: Implement push backs for processed data vectors using the new pushBackProcessedData method
-    // - Call current_event->reconstructTracks()
-    // - Call current_event->calculateEfficiency()
-    // - Call current_event->calculateTOTCluster() for each cluster
-    // - Fill processed_data_tree, clusterization_tree, track_reconstruction_tree
+    // Push back track-level data for both eta1 and eta2 sides
+    for (const auto& track : event.getTracksEta1()) {
+        pushBackTrackDataEta1(track);
+    }
+    for (const auto& track : event.getTracksEta2()) {
+        pushBackTrackDataEta2(track);
+    }
+
+    // Reset and update efficiency flags for each new event
+    event.updateEfficiencyFlags(dt_max, dt_min);
+
+    // Update efficiency counters based on reconstructed tracks
+    event.updateEfficiencyCounters();
+
+    // Fill the track reconstruction tree (write if either eta1 or eta2 has tracks)
+    if (track_reconstruction_tree && (track_length_eta1.size() > 0 && track_length_eta2.size() > 0)) {
+        track_reconstruction_tree->Fill();
+    }
 }

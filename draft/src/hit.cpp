@@ -28,7 +28,8 @@ Hit::Hit(int clk, int word, int bcout, int BC0)
     hit_id = -1;
     cluster_id_eta1 = -1;
     cluster_id_eta2 = -1;
-    track_id = -1;
+    track_id_eta1 = -1;
+    track_id_eta2 = -1;
 }
 
 /// Utility function for extracting information from the raw DCT word

@@ -4,11 +4,26 @@
 // ============================================================
 // Event class implementation
 // ============================================================
-/// Constructor with move semantics for hits vector
-Event::Event(int event_number, std::vector<Hit>&& hits_in) 
-    : event_number(event_number), hits(std::move(hits_in)) {
+/// Constructor without hits
+Event::Event(int event_number, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks)
+    : event_number(event_number), efficiency_counters(counters), efficiency_counters_tracks(counters_tracks) {
     trigger_time = -1;      // Initialize trigger time to invalid
     trigger_channel = 143;  // Initialize trigger channel
+}
+
+/// Constructor with move semantics for hits vector
+Event::Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks) 
+    : event_number(event_number), hits(std::move(hits_in)), efficiency_counters(counters), efficiency_counters_tracks(counters_tracks) {
+    trigger_time = -1;      // Initialize trigger time to invalid
+    trigger_channel = 143;  // Initialize trigger channel
+
+    // Reset efficiency flags for each new event
+    for (int i = 0; i < 3; i++) {
+        efficiency_flags.eta1_layer[i] = false;
+        efficiency_flags.eta2_layer[i] = false;
+        efficiency_flags.eta1_layer_track[i] = false;
+        efficiency_flags.eta2_layer_track[i] = false;
+    }
 }
 
 /// Destructor for the event class
@@ -97,8 +112,11 @@ void Event::clusterize() {
             // Skip hits from another layer
             if (potential_partner.getLayer() != hit.getLayer()) continue;
 
-            // Skip hits without valid time information or already in a cluster
-            if (potential_partner.getTimeEta1() == -1 || potential_partner.inClusterEta1()) continue;
+            // Skip hits that are already in a cluster
+            if (potential_partner.inClusterEta1()) continue;
+
+            // Skip hits without valid time information
+            if (potential_partner.getTimeEta1() == -1) continue;
 
             // Check logic for cluster membership (time window and strip adjacency)
             if (cluster.addHit(&potential_partner)) potential_partner.setClusterIDEta1(cluster_id_counter_eta1);
@@ -133,7 +151,9 @@ void Event::clusterize() {
 
             if (potential_partner.getLayer() != hit.getLayer()) continue;
 
-            if (potential_partner.getTimeEta2() == -1 || potential_partner.inClusterEta2()) continue;
+            if (potential_partner.inClusterEta2()) continue;
+
+            if (potential_partner.getTimeEta2() == -1) continue;
 
             if (cluster.addHit(&potential_partner)) potential_partner.setClusterIDEta2(cluster_id_counter_eta2);
         }
@@ -202,6 +222,201 @@ void Event::calculateTOTCluster() {
 
 /// Track reconstruction from clusters (WIP)
 void Event::reconstructTracks() {
-    // TODO: Implement track reconstruction from clusters
-    // For now, this is a placeholder to allow compilation
+    // Side η1 track reconstruction logic
+    int track_id_counter_eta1 = 0;
+
+    // Loop over η1 cluster centers and form tracks based on time and strip alignment across layers
+    for (Cluster& cluster : clusters_eta1) {
+        // Initialize a new track object if the cluster center is not already in a track
+        // NOTE: Here we no longer need checks for rising edge, non-trigger channel and valid
+        // time information as these are already ensured for cluster centers at the cluster level
+        if (cluster.getCenterHit()->inTrackEta1()) continue;
+        std::cout << "------------------------------------------------------------------" << std::endl;
+        std::cout << "Processing track reconstruction for side η1: Cluster center hit: " << cluster.getCenterHit()->getIdx() << "; Layer " << cluster.getCenterHit()->getLayer() << "; Strip: " << cluster.getCenterHit()->getStrip() << "; Time " << cluster.getCenterHit()->getTimeEta1() << std::endl;
+        Track track(track_id_counter_eta1, cluster.getCenterHit(), Track::ETA1);
+        cluster.getCenterHit()->setTrackIDEta1(track_id_counter_eta1);
+
+        // Loop over the remaining cluster centers to find track partners for the current cluster center
+        for (Cluster& potential_partner_cluster : clusters_eta1) {
+            // Skip the same cluster
+            if (&potential_partner_cluster == &cluster) continue;
+
+            // Skip cluster centers from the same layer
+            if (potential_partner_cluster.getCenterHit()->getLayer() == cluster.getCenterHit()->getLayer()) continue;
+
+            // Skip cluster centers that are already in a track
+            if (potential_partner_cluster.getCenterHit()->inTrackEta1()) continue;
+
+            // Check logic for track membership (strip window and time alignment)
+            if (track.addHit(potential_partner_cluster.getCenterHit())) potential_partner_cluster.getCenterHit()->setTrackIDEta1(track_id_counter_eta1);
+        }
+
+        // If no more track partners are found for the current cluster center, store track information and increment track ID counter for the next track
+        tracks_eta1.push_back(track);
+        track_id_counter_eta1++;
+
+        // DEBUG: Print out parameters of the hits belonging to the track for the current cluster center
+        std::cout << "******************************************************************" << std::endl;
+        std::cout << "Resulting track: " << std::endl;
+        for (Hit* track_hit : track.getHits()) {
+            std::cout << track_hit->getIdx() << ": layer = " << track_hit->getLayer() << ", strip = " << track_hit->getStrip() << ", time = " << track_hit->getTimeEta1() << std::endl;
+            if (track.getLayerCount(0) == 0) std::exit(1); // Sanity check to ensure layer count is correctly calculated for eta1 tracks
+        }
+        std::cout << "\n";
+    }
+
+    // Side η2 track reconstruction logic (same logic as for η1)
+    int track_id_counter_eta2 = 0;
+    for (Cluster& cluster : clusters_eta2) {
+        if (cluster.getCenterHit()->inTrackEta2()) continue;
+        std::cout << "------------------------------------------------------------------" << std::endl;
+        std::cout << "Processing track reconstruction for side η2: Cluster center hit: " << cluster.getCenterHit()->getIdx() << "; Layer " << cluster.getCenterHit()->getLayer() << "; Strip: " << cluster.getCenterHit()->getStrip() << "; Time " << cluster.getCenterHit()->getTimeEta2() << std::endl;
+        Track track(track_id_counter_eta2, cluster.getCenterHit(), Track::ETA2);
+        cluster.getCenterHit()->setTrackIDEta2(track_id_counter_eta2);
+
+        for (Cluster& potential_partner_cluster : clusters_eta2) {
+            if (&potential_partner_cluster == &cluster) continue;
+
+            if (potential_partner_cluster.getCenterHit()->getLayer() == cluster.getCenterHit()->getLayer()) continue;
+
+            if (potential_partner_cluster.getCenterHit()->inTrackEta2()) continue;
+
+            if (track.addHit(potential_partner_cluster.getCenterHit())) potential_partner_cluster.getCenterHit()->setTrackIDEta2(track_id_counter_eta2);
+        }
+        tracks_eta2.push_back(track);
+        track_id_counter_eta2++;
+
+        std::cout << "******************************************************************" << std::endl;
+        std::cout << "Resulting track: " << std::endl;
+        for (Hit* track_hit : track.getHits()) {
+            std::cout << track_hit->getIdx() << ": layer = " << track_hit->getLayer() << ", strip = " << track_hit->getStrip() << ", time = " << track_hit->getTimeEta2() << std::endl;
+        }
+        std::cout << "\n";
+    }
+}
+
+/// NEW: Utility function to update efficiency flags
+void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
+
+    // Iterate over hits to set efficiency flags
+    for (Hit& hit : hits) {
+
+        // Side η1 efficiency flag updates
+        if (hit.hasEta1Time() && hit.getChannel() != trigger_channel && hit.getRise() == 1) {
+
+            // Check if the hit is within the time window for efficiency consideration
+            if (hit.getTimeEta1() - trigger_time > dt_min && hit.getTimeEta1() - trigger_time < dt_max) {
+                efficiency_flags.eta1_layer[hit.getLayer()] = true;
+            } else {
+                continue; // Skip hits that are outside the time window for efficiency consideration
+            }
+
+            // Additionally check if the hit is part of a valid track on the η1 side to set the track efficiency flag for the layer
+            int track_id = hit.getTrackIDEta1();
+            auto it = std::find_if(tracks_eta1.begin(), tracks_eta1.end(), [track_id](const Track& track) {
+                return track.getId() == track_id;
+            });
+
+            if (it != tracks_eta1.end() && it->isValidTrack()) {
+                efficiency_flags.eta1_layer_track[hit.getLayer()] = true;
+            }
+        }
+
+        // Side η2 efficiency flag updates (same logic as for η1)
+        if (hit.hasEta2Time() && hit.getChannel() != trigger_channel && hit.getRise() == 1) {
+            if (hit.getTimeEta2() - trigger_time > dt_min && hit.getTimeEta2() - trigger_time < dt_max) {
+                efficiency_flags.eta2_layer[hit.getLayer()] = true;
+            }
+
+            int track_id = hit.getTrackIDEta2();
+            auto it = std::find_if(tracks_eta2.begin(), tracks_eta2.end(), [track_id](const Track& track) {
+                return track.getId() == track_id;
+            });
+
+            if (it != tracks_eta2.end() && it->isValidTrack()) {
+                efficiency_flags.eta2_layer_track[hit.getLayer()] = true;
+            }
+        }
+    }
+}
+
+/// NEW: Utility function to update efficiency counters based on the efficiency flags set for the event
+void Event::updateEfficiencyCounters() {
+
+    // Skip events with no valid trigger time information
+    if (trigger_time == -1) return;
+
+    // External trigger efficiency counter update
+    efficiency_counters.triggered_events_external++;
+    efficiency_counters_tracks.track_triggered_events_external++;
+    for (int layer = 0; layer < 3; layer++) {
+        if (efficiency_flags.eta1_layer[layer]) efficiency_counters.eta1_efficiency_counter[layer]++;
+        if (efficiency_flags.eta2_layer[layer]) efficiency_counters.eta2_efficiency_counter[layer]++;
+        if (efficiency_flags.eta1_layer[layer] || efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_or_efficiency_counter[layer]++;
+        if (efficiency_flags.eta1_layer[layer] && efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_and_efficiency_counter[layer]++;
+
+        if (efficiency_flags.eta1_layer_track[layer]) efficiency_counters_tracks.track_eta1_efficiency_counter[layer]++;
+        if (efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta2_efficiency_counter[layer]++;
+        if (efficiency_flags.eta1_layer_track[layer] || efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_or_efficiency_counter[layer]++;
+        if (efficiency_flags.eta1_layer_track[layer] && efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_and_efficiency_counter[layer]++;
+    }
+
+    // External trigger + RPC as a trigger efficiency counting
+    // L0
+    if (efficiency_flags.eta1_layer[1] && efficiency_flags.eta1_layer[2] || efficiency_flags.eta2_layer[1] && efficiency_flags.eta2_layer[2]) {
+        efficiency_counters.triggered_events_rpc[0]++;
+        for (int layer = 0; layer < 3; layer++) {
+            if (efficiency_flags.eta1_layer[layer]) efficiency_counters.eta1_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta2_layer[layer]) efficiency_counters.eta2_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta1_layer[layer] || efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_or_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta1_layer[layer] && efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_and_efficiency_counter_rpc[layer]++;
+        }
+    }
+    if (efficiency_flags.eta1_layer_track[1] && efficiency_flags.eta1_layer_track[2] || efficiency_flags.eta2_layer_track[1] && efficiency_flags.eta2_layer_track[2]) {
+        efficiency_counters_tracks.track_triggered_events_rpc[0]++;
+        for (int layer = 0; layer < 3; layer++) {
+            if (efficiency_flags.eta1_layer_track[layer]) efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta2_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta1_layer_track[layer] || efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_or_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta1_layer_track[layer] && efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_and_efficiency_counter_rpc[layer]++;
+        }
+    }
+    // L1
+    if (efficiency_flags.eta1_layer[0] && efficiency_flags.eta1_layer[2] || efficiency_flags.eta2_layer[0] && efficiency_flags.eta2_layer[2]) {
+        efficiency_counters.triggered_events_rpc[1]++;
+        for (int layer = 0; layer < 3; layer++) {
+            if (efficiency_flags.eta1_layer[layer]) efficiency_counters.eta1_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta2_layer[layer]) efficiency_counters.eta2_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta1_layer[layer] || efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_or_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta1_layer[layer] && efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_and_efficiency_counter_rpc[layer]++;
+        }
+    }
+    if (efficiency_flags.eta1_layer_track[0] && efficiency_flags.eta1_layer_track[2] || efficiency_flags.eta2_layer_track[0] && efficiency_flags.eta2_layer_track[2]) {
+        efficiency_counters_tracks.track_triggered_events_rpc[1]++;
+        for (int layer = 0; layer < 3; layer++) {
+            if (efficiency_flags.eta1_layer_track[layer]) efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta2_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta1_layer_track[layer] || efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_or_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta1_layer_track[layer] && efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_and_efficiency_counter_rpc[layer]++;
+        }
+    }
+    // L2
+    if (efficiency_flags.eta1_layer[0] && efficiency_flags.eta1_layer[1] || efficiency_flags.eta2_layer[0] && efficiency_flags.eta2_layer[1]) {
+        efficiency_counters.triggered_events_rpc[2]++;
+        for (int layer = 0; layer < 3; layer++) {
+            if (efficiency_flags.eta1_layer[layer]) efficiency_counters.eta1_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta2_layer[layer]) efficiency_counters.eta2_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta1_layer[layer] || efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_or_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta1_layer[layer] && efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_and_efficiency_counter_rpc[layer]++;
+        }
+    }
+    if (efficiency_flags.eta1_layer_track[0] && efficiency_flags.eta1_layer_track[1] || efficiency_flags.eta2_layer_track[0] && efficiency_flags.eta2_layer_track[1]) {
+        efficiency_counters_tracks.track_triggered_events_rpc[2]++;
+        for (int layer = 0; layer < 3; layer++) {
+            if (efficiency_flags.eta1_layer_track[layer]) efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta2_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta1_layer_track[layer] || efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_or_efficiency_counter_rpc[layer]++;
+            if (efficiency_flags.eta1_layer_track[layer] && efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_and_efficiency_counter_rpc[layer]++;
+        }
+    }
 }

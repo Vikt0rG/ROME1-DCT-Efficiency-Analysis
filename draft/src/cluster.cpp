@@ -5,7 +5,8 @@
 // Cluster class implementation
 // ============================================================
 /// Constructor that initializes the cluster with the first hit
-Cluster::Cluster(Hit* first_hit, EtaSide side) : cluster_id(0), center_hit_index(0), tot1(-1), tot2(-1), eta_side(side) {
+Cluster::Cluster(Hit* first_hit, EtaSide side)
+    : cluster_id(0), center_hit_index(0), tot1(-1), tot2(-1), eta_side(side) {
     cluster_hits.push_back(first_hit);
 }
 

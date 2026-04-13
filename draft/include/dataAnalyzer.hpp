@@ -25,6 +25,9 @@ private:
     TTree* clusterization_tree;
     TTree* track_reconstruction_tree;
     EfficiencyCounters efficiency_counters;
+    EfficiencyCountersTracks efficiency_counters_tracks;
+    EfficiencyResults efficiency_results;
+    EfficiencyResultsTracks efficiency_results_tracks;
     
     // Raw data vectors
     std::vector<int> hit_clk, hit_channel, hit_raw_bcid, hit_bcid;
@@ -38,7 +41,7 @@ private:
     
     // Cluster and track vectors
     std::vector<int> cluster_size_eta1, cluster_size_eta2, cluster_tot1, cluster_tot2;
-    std::vector<int> track_length_eta1, track_length_eta2;
+    std::vector<int> track_length_eta1, track_length_eta2, track_width_eta1, track_width_eta2, track_size_eta1, track_size_eta2;
 
     // Event state management
     Event* current_event;
@@ -46,6 +49,10 @@ private:
     int n_hits;
     std::vector<Hit> current_event_hits;
     int BC0;  // BC0 reference for current event
+    
+    // Time window parameters for efficiency calculation
+    int dt_max;
+    int dt_min;
     
     // Constants
     static constexpr int EMPTY_WORD = 0x5555555;  // Pattern indicating empty/skipped word
@@ -90,19 +97,20 @@ public:
     std::vector<int>& getTrackLengthEta2() { return track_length_eta2; }
     
     // Processing
-    void processInputData(const std::string& input_path);
+    void processInputData(const std::string& input_path, const int dt_max, const int dt_min);
     void processFile(const std::string& file_path);
-    void processSingleWord(int clk, int word, int raw_bcout);
+    void processSingleWord(int clk, int word, int raw_bcout, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
     int extractRawBCID(int word);
     void pushBackHitData(const Hit& hit);
     void pushBackProcessedData(const Event& event);
     void pushBackClusterDataEta1(const Cluster& cluster);
     void pushBackClusterDataEta2(const Cluster& cluster);
-    void pushBackTrackData(const Track& track);
-    void processEvent();
+    void pushBackTrackDataEta1(const Track& track);
+    void pushBackTrackDataEta2(const Track& track);
+    void processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
     
     // Analysis
-    void calculateEfficiencies();
+    void updateEfficiencies();
     void createHistograms();
     
     // Cleanup
