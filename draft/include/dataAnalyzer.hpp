@@ -6,16 +6,18 @@
 
 #include <TFile.h>
 #include <TTree.h>
+#include <TH1F.h>
 
 #include "types.hpp"
 #include "hit.hpp"
 #include "event.hpp"
 #include "cluster.hpp"
 #include "track.hpp"
+#include "constants.hpp"
 
 
 // ============================================================
-// DataAnalysis Class: Main analysis section: WIP
+// DataAnalysis Class: Main analysis section
 // ============================================================
 class DataAnalyzer {
 private:
@@ -53,9 +55,7 @@ private:
     // Time window parameters for efficiency calculation
     int dt_max;
     int dt_min;
-    
-    // Constants
-    static constexpr int EMPTY_WORD = 0x5555555;  // Pattern indicating empty/skipped word
+
 
 public:
     DataAnalyzer();
@@ -115,5 +115,4 @@ public:
     
     // Cleanup
     void clearEventVectors();
-    void writeAndClose();
 };

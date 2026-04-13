@@ -1,7 +1,5 @@
 #include "dataAnalyzer.hpp"
 
-#include <TH1F.h>
-
 
 // ==========================================================================================
 // DataAnalyzer class implementation
@@ -17,8 +15,8 @@ DataAnalyzer::DataAnalyzer() {
     current_event_number = 0;
     n_hits = 0;
     BC0 = 0;
-    dt_max = -100;    // Default time window (ticks)
-    dt_min = -180;    // Default time window (ticks)
+    dt_max = -100;    // Default time window (ticks) - see constants.hpp
+    dt_min = -180;    // Default time window (ticks) - see constants.hpp
     initializeCounters();
 }
 
@@ -93,7 +91,7 @@ void DataAnalyzer::initializeCounters() {
     efficiency_results_tracks = {};
 }
 
-/// NEW: Efficiency live calculation based on reconstructed tracks (WIP)
+/// Efficiency live calculation based on reconstructed tracks
 void DataAnalyzer::updateEfficiencies() {
     // External trigger only efficiency results
     if (efficiency_counters.triggered_events_external > 0) {
@@ -434,8 +432,6 @@ void DataAnalyzer::processFile(const std::string& file_path) {
     
     // Create and write efficiency histograms to output file
     createHistograms();
-
-    // TODO: Write counters to output or print statistics
 
     infile.close();
 }

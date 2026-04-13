@@ -3,6 +3,7 @@
 #include <iostream>
 #include "types.hpp"
 #include "hit.hpp"
+#include "constants.hpp"
 
 
 // ============================================================
@@ -18,9 +19,6 @@ private:
     int center_hit_index;                 // Index of first-in-time hit (cluster center)
     int tot1, tot2;                       // Time-over-threshold for both sides
     EtaSide eta_side;                     // Track which eta side this cluster belongs to (ETA1 or ETA2)
-
-    static constexpr int TIME_WINDOW_TICKS = 18;  // 15 ns clustering time window
-    static constexpr int MAX_STRIP_DISTANCE = 1;  // Only consecutive strips
 
 public:
     // Constructor

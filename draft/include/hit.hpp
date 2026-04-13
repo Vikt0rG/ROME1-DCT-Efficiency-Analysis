@@ -17,7 +17,7 @@ private:
     int time_eta1, time_eta2;     // Converted times
     int tot1, tot2;               // Time-over-threshold
 
-    // IDs (WIP: Decide if neeeded at all)
+    // IDs
     int hit_id;                   // Unique identifier for this hit
     int cluster_id_eta1;          // ID of cluster this hit belongs to (if any)
     int cluster_id_eta2;
