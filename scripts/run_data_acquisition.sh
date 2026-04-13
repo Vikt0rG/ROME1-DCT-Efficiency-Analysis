@@ -35,12 +35,11 @@ fi
 # Define variables & paths
 scriptDir="$(cd "$(dirname "$0")" && pwd)"
 rootDir="$(cd "$scriptDir/.." && pwd)"
-rootMacrosDir="$rootDir/root_macros"
+rootMacrosDir="$scriptDir/root_macros"
 
-outputDir="$rootDir/data/output"
-rawOutputDir="$outputDir/DCT_raw_files"
-rootfileDir="$outputDir/DCT_root_files"
-plotfileDir="$outputDir/DCT_plots"
+dataDir="$rootDir/data"                # Base data directory
+inputDir="$dataDir/input"              # Used for storing raw DCT tmp.strip files that are later used in C++ analysis code (hence why it's called input)
+outputDir="$dataDir/output"            # This is where all the ROOT files and plots will be stored, organized by timestamp
 
 nEvents="$1"
 comment="$2"
@@ -83,53 +82,45 @@ done
 sed -i "1s|.*|set nEvents ${nEvents}|" "$scriptDir/$tcl_script"
 sed -i "2s|.*|set timestr ${timestamp}|" "$scriptDir/$tcl_script"
 sed -i "3s|.*|set firmwareDir ${firmwareDir}|" "$scriptDir/$tcl_script"
-sed -i "4s|.*|set outputDir ${outputDir}|" "$scriptDir/$tcl_script"
+sed -i "4s|.*|set inputDir ${inputDir}|" "$scriptDir/$tcl_script"
 
-# Create output directories if they don't exist
+# Create output directories for raw and root files if they don't exist
+if [ ! -d "$inputDir" ]; then
+   mkdir -p "$inputDir"
+fi
+
 if [ ! -d "$outputDir" ]; then
    mkdir -p "$outputDir"
 fi
 
-if [ ! -d "$rawOutputDir" ]; then
-   mkdir -p "$rawOutputDir"
-fi
-
-if [ ! -d "$rootfileDir" ]; then
-   mkdir -p "$rootfileDir"
-fi
-
-if [ ! -d "$plotfileDir" ]; then
-   mkdir -p "$plotfileDir"
-fi
-
-mkdir -p "$outputDir/$timestamp"
+mkdir -p "$inputDir/$timestamp"
 
 # Run Vivado data acquisition script
 echo "Start acquisition of $nEvents events..."
 vivado $vivado_mode -source "$scriptDir/$tcl_script"
 
 # Process acquired data
-cd "$outputDir/$timestamp"
+cd "$inputDir/$timestamp"
 
 python3 "$scriptDir/merge_ila_files.py"
 rm -f tmp_file*
 
 grep -v -e Sample -e Rad iladata.txt | awk -F"," '{print $1,$4,$5}' > tmp.strip
 
-# Compile process_raw_hits executable if not already compiled
-if [ ! -f "$rootDir/bin/process_raw_hits" ]; then
-    echo "Compiling process_raw_hits executable..."
-    make -C "$rootDir" process_raw_hits
+# Compile main C++ analysis executable if not already compiled
+cd "$rootDir"
+if [ ! -f "$rootDir/bin/analysis" ]; then
+    echo "Compiling main analysis executable..."
+    make build
 fi
 
-# Run the process_raw_hits executable with parameters
-echo "Running process_raw_hits with dt_max=$dt_max, dt_min=$dt_min, and self_trigger=$use_self_trigger..."
-"$rootDir/bin/process_raw_hits" --dt-max "$dt_max" --dt-min "$dt_min" $use_self_trigger
+# Run analysis executable to process raw hits and generate ROOT file
+echo "Processing raw hits and generating ROOT file..."
+"$rootDir/bin/analysis" "$inputDir/$timestamp/tmp.strip" "$dt_max" "$dt_min" $use_self_trigger
 
 rootfile_name="${timestamp}_${comment}.root"
-cp ./out.root "$rootfileDir/$rootfile_name"
+cp ./output.root "$outputDir/$rootfile_name"
 
 # Cleanup
-cd "$rootDir"
 rm -f "$rootDir"/vivado*
 rm -f "$scriptDir"/vivado*
