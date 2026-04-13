@@ -8,7 +8,7 @@ Analysis framework for RPC certification/testing with the ROME1-DCT.
 
 ```bash
 make clean
-make process_raw_hits
+make build
 ```
 
 ### Run Data Acquisition & Processing
@@ -40,21 +40,31 @@ make process_raw_hits
 
 ```
 ├── bin/                          # Compiled executables
-│   └── process_raw_hits          # Standalone binary for raw hits processing
+│   └── analysis                  # Main executable for hits processing and analysis
 ├── data/
-│   ├── input/                    # Input ROOT files organized by date
+│   ├── input/                    # Raw DCT tmp.strip files organized by timestamp
 │   └── output/                   # Generated ROOT files and plots
 ├── include/
-│   └── process_raw_hits.hpp      # Header with function declarations
+│   ├── cluster.hpp               # Cluster data structure and methods
+│   ├── constants.hpp             # Analysis constants and configuration
+│   ├── dataAnalyzer.hpp          # Main analyzer class
+│   ├── event.hpp                 # Event data structure
+│   ├── hit.hpp                   # Hit data structure
+│   ├── track.hpp                 # Track reconstruction
+│   └── types.hpp                 # Type definitions
 ├── src/
 │   ├── main.cpp                  # Entry point and orchestration
-│   ├── process_raw_hits_utils.cpp # Modular processing functions
-│   └── utils.cpp                 # General utilities
-├── root_macros/                  # ROOT analysis macros
+│   ├── dataAnalyzer.cpp          # Core analysis implementation
+│   ├── cluster.cpp               # Cluster processing
+│   ├── event.cpp                 # Event handling
+│   ├── hit.cpp                   # Hit processing
+│   └── track.cpp                 # Track reconstruction
+├── utils/
+│   └── utils.hpp                 # General utility functions
 ├── scripts/
 │   ├── run_data_acquisition.sh   # Main workflow orchestrator
-│   ├── GO.tcl                    # Vivado TCL script
-│   └── merge_ila_files.py        # Python data merge utility
+│   ├── GO.tcl                    # Vivado TCL script for data acquisition
+│   └── merge_ila_files.py        # Python utility to merge ILA data files
 └── Makefile                      # Build system (C++17, ROOT 6.x)
 ```
 
