@@ -4,6 +4,7 @@
 #include "types.hpp"
 #include "cluster.hpp"
 #include "track.hpp"
+#include "constants.hpp"
 
 
 // ============================================================
@@ -21,7 +22,7 @@ private:
     // Raw and processed hits
     std::vector<Hit> hits;
 
-    // Cluster vectorsz
+    // Cluster vectors
     std::vector<Cluster> clusters_eta1;
     std::vector<Cluster> clusters_eta2;
 
@@ -35,10 +36,6 @@ private:
     // Reference to shared efficiency counters (for updating throughout event lifetime)
     EfficiencyCounters& efficiency_counters;
     EfficiencyCountersTracks& efficiency_counters_tracks;
-
-    // Global parameters
-    static constexpr int EMPTY_WORD = 0x5555555;
-    static constexpr int CLUSTERING_TIME_WINDOW = 18;
 
 public:
     // Constructor

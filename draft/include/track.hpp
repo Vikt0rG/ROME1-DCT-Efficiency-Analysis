@@ -1,7 +1,10 @@
 #pragma once
 
+#include <cstdlib>
+
 #include "types.hpp"
 #include "hit.hpp"
+#include "constants.hpp"
 
 
 // ============================================================
@@ -19,10 +22,6 @@ private:
     // Layer occupancy flags (for efficiency calculations)
     bool eta1_layers[3];          // Layer 0, 1, 2 for η1 coordinate
     bool eta2_layers[3];          // Layer 0, 1, 2 for η2 coordinate
-
-    // Track quality parameters
-    static constexpr int MIN_TRACK_LENGTH = 2;    // TODO: Move to constants. Minimum hits required
-    static constexpr int LAYER_COUNT = 3;
 
 public:
     // Constructor

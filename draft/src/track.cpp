@@ -1,5 +1,6 @@
 #include "track.hpp"
-#include <cstdlib>
+
+#include <climits>
 
 
 // ============================================================
@@ -41,9 +42,8 @@ bool Track::addHit(Hit* hit) {
     if (hit_time == -1) return false;
     
     // Check strip window: must be within 5 strips of the first hit
-    // TODO: Add strip window as a global constant somewhere. 
     int first_strip = track_hits[0]->getStrip();
-    if (std::abs(hit_strip - first_strip) > 5) return false;
+    if (std::abs(hit_strip - first_strip) > MAX_STRIP_WINDOW) return false;
     
     // Check different layer: hit must come from a different layer than existing track hits
     for (const Hit* track_hit : track_hits) {
@@ -51,10 +51,9 @@ bool Track::addHit(Hit* hit) {
     }
     
     // Check time alignment: hit must be within 2 ticks of any existing track member
-    // TODO: Add time alignment window as a global constant somewhere.
     for (const Hit* track_hit : track_hits) {
         int track_hit_time = (eta_side == ETA1) ? track_hit->getTimeEta1() : track_hit->getTimeEta2();
-        if (std::abs(hit_time - track_hit_time) <= 2) {
+        if (std::abs(hit_time - track_hit_time) <= MAX_TIME_WINDOW) {
             // Time alignment satisfied with at least one track member
             track_hits.push_back(hit);
             // Mark the layer as occupied on the appropriate eta side
@@ -107,29 +106,31 @@ bool Track::hasAllLayers() const {
 int Track::getSize(int side) const {
     int count = 0;
     for (const Hit* hit : track_hits) {
-        if (side == 0) count++;
-        if (side == 1) count++;
+        if (side == 0 && hit->hasEta1Time()) count++;
+        else if (side == 1 && hit->hasEta2Time()) count++;
     }
     return count;
 }
 
 /// Get the track width (strip range) for a specific side
 int Track::getWidth(int side) const {
-    int min_strip = 47;
-    int max_strip = 0; // 48 strips per layer, TODO: Make this a constant defined somewhere
+    int min_strip = INT_MAX;
+    int max_strip = INT_MIN;
+    
     for (const Hit* hit : track_hits) {
-        if (side == 0) {
-            int strip = hit->getStrip();
-            if (strip < min_strip) min_strip = strip;
-            if (strip > max_strip) max_strip = strip;
+        // Only consider hits with valid times for the requested side
+        if ((side == 0 && !hit->hasEta1Time()) || (side == 1 && !hit->hasEta2Time())) {
+            continue;
         }
-        if (side == 1) {
-            int strip = hit->getStrip();
-            if (strip < min_strip) min_strip = strip;
-            if (strip > max_strip) max_strip = strip;
-        }
+        
+        int strip = hit->getStrip();
+        if (strip < min_strip) min_strip = strip;
+        if (strip > max_strip) max_strip = strip;
     }
-    if (min_strip == std::numeric_limits<int>::max() || max_strip == std::numeric_limits<int>::min()) return 0; // No valid hits for this side
+    
+    // Return 0 if no valid hits found for this side
+    if (min_strip == INT_MAX || max_strip == INT_MIN) return 0;
+    
     return max_strip - min_strip + 1;
 }
 

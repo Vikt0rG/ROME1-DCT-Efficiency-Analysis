@@ -8,14 +8,14 @@
 Event::Event(int event_number, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks)
     : event_number(event_number), efficiency_counters(counters), efficiency_counters_tracks(counters_tracks) {
     trigger_time = -1;      // Initialize trigger time to invalid
-    trigger_channel = 143;  // Initialize trigger channel
+    trigger_channel = TRIGGER_CHANNEL;  // Initialize trigger channel from constants
 }
 
 /// Constructor with move semantics for hits vector
 Event::Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks) 
     : event_number(event_number), hits(std::move(hits_in)), efficiency_counters(counters), efficiency_counters_tracks(counters_tracks) {
     trigger_time = -1;      // Initialize trigger time to invalid
-    trigger_channel = 143;  // Initialize trigger channel
+    trigger_channel = TRIGGER_CHANNEL;  // Initialize trigger channel from constants
 
     // Reset efficiency flags for each new event
     for (int i = 0; i < 3; i++) {
@@ -41,7 +41,7 @@ void Event::extractTriggerTime() {
     }
 }
 
-/// NEW: Time Over Threshold calculation before clusterization
+/// Time Over Threshold calculation before clusterization
 void Event::calculateTOT() {
     for (Hit& hit : hits) {
         int tot1 = -1;
@@ -85,7 +85,7 @@ void Event::calculateTOT() {
     }
 }
 
-/// NEW: Clusterization method to form clusters from hits
+/// Clusterization method to form clusters from hits
 void Event::clusterize() {
     // Side η1 clusterization
     // Set cluster ID counter
@@ -169,7 +169,7 @@ void Event::clusterize() {
     }
 }
 
-/// NEW: Time-over-threshold calculation for cluster centers (after clusterization)
+/// Time-over-threshold calculation for cluster centers (after clusterization)
 void Event::calculateTOTCluster() {
     // Calculate TOT for eta1 cluster centers
     for (Cluster& cluster : clusters_eta1) {
@@ -220,7 +220,7 @@ void Event::calculateTOTCluster() {
     }
 }
 
-/// Track reconstruction from clusters (WIP)
+/// Track reconstruction from clusters
 void Event::reconstructTracks() {
     // Side η1 track reconstruction logic
     int track_id_counter_eta1 = 0;
@@ -295,7 +295,7 @@ void Event::reconstructTracks() {
     }
 }
 
-/// NEW: Utility function to update efficiency flags
+/// Utility function to update efficiency flags
 void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
 
     // Iterate over hits to set efficiency flags
@@ -340,7 +340,7 @@ void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
     }
 }
 
-/// NEW: Utility function to update efficiency counters based on the efficiency flags set for the event
+/// Utility function to update efficiency counters based on the efficiency flags set for the event
 void Event::updateEfficiencyCounters() {
 
     // Skip events with no valid trigger time information
@@ -363,7 +363,7 @@ void Event::updateEfficiencyCounters() {
 
     // External trigger + RPC as a trigger efficiency counting
     // L0
-    if (efficiency_flags.eta1_layer[1] && efficiency_flags.eta1_layer[2] || efficiency_flags.eta2_layer[1] && efficiency_flags.eta2_layer[2]) {
+    if ((efficiency_flags.eta1_layer[1] && efficiency_flags.eta1_layer[2]) || (efficiency_flags.eta2_layer[1] && efficiency_flags.eta2_layer[2])) {
         efficiency_counters.triggered_events_rpc[0]++;
         for (int layer = 0; layer < 3; layer++) {
             if (efficiency_flags.eta1_layer[layer]) efficiency_counters.eta1_efficiency_counter_rpc[layer]++;
@@ -372,7 +372,7 @@ void Event::updateEfficiencyCounters() {
             if (efficiency_flags.eta1_layer[layer] && efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_and_efficiency_counter_rpc[layer]++;
         }
     }
-    if (efficiency_flags.eta1_layer_track[1] && efficiency_flags.eta1_layer_track[2] || efficiency_flags.eta2_layer_track[1] && efficiency_flags.eta2_layer_track[2]) {
+    if ((efficiency_flags.eta1_layer_track[1] && efficiency_flags.eta1_layer_track[2]) || (efficiency_flags.eta2_layer_track[1] && efficiency_flags.eta2_layer_track[2])) {
         efficiency_counters_tracks.track_triggered_events_rpc[0]++;
         for (int layer = 0; layer < 3; layer++) {
             if (efficiency_flags.eta1_layer_track[layer]) efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]++;
@@ -382,7 +382,7 @@ void Event::updateEfficiencyCounters() {
         }
     }
     // L1
-    if (efficiency_flags.eta1_layer[0] && efficiency_flags.eta1_layer[2] || efficiency_flags.eta2_layer[0] && efficiency_flags.eta2_layer[2]) {
+    if ((efficiency_flags.eta1_layer[0] && efficiency_flags.eta1_layer[2]) || (efficiency_flags.eta2_layer[0] && efficiency_flags.eta2_layer[2])) {
         efficiency_counters.triggered_events_rpc[1]++;
         for (int layer = 0; layer < 3; layer++) {
             if (efficiency_flags.eta1_layer[layer]) efficiency_counters.eta1_efficiency_counter_rpc[layer]++;
@@ -391,7 +391,7 @@ void Event::updateEfficiencyCounters() {
             if (efficiency_flags.eta1_layer[layer] && efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_and_efficiency_counter_rpc[layer]++;
         }
     }
-    if (efficiency_flags.eta1_layer_track[0] && efficiency_flags.eta1_layer_track[2] || efficiency_flags.eta2_layer_track[0] && efficiency_flags.eta2_layer_track[2]) {
+    if ((efficiency_flags.eta1_layer_track[0] && efficiency_flags.eta1_layer_track[2]) || (efficiency_flags.eta2_layer_track[0] && efficiency_flags.eta2_layer_track[2])) {
         efficiency_counters_tracks.track_triggered_events_rpc[1]++;
         for (int layer = 0; layer < 3; layer++) {
             if (efficiency_flags.eta1_layer_track[layer]) efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]++;
@@ -401,7 +401,7 @@ void Event::updateEfficiencyCounters() {
         }
     }
     // L2
-    if (efficiency_flags.eta1_layer[0] && efficiency_flags.eta1_layer[1] || efficiency_flags.eta2_layer[0] && efficiency_flags.eta2_layer[1]) {
+    if ((efficiency_flags.eta1_layer[0] && efficiency_flags.eta1_layer[1]) || (efficiency_flags.eta2_layer[0] && efficiency_flags.eta2_layer[1])) {
         efficiency_counters.triggered_events_rpc[2]++;
         for (int layer = 0; layer < 3; layer++) {
             if (efficiency_flags.eta1_layer[layer]) efficiency_counters.eta1_efficiency_counter_rpc[layer]++;
@@ -410,7 +410,7 @@ void Event::updateEfficiencyCounters() {
             if (efficiency_flags.eta1_layer[layer] && efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_and_efficiency_counter_rpc[layer]++;
         }
     }
-    if (efficiency_flags.eta1_layer_track[0] && efficiency_flags.eta1_layer_track[1] || efficiency_flags.eta2_layer_track[0] && efficiency_flags.eta2_layer_track[1]) {
+    if ((efficiency_flags.eta1_layer_track[0] && efficiency_flags.eta1_layer_track[1]) || (efficiency_flags.eta2_layer_track[0] && efficiency_flags.eta2_layer_track[1])) {
         efficiency_counters_tracks.track_triggered_events_rpc[2]++;
         for (int layer = 0; layer < 3; layer++) {
             if (efficiency_flags.eta1_layer_track[layer]) efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]++;

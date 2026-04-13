@@ -27,7 +27,7 @@ bool Cluster::addHit(Hit* hit) {
         } else {
             time_diff = abs(hit->getTimeEta2() - cluster_hits[idx]->getTimeEta2());
         }
-        if (time_diff >= TIME_WINDOW_TICKS) continue;
+        if (time_diff >= CLUSTER_TIME_WINDOW) continue;
 
         if (eta_side == ETA1) std::cout << "  Potential cluster partner: Hit " << hit->getIdx() << "; Layer: " << hit->getLayer() << "; Strip: " << hit->getStrip() << "; Time " << hit->getTimeEta1() << std::endl;
 
