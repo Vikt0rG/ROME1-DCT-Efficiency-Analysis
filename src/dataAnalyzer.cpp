@@ -7,14 +7,17 @@
 /// Constructor and destructor for DataAnalyzer class
 DataAnalyzer::DataAnalyzer() {
     output_file = nullptr;
+
     input_data_tree = nullptr;
     processed_data_tree = nullptr;
     clusterization_tree = nullptr;
     track_reconstruction_tree = nullptr;
+
     current_event = nullptr;
     current_event_number = 0;
     n_hits = 0;
     BC0 = 0;
+
     dt_max = -100;    // Default time window (ticks) - see constants.hpp
     dt_min = -180;    // Default time window (ticks) - see constants.hpp
     initializeCounters();
@@ -40,6 +43,8 @@ void DataAnalyzer::setupOutputFile() {
     clusterization_tree = new TTree("Clusterization", "Cluster-level data");
     track_reconstruction_tree = new TTree("TrackReconstruction", "Track-level data");
 }
+
+/// TODO: Utility function to create input name from the input directory
 
 /// Utility function to setup branches for all trees in the output file
 void DataAnalyzer::setupBranches() {
@@ -320,7 +325,20 @@ void DataAnalyzer::pushBackProcessedData(const Event& event) {
 
     proc_trigger_time.push_back(event.getTriggerTime());
     // Loop over hits in the event and push processed data into vectors
-    // Note: Only push hits with rise == 1 (to match with ToT calculation which only processes rising edges)
+    for (const auto& hit : event.getHits()) {
+        proc_layer.push_back(hit.getLayer());
+        proc_strip.push_back(hit.getStrip());
+        proc_time1.push_back(hit.getTimeEta1());
+        proc_time2.push_back(hit.getTimeEta2());
+        proc_dt_time1_time2.push_back(hit.getTimeEta1() - hit.getTimeEta2());
+        proc_dt_time1_trigger.push_back(hit.getTimeEta1() - event.getTriggerTime());
+        proc_dt_time2_trigger.push_back(hit.getTimeEta2() - event.getTriggerTime());
+        proc_tot1.push_back(hit.getToT1());
+        proc_tot2.push_back(hit.getToT2());
+    }
+    /// WIP: Decide whether to do filtering first: 
+    /// FILTERING: Only push information of the non-trigger channel rising hits with valid time information (to match with ToT calculation which only processes rising edges)
+    /*
     for (const auto& hit : event.getHits()) {
         // Only process non-trigger channel and rising edges for consistency with ToT calculation
         if (hit.getChannel() == event.getTriggerChannel() || hit.getRise() != 1) continue;
@@ -341,6 +359,7 @@ void DataAnalyzer::pushBackProcessedData(const Event& event) {
         if (hit.getToT1() > 0) proc_tot1.push_back(hit.getToT1());
         if (hit.getToT2() > 0) proc_tot2.push_back(hit.getToT2());
     }
+    */
 }
 
 /// Utility functions to push cluster-level data into the corresponding vectors for tree filling
@@ -367,36 +386,21 @@ void DataAnalyzer::pushBackTrackDataEta2(const Track& track) {
     track_size_eta2.push_back(track.getSize(1));         // Eta2 size
 }
 
-/// Main entry point for processing input data from file or directory
-void DataAnalyzer::processInputData(const std::string& input_path, const int dt_max_arg, const int dt_min_arg) {
+/// Main entry point for processing input data from the input file
+void DataAnalyzer::processInputData(const std::string& file_path, const int dt_max_arg, const int dt_min_arg) {
     // Store time window parameters for use throughout processing
     dt_max = dt_max_arg;
     dt_min = dt_min_arg;
     
     namespace fs = std::filesystem;
 
-    if (!fs::exists(input_path)) {
-        std::cerr << "ERROR: Input path does not exist: " << input_path << std::endl;
+    if (!fs::exists(file_path)) {
+        std::cerr << "ERROR: Input path does not exist: " << file_path << std::endl;
         return;
     }
 
-    // Check if input_path is a file or directory
-    if (fs::is_regular_file(input_path)) {
-        // Single file - process it directly
-        std::cout << "Processing single file: " << input_path << std::endl;
-        processFile(input_path);
-    } else if (fs::is_directory(input_path)) {
-        // Directory - process all files in it
-        std::cout << "Processing files in directory: " << input_path << std::endl;
-        for (const auto& entry : fs::directory_iterator(input_path)) {
-            if (fs::is_regular_file(entry)) {
-                std::cout << "Processing file: " << entry.path() << std::endl;
-                processFile(entry.path().string());
-            }
-        }
-    } else {
-        std::cerr << "ERROR: Input path is neither a file nor a directory!" << std::endl;
-    }
+    std::cout << "Processing file: " << file_path << std::endl;
+    processFile(file_path);
 }
 
 /// Process a single file by reading lines and extracting word data
