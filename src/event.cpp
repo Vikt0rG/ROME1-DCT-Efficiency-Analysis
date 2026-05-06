@@ -232,7 +232,7 @@ void Event::reconstructTracks() {
         // time information as these are already ensured for cluster centers at the cluster level
         if (cluster.getCenterHit()->inTrackEta1()) continue;
         std::cout << "------------------------------------------------------------------" << std::endl;
-        std::cout << "Processing track reconstruction for side η1: Cluster center hit: " << cluster.getCenterHit()->getIdx() << "; Layer " << cluster.getCenterHit()->getLayer() << "; Strip: " << cluster.getCenterHit()->getStrip() << "; Time " << cluster.getCenterHit()->getTimeEta1() << std::endl;
+        std::cout << "Processing track reconstruction for side η1: " << std::endl;
         Track track(track_id_counter_eta1, cluster.getCenterHit(), Track::ETA1);
         cluster.getCenterHit()->setTrackIDEta1(track_id_counter_eta1);
 
@@ -270,7 +270,7 @@ void Event::reconstructTracks() {
     for (Cluster& cluster : clusters_eta2) {
         if (cluster.getCenterHit()->inTrackEta2()) continue;
         std::cout << "------------------------------------------------------------------" << std::endl;
-        std::cout << "Processing track reconstruction for side η2: Cluster center hit: " << cluster.getCenterHit()->getIdx() << "; Layer " << cluster.getCenterHit()->getLayer() << "; Strip: " << cluster.getCenterHit()->getStrip() << "; Time " << cluster.getCenterHit()->getTimeEta2() << std::endl;
+        std::cout << "Processing track reconstruction for side η2: " << std::endl;
         Track track(track_id_counter_eta2, cluster.getCenterHit(), Track::ETA2);
         cluster.getCenterHit()->setTrackIDEta2(track_id_counter_eta2);
 
