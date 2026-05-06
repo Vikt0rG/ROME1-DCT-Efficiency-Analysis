@@ -3,14 +3,19 @@
 
 int main(int argc, char** argv) {
 
-    // Get command line arguments
+    // Process command line arguments
     if (argc < 4) {
-        std::cerr << "Usage: " << argv[0] << " <input_file/input_directory> <dt_max> <dt_min> <--self>" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <input_file> <dt_max> <dt_min> <--self>" << std::endl;
         return 1;
     }
-
     std::string input = argv[1];
     int dt_max, dt_min;
+
+    // Throw an error if input is a directory
+    if (std::filesystem::exists(input) && std::filesystem::is_directory(input)) {
+        std::cerr << "Error: Input path is a directory. Please provide a single file as input." << std::endl;
+        return 1;
+    }
     
     try {
         dt_max = std::stoi(argv[2]);
@@ -30,7 +35,12 @@ int main(int argc, char** argv) {
     analyzer.setupOutputFile();
     analyzer.setupBranches();
 
-    // Process input data from file or directory
-    analyzer.processInputData(input, dt_max, dt_min);
-
+    // Process input file
+    try {
+        analyzer.processInputData(input, dt_max, dt_min);
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "Error processing input data: " << e.what() << std::endl;
+        return 1;
+    }
 }
