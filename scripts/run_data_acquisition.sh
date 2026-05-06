@@ -38,13 +38,14 @@ rootDir="$(cd "$scriptDir/.." && pwd)"
 rootMacrosDir="$scriptDir/root_macros"
 
 dataDir="$rootDir/data"                # Base data directory
-inputDir="$dataDir/input"              # Used for storing raw DCT tmp.strip files that are later used in C++ analysis code (hence why it's called input)
+rawDir="$dataDir/raw"                  # Used for storing raw DCT <name>.txt files that are later used in C++ analysis code
 outputDir="$dataDir/output"            # This is where all the ROOT files and plots will be stored, organized by timestamp
 
 nEvents="$1"
 comment="$2"
 
 timestamp=$(date +"%Y-%m-%d_%H-%M")
+outputFileName="${timestamp}_${comment}"
 tcl_script="GO.tcl"
 
 # Initialize time window parameters with defaults
@@ -78,48 +79,38 @@ for arg in "${@:3}"; do
     fi
 done
 
+# Switch into the root project directory to ensure relative paths work correctly
+cd "$rootDir"
+
 # Update TCL script with parameters
 sed -i "1s|.*|set nEvents ${nEvents}|" "$scriptDir/$tcl_script"
 sed -i "2s|.*|set timestr ${timestamp}|" "$scriptDir/$tcl_script"
 sed -i "3s|.*|set firmwareDir ${firmwareDir}|" "$scriptDir/$tcl_script"
-sed -i "4s|.*|set inputDir ${inputDir}|" "$scriptDir/$tcl_script"
+sed -i "4s|.*|set rawDir ${rawDir}|" "$scriptDir/$tcl_script"
 
 # Create output directories for raw and root files if they don't exist
-if [ ! -d "$inputDir" ]; then
-   mkdir -p "$inputDir"
+if [ ! -d "$rawDir" ]; then
+   mkdir -p "$rawDir"
 fi
 
 if [ ! -d "$outputDir" ]; then
    mkdir -p "$outputDir"
 fi
 
-mkdir -p "$inputDir/$timestamp"
+# mkdir -p "$rawDir/$timestamp"
+# cd "$rawDir/$timestamp"
+cd "$rawDir"
 
 # Run Vivado data acquisition script
 echo "Start acquisition of $nEvents events..."
 vivado $vivado_mode -source "$scriptDir/$tcl_script"
 
-# Process acquired data
-cd "$inputDir/$timestamp"
+# Merge files, skip headers, and filter in one pass
+( for f in tmp_file*; do tail -n +2 "$f"; done ) | \
+  grep -v -e Sample -e Rad | \
+  awk -F"," '{print $1,$4,$5}' > "$outputFileName.txt"
 
-python3 "$scriptDir/merge_ila_files.py"
 rm -f tmp_file*
-
-grep -v -e Sample -e Rad iladata.txt | awk -F"," '{print $1,$4,$5}' > tmp.strip
-
-# Compile main C++ analysis executable if not already compiled
-cd "$rootDir"
-if [ ! -f "$rootDir/bin/analysis" ]; then
-    echo "Compiling main analysis executable..."
-    make build
-fi
-
-# Run analysis executable to process raw hits and generate ROOT file
-echo "Processing raw hits and generating ROOT file..."
-"$rootDir/bin/analysis" "$inputDir/$timestamp/tmp.strip" "$dt_max" "$dt_min" $use_self_trigger
-
-rootfile_name="${timestamp}_${comment}.root"
-cp ./output.root "$outputDir/$rootfile_name"
 
 # Cleanup
 rm -f "$rootDir"/vivado*
