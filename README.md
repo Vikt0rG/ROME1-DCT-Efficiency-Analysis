@@ -11,7 +11,7 @@ make clean
 make build
 ```
 
-### Run Data Acquisition & Processing
+### Data Acquisition
 
 ```bash
 ./scripts/run_data_acquisition.sh <nEvents> <comment> [OPTIONS]
@@ -22,16 +22,32 @@ make build
 # Basic batch mode acquisition
 ./scripts/run_data_acquisition.sh 1000 test_run -b
 
-# Self-trigger with custom time windows
-./scripts/run_data_acquisition.sh 1000 test_run -s --dt-max -120 --dt-min -200
-
-# Shorthand and longform options are equivalent
-./scripts/run_data_acquisition.sh 1000 test_run --batch --self --dt-max -150
+# Self-trigger mode
+./scripts/run_data_acquisition.sh 1000 test_run -s --batch
 ```
 
 **Options:**
 - `-b`, `--batch` — Run Vivado in batch mode
 - `-s`, `--self` — Use self-trigger firmware
+- `-h`, `--help` — Display help message
+
+### Analysis
+
+```bash
+./scripts/run_analysis.sh <input> [OPTIONS]
+```
+
+**Examples:**
+```bash
+# Analyze a single raw data file
+./scripts/run_analysis.sh data/raw/2026-01-28_11-55.txt --dt-max -120 --dt-min -200
+
+# Batch process all files in a directory
+./scripts/run_analysis.sh data/raw/ --self --dt-max -150
+```
+
+**Options:**
+- `-s`, `--self` — Used self-trigger firmware during acquisition
 - `--dt-max VALUE` — Maximum time window for efficiency (default: -100)
 - `--dt-min VALUE` — Minimum time window for efficiency (default: -180)
 - `-h`, `--help` — Display help message
@@ -42,7 +58,7 @@ make build
 ├── bin/                          # Compiled executables
 │   └── analysis                  # Main executable for hits processing and analysis
 ├── data/
-│   ├── input/                    # Raw DCT tmp.strip files organized by timestamp
+│   ├── raw/                      # Raw data text files from data acquisition
 │   └── output/                   # Generated ROOT files and plots
 ├── include/
 │   ├── cluster.hpp               # Cluster data structure and methods
@@ -62,19 +78,21 @@ make build
 ├── utils/
 │   └── utils.hpp                 # General utility functions
 ├── scripts/
-│   ├── run_data_acquisition.sh   # Main workflow orchestrator
-│   ├── GO.tcl                    # Vivado TCL script for data acquisition
-│   └── merge_ila_files.py        # Python utility to merge ILA data files
+│   ├── run_data_acquisition.sh   # Data acquisition orchestrator
+│   ├── run_analysis.sh           # Batch analysis on raw data files
+│   └── GO.tcl                    # Vivado TCL script for data acquisition
 └── Makefile                      # Build system (C++17, ROOT 6.x)
 ```
 
 ## Processing Pipeline
 
-1. **Vivado Acquisition** → Binary data (`tmp_file*`)
-2. **Python Merge** → ILA data file (`iladata.txt`)
-3. **Strip & Filter** → Processed data (`tmp.strip`)
-4. **C++ Processing** → Efficiency calculation and histograms
-5. **Output** → ROOT trees and PDF plots
+**Phase 1: Data Acquisition**
+- 1. Vivado acquires binary data (`tmp_file*`)
+- 2. Bash merge & filter → Raw data file (`*.txt`)
+
+**Phase 2: Analysis**
+- 3. C++ processing on each raw file → Efficiency calculation and histograms
+- 4. Output → ROOT trees and PDF plots
 
 ## Time Window Parameters
 
@@ -87,4 +105,4 @@ make build
 - ROOT 6.x (TFile, TTree, TH1)
 - C++17 compiler (clang++ on macOS)
 - Vivado (for data acquisition)
-- Python 3 (for data processing)
+- bash (for data merging and filtering)
