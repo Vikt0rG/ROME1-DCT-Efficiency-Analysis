@@ -5,15 +5,24 @@
 // Event class implementation
 // ============================================================
 /// Constructor without hits
-Event::Event(int event_number, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks)
-    : event_number(event_number), efficiency_counters(counters), efficiency_counters_tracks(counters_tracks) {
+Event::Event(int event_number, 
+    EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool use_external_trigger)
+    :   event_number(event_number),
+        efficiency_counters(counters),
+        efficiency_counters_tracks(counters_tracks),
+        use_external_trigger(use_external_trigger) {
     trigger_time = -1;      // Initialize trigger time to invalid
     trigger_channel = TRIGGER_CHANNEL;  // Initialize trigger channel from constants
 }
 
 /// Constructor with move semantics for hits vector
-Event::Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks) 
-    : event_number(event_number), hits(std::move(hits_in)), efficiency_counters(counters), efficiency_counters_tracks(counters_tracks) {
+Event::Event(int event_number, std::vector<Hit>&& hits_in, 
+    EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool use_external_trigger) 
+    :   event_number(event_number),
+        hits(std::move(hits_in)),
+        efficiency_counters(counters),
+        efficiency_counters_tracks(counters_tracks),
+        use_external_trigger(use_external_trigger) {
     trigger_time = -1;      // Initialize trigger time to invalid
     trigger_channel = TRIGGER_CHANNEL;  // Initialize trigger channel from constants
 
@@ -33,6 +42,10 @@ Event::~Event() {
 
 /// Utility function to add a hit to extract trigger time
 void Event::extractTriggerTime() {
+    if (!use_external_trigger) {
+        trigger_time = -1;
+        return;
+    }
     for (const auto& hit : hits) {
         if (hit.getChannel() == trigger_channel && hit.getRise() == 1) { // Check for rising edge on trigger channel
             trigger_time = hit.getTimeEta2(); // Trigger signal is on the η2 side
@@ -304,8 +317,19 @@ void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
         // Side η1 efficiency flag updates
         if (hit.hasEta1Time() && hit.getChannel() != trigger_channel && hit.getRise() == 1) {
 
+            bool within_time_window = true;
+            if (use_external_trigger) {
+                if (trigger_time == -1) {
+                    continue;
+                }
+                within_time_window = (hit.getTimeEta1() - trigger_time > dt_min && hit.getTimeEta1() - trigger_time < dt_max);
+            } else {
+                // If not using external trigger, just check if hit time is within the time window for efficiency consideration
+                within_time_window = (hit.getTimeEta1() > dt_min && hit.getTimeEta1() < dt_max);
+            }
+
             // Check if the hit is within the time window for efficiency consideration
-            if (hit.getTimeEta1() - trigger_time > dt_min && hit.getTimeEta1() - trigger_time < dt_max) {
+            if (within_time_window) {
                 efficiency_flags.eta1_layer[hit.getLayer()] = true;
             } else {
                 continue; // Skip hits that are outside the time window for efficiency consideration
@@ -324,7 +348,16 @@ void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
 
         // Side η2 efficiency flag updates (same logic as for η1)
         if (hit.hasEta2Time() && hit.getChannel() != trigger_channel && hit.getRise() == 1) {
-            if (hit.getTimeEta2() - trigger_time > dt_min && hit.getTimeEta2() - trigger_time < dt_max) {
+            bool within_time_window = true;
+            if (use_external_trigger) {
+                if (trigger_time == -1) {
+                    continue;
+                }
+                within_time_window = (hit.getTimeEta2() - trigger_time > dt_min && hit.getTimeEta2() - trigger_time < dt_max);
+            } else {
+                within_time_window = (hit.getTimeEta2() > dt_min && hit.getTimeEta2() < dt_max);
+            }
+            if (within_time_window) {
                 efficiency_flags.eta2_layer[hit.getLayer()] = true;
             }
 
@@ -344,7 +377,7 @@ void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
 void Event::updateEfficiencyCounters() {
 
     // Skip events with no valid trigger time information
-    if (trigger_time == -1) return;
+    if (use_external_trigger && trigger_time == -1) return;
 
     // External trigger efficiency counter update
     efficiency_counters.triggered_events_external++;
@@ -362,57 +395,26 @@ void Event::updateEfficiencyCounters() {
     }
 
     // External trigger + RPC as a trigger efficiency counting
-    // L0
-    if ((efficiency_flags.eta1_layer[1] && efficiency_flags.eta1_layer[2]) || (efficiency_flags.eta2_layer[1] && efficiency_flags.eta2_layer[2])) {
-        efficiency_counters.triggered_events_rpc[0]++;
-        for (int layer = 0; layer < 3; layer++) {
+    for (int layer = 0; layer < 3; layer++) {
+        const int reference_layer1 = (layer + 1) % 3;
+        const int reference_layer2 = (layer + 2) % 3;
+        const bool rpc_triggered =
+            (efficiency_flags.eta1_layer[reference_layer1] && efficiency_flags.eta1_layer[reference_layer2]) ||
+            (efficiency_flags.eta2_layer[reference_layer1] && efficiency_flags.eta2_layer[reference_layer2]);
+        const bool rpc_triggered_track =
+            (efficiency_flags.eta1_layer_track[reference_layer1] && efficiency_flags.eta1_layer_track[reference_layer2]) ||
+            (efficiency_flags.eta2_layer_track[reference_layer1] && efficiency_flags.eta2_layer_track[reference_layer2]);
+
+        if (rpc_triggered) {
+            efficiency_counters.triggered_events_rpc[layer]++;
             if (efficiency_flags.eta1_layer[layer]) efficiency_counters.eta1_efficiency_counter_rpc[layer]++;
             if (efficiency_flags.eta2_layer[layer]) efficiency_counters.eta2_efficiency_counter_rpc[layer]++;
             if (efficiency_flags.eta1_layer[layer] || efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_or_efficiency_counter_rpc[layer]++;
             if (efficiency_flags.eta1_layer[layer] && efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_and_efficiency_counter_rpc[layer]++;
         }
-    }
-    if ((efficiency_flags.eta1_layer_track[1] && efficiency_flags.eta1_layer_track[2]) || (efficiency_flags.eta2_layer_track[1] && efficiency_flags.eta2_layer_track[2])) {
-        efficiency_counters_tracks.track_triggered_events_rpc[0]++;
-        for (int layer = 0; layer < 3; layer++) {
-            if (efficiency_flags.eta1_layer_track[layer]) efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]++;
-            if (efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta2_efficiency_counter_rpc[layer]++;
-            if (efficiency_flags.eta1_layer_track[layer] || efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_or_efficiency_counter_rpc[layer]++;
-            if (efficiency_flags.eta1_layer_track[layer] && efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_and_efficiency_counter_rpc[layer]++;
-        }
-    }
-    // L1
-    if ((efficiency_flags.eta1_layer[0] && efficiency_flags.eta1_layer[2]) || (efficiency_flags.eta2_layer[0] && efficiency_flags.eta2_layer[2])) {
-        efficiency_counters.triggered_events_rpc[1]++;
-        for (int layer = 0; layer < 3; layer++) {
-            if (efficiency_flags.eta1_layer[layer]) efficiency_counters.eta1_efficiency_counter_rpc[layer]++;
-            if (efficiency_flags.eta2_layer[layer]) efficiency_counters.eta2_efficiency_counter_rpc[layer]++;
-            if (efficiency_flags.eta1_layer[layer] || efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_or_efficiency_counter_rpc[layer]++;
-            if (efficiency_flags.eta1_layer[layer] && efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_and_efficiency_counter_rpc[layer]++;
-        }
-    }
-    if ((efficiency_flags.eta1_layer_track[0] && efficiency_flags.eta1_layer_track[2]) || (efficiency_flags.eta2_layer_track[0] && efficiency_flags.eta2_layer_track[2])) {
-        efficiency_counters_tracks.track_triggered_events_rpc[1]++;
-        for (int layer = 0; layer < 3; layer++) {
-            if (efficiency_flags.eta1_layer_track[layer]) efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]++;
-            if (efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta2_efficiency_counter_rpc[layer]++;
-            if (efficiency_flags.eta1_layer_track[layer] || efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_or_efficiency_counter_rpc[layer]++;
-            if (efficiency_flags.eta1_layer_track[layer] && efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_and_efficiency_counter_rpc[layer]++;
-        }
-    }
-    // L2
-    if ((efficiency_flags.eta1_layer[0] && efficiency_flags.eta1_layer[1]) || (efficiency_flags.eta2_layer[0] && efficiency_flags.eta2_layer[1])) {
-        efficiency_counters.triggered_events_rpc[2]++;
-        for (int layer = 0; layer < 3; layer++) {
-            if (efficiency_flags.eta1_layer[layer]) efficiency_counters.eta1_efficiency_counter_rpc[layer]++;
-            if (efficiency_flags.eta2_layer[layer]) efficiency_counters.eta2_efficiency_counter_rpc[layer]++;
-            if (efficiency_flags.eta1_layer[layer] || efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_or_efficiency_counter_rpc[layer]++;
-            if (efficiency_flags.eta1_layer[layer] && efficiency_flags.eta2_layer[layer]) efficiency_counters.eta_and_efficiency_counter_rpc[layer]++;
-        }
-    }
-    if ((efficiency_flags.eta1_layer_track[0] && efficiency_flags.eta1_layer_track[1]) || (efficiency_flags.eta2_layer_track[0] && efficiency_flags.eta2_layer_track[1])) {
-        efficiency_counters_tracks.track_triggered_events_rpc[2]++;
-        for (int layer = 0; layer < 3; layer++) {
+
+        if (rpc_triggered_track) {
+            efficiency_counters_tracks.track_triggered_events_rpc[layer]++;
             if (efficiency_flags.eta1_layer_track[layer]) efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]++;
             if (efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta2_efficiency_counter_rpc[layer]++;
             if (efficiency_flags.eta1_layer_track[layer] || efficiency_flags.eta2_layer_track[layer]) efficiency_counters_tracks.track_eta_or_efficiency_counter_rpc[layer]++;

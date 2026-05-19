@@ -1,35 +1,35 @@
 #!/bin/bash
+usage() {
+    echo "Usage: $0 <nEvents> <comment> [OPTIONS]"
+    echo "Use --help for more information."
+    exit 1
+}
 
 # Script to run the full data acquisition and processing workflow for the DCT test setup
 
 # Check for help flag first
 if [[ "$@" == *"--help"* ]]; then
-   echo "Script usage: $0 <nEvents> <comment> [OPTIONS]"
-   echo ""
-   echo "REQUIRED ARGUMENTS:"
-   echo "  <nEvents>           Number of events to acquire"
-   echo "  <comment>           Comment/description for the run"
-   echo ""
-   echo "OPTIONS:"
-   echo "  -b, --batch         Run Vivado in batch mode"
-   echo "  -s, --self          Use self-trigger firmware (skip events with >20 hits)"
-   echo "  --dt-max VALUE      Maximum time window for efficiency (default: -100)"
-   echo "  --dt-min VALUE      Minimum time window for efficiency (default: -180)"
-   echo "  -h, --help          Display this help message"
-   echo ""
-   echo "EXAMPLES:"
-   echo "  $0 1000 test_run --batch"
-   echo "  $0 1000 test_run --batch --dt-max -120 --dt-min -200"
-   echo "  $0 1000 test_run --self --dt-max -150 --dt-min -220"
+    echo "Script usage: $0 <nEvents> <comment> [OPTIONS]"
+    echo ""
+    echo "REQUIRED ARGUMENTS:"
+    echo "  <nEvents>           Number of events to acquire"
+    echo "  <comment>           Comment/description for the run"
+    echo ""
+    echo "OPTIONS:"
+    echo "  -b, --batch         Run Vivado in batch mode"
+    echo "  -s, --self          Use self-trigger firmware (skip events with >20 hits)"
+    echo "  -h, --help          Display this help message"
+    echo ""
+    echo "EXAMPLES:"
+    echo "  $0 1000 test_run --batch"
+    echo "  $0 1000 test_run --batch --dt-max -120 --dt-min -200"
+    echo "  $0 1000 test_run --self --dt-max -150 --dt-min -220"
    exit 0
 fi
 
 # Check for required arguments
 if [ "$#" -lt 2 ]; then
-   echo "ERROR: Missing required arguments."
-   echo "Usage: $0 <nEvents> <comment> [OPTIONS]"
-   echo "Use --help for more information."
-   exit 1
+    usage
 fi
 
 # Define variables & paths
@@ -58,25 +58,24 @@ firmwareDir="BI_DCT_FW"
 use_self_trigger=""
 
 # Parse all arguments starting from the 3rd
-for arg in "${@:3}"; do
-    if [ "$arg" == "-b" ] || [ "$arg" == "--batch" ]; then
-        vivado_mode="-mode batch"
-    elif [ "$arg" == "-s" ] || [ "$arg" == "--self" ]; then
-        firmwareDir="BI_DCT_FW_selftrigger"
-        use_self_trigger="--self"
-    elif [ "$arg" == "--dt-max" ]; then
-        # Next argument should be the value
-        shift
-        if [ $# -gt 0 ]; then
-            dt_max="$1"
-        fi
-    elif [ "$arg" == "--dt-min" ]; then
-        # Next argument should be the value
-        shift
-        if [ $# -gt 0 ]; then
-            dt_min="$1"
-        fi
-    fi
+shift 2
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -b|--batch)
+            vivado_mode="-mode batch"
+            shift
+            ;;
+        -s|--self)
+            firmwareDir="BI_DCT_FW_selftrigger"
+            use_self_trigger="--self"
+            shift
+            ;;
+        *)
+            echo "ERROR: Unknown option: $1"
+            usage
+            exit 1
+            ;;
+    esac
 done
 
 # Switch into the root project directory to ensure relative paths work correctly

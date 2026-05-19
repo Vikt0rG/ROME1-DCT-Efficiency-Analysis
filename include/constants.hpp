@@ -7,6 +7,7 @@
 // Detector geometry constants
 constexpr int LAYER_COUNT = 3;              // Number of detector layers (L0, L1, L2)
 constexpr int STRIPS_PER_LAYER = 48;        // Number of strips per layer
+constexpr double DETECTOR_LENGTH_CM = 180;  // Detector length (cm) for rate calculations
 
 // Clusterization constants
 constexpr int CLUSTER_TIME_WINDOW = 18;     // Time window for cluster formation (18 ticks = 15 ns)
