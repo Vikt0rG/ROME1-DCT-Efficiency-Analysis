@@ -29,6 +29,8 @@ make build
 **Options:**
 - `-b`, `--batch` — Run Vivado in batch mode
 - `-s`, `--self` — Use self-trigger firmware
+- `--run-number VALUE` — Run number or ID to store in InfluxDB
+- `--influx` — Write run metadata to InfluxDB (uses `.env`)
 - `-h`, `--help` — Display help message
 
 ### Analysis
@@ -50,6 +52,7 @@ make build
 - `-s`, `--self` — Used self-trigger firmware during acquisition
 - `--dt-max VALUE` — Maximum time window for efficiency (default: -100)
 - `--dt-min VALUE` — Minimum time window for efficiency (default: -180)
+- `--no-external` — Disable external trigger usage in analysis
 - `-h`, `--help` — Display help message
 
 ## Directory Structure
@@ -63,14 +66,14 @@ make build
 ├── include/
 │   ├── cluster.hpp               # Cluster data structure and methods
 │   ├── constants.hpp             # Analysis constants and configuration
-│   ├── dataAnalyzer.hpp          # Main analyzer class
+│   ├── dataProcesser.hpp          # Main data processor class
 │   ├── event.hpp                 # Event data structure
 │   ├── hit.hpp                   # Hit data structure
 │   ├── track.hpp                 # Track reconstruction
 │   └── types.hpp                 # Type definitions
 ├── src/
 │   ├── main.cpp                  # Entry point and orchestration
-│   ├── dataAnalyzer.cpp          # Core analysis implementation
+│   ├── dataProcesser.cpp          # Core analysis implementation
 │   ├── cluster.cpp               # Cluster processing
 │   ├── event.cpp                 # Event handling
 │   ├── hit.cpp                   # Hit processing
@@ -99,6 +102,43 @@ make build
 - `dt_max` — Maximum time difference for efficiency window (negative values)
 - `dt_min` — Minimum time difference for efficiency window (more negative)
 - Efficiency calculated within: `dt_min ≤ dt ≤ dt_max`
+
+## InfluxDB + Grafana (Run Metadata)
+
+This repository can write run metadata to InfluxDB and visualize it in Grafana.
+
+**Setup (Docker Compose):**
+```bash
+cp .env.example .env
+docker compose up -d
+```
+
+Edit `.env` with your passwords/token. The org and bucket are already set to:
+- org: `cern-mpp`
+- bucket: `test-beam-may-2026`
+
+For host-side scripts, `INFLUX_URL_PUBLIC` defaults to `http://localhost:8086`.
+
+Grafana will be available at http://localhost:3000 (default `admin` user with the password from `.env`).
+
+**Write metadata from acquisition:**
+```bash
+./scripts/run_data_acquisition.sh 1000 Triplet_efficiency_curve_LY13HV5800_LY2HV4600_Vth22_Vamp16_1000events \
+	--run-number 42 \
+	--influx
+```
+
+**Manual metadata write:**
+```bash
+python3 scripts/influx/ingest_run.py \
+	--run-name Triplet_efficiency_curve_LY13HV5800_LY2HV4600_Vth22_Vamp16_1000events \
+	--run-number 42 \
+	--timestamp 2026-05-07_14-32
+```
+
+**Parsed fields (defaults to `NA` when missing):**
+- Tags: `run_name`, `run_number`, `date`, `run_type`, `beam`, `source`, `setup`
+- Fields: `events`, `filter`, `hv_ly1`, `hv_ly2`, `hv_ly3`, `vth_code`, `vth_v`, `vamp_code`, `vamp_v`
 
 ## Dependencies
 
