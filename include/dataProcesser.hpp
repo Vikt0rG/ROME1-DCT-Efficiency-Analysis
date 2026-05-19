@@ -17,9 +17,9 @@
 
 
 // ============================================================
-// DataAnalysis Class: Main analysis section
+// DataProcesser Class: Main data processing section
 // ============================================================
-class DataAnalyzer {
+class DataProcesser {
 private:
     TFile* output_file;
     TTree* input_data_tree;
@@ -30,17 +30,17 @@ private:
     EfficiencyCountersTracks efficiency_counters_tracks;
     EfficiencyResults efficiency_results;
     EfficiencyResultsTracks efficiency_results_tracks;
-    
+
     // Raw data vectors
     std::vector<int> hit_clk, hit_channel, hit_raw_bcid, hit_bcid;
     std::vector<int> hit_time1, hit_time2, hit_rise, hit_raw_bcout, hit_bcout;
-    
+
     // Processed data vectors
     std::vector<int> proc_layer, proc_strip, proc_time1, proc_time2;
     std::vector<int> proc_dt_time1_time2, proc_trigger_time;
     std::vector<int> proc_dt_time1_trigger, proc_dt_time2_trigger;
     std::vector<int> proc_tot1, proc_tot2;
-    
+
     // Cluster and track vectors
     std::vector<int> cluster_size_eta1, cluster_size_eta2, cluster_tot1, cluster_tot2;
     std::vector<int> track_length_eta1, track_length_eta2, track_width_eta1, track_width_eta2, track_size_eta1, track_size_eta2;
@@ -56,16 +56,23 @@ private:
     int dt_max;
     int dt_min;
 
+    bool use_external_trigger;
+
 
 public:
-    DataAnalyzer();
-    ~DataAnalyzer();
+    enum class InputFormat {
+        FiledumpPackets,
+        DecodedWords
+    };
+
+    DataProcesser();
+    ~DataProcesser();
     
     // Setup
     void setupOutputFile();
     void setupBranches();
     void initializeCounters();
-    
+
     // Accessors for vectors
     std::vector<int>& getHitClk() { return hit_clk; }
     std::vector<int>& getHitChannel() { return hit_channel; }
@@ -76,7 +83,7 @@ public:
     std::vector<int>& getHitRise() { return hit_rise; }
     std::vector<int>& getHitRawBcout() { return hit_raw_bcout; }
     std::vector<int>& getHitBcout() { return hit_bcout; }
-    
+
     std::vector<int>& getProcLayer() { return proc_layer; }
     std::vector<int>& getProcStrip() { return proc_strip; }
     std::vector<int>& getProcTime1() { return proc_time1; }
@@ -87,32 +94,39 @@ public:
     std::vector<int>& getProcDtTime2Trigger() { return proc_dt_time2_trigger; }
     std::vector<int>& getProcTot1() { return proc_tot1; }
     std::vector<int>& getProcTot2() { return proc_tot2; }
-    
+
     std::vector<int>& getClusterSizeEta1() { return cluster_size_eta1; }
     std::vector<int>& getClusterSizeEta2() { return cluster_size_eta2; }
     std::vector<int>& getClusterTot1() { return cluster_tot1; }
     std::vector<int>& getClusterTot2() { return cluster_tot2; }
-    
+
     std::vector<int>& getTrackLengthEta1() { return track_length_eta1; }
     std::vector<int>& getTrackLengthEta2() { return track_length_eta2; }
-    
+    std::vector<int>& getTrackWidthEta1() { return track_width_eta1; }
+    std::vector<int>& getTrackWidthEta2() { return track_width_eta2; }
+    std::vector<int>& getTrackSizeEta1() { return track_size_eta1; }
+    std::vector<int>& getTrackSizeEta2() { return track_size_eta2; }
+
     // Processing
-    void processInputData(const std::string& input_path, const int dt_max, const int dt_min);
-    void processFile(const std::string& file_path);
-    void processSingleWord(int clk, int word, int raw_bcout, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
+    void processInputData(const std::string& input_path, const int dt_max, const int dt_min, InputFormat format = InputFormat::FiledumpPackets, bool use_external_trigger_arg = true);
+    void processFileFiledump(const std::string& file_path);
+    void processFileDecoded(const std::string& file_path);
+    void processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
+    void processSingleWord(int clk, int word, int raw_bcout, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool end_on_clk = true);
+
     int extractRawBCID(int word);
+
     void pushBackHitData(const Hit& hit);
     void pushBackProcessedData(const Event& event);
     void pushBackClusterDataEta1(const Cluster& cluster);
     void pushBackClusterDataEta2(const Cluster& cluster);
     void pushBackTrackDataEta1(const Track& track);
     void pushBackTrackDataEta2(const Track& track);
-    void processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
-    
+
     // Analysis
     void updateEfficiencies();
     void createHistograms();
-    
+
     // Cleanup
     void clearEventVectors();
 };

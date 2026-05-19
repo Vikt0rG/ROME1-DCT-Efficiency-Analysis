@@ -1,8 +1,19 @@
 #pragma once
 
+#include <string>
 #include <vector>
 
 
+// ==========================================================================================
+// Common types and structures used across the project
+struct RawWord {
+    int clk;
+    int word;
+    int raw_bcout;
+};
+
+// ==========================================================================================
+// Efficiency calculation related structures
 struct EfficiencyFlags {
     bool eta1_layer[3];          // Layer 0, 1, 2 for η1 side
     bool eta2_layer[3];          // Layer 0, 1, 2 for η2 side
@@ -82,4 +93,42 @@ struct EfficiencyResultsTracks {
     double track_eta2_efficiency_rpc_error[3];
     double track_eta_or_efficiency_rpc_error[3];
     double track_eta_and_efficiency_rpc_error[3];
+};
+
+// ==========================================================================================
+// Measurement configuration and summary structures for the measurement analysis part
+struct MeasurementEntry {
+    std::string name;
+    std::string measurement_type;
+    std::string root_file;
+    std::string mixture;
+    std::string source;
+    double filter = 0.0;
+    int lv_setting = 0;
+    double hv = 0.0;
+    double other_hv = 0.0;
+    double scanned_hv = 0.0;
+    int layer = 0;
+};
+
+struct PerFileStats {
+    std::string name;
+    int layer = 0;
+    double hv = 0.0;
+
+    double efficiency_eta1_external[3] = {0.0, 0.0, 0.0};
+    double efficiency_eta2_external[3] = {0.0, 0.0, 0.0};
+    double efficiency_or_external[3] = {0.0, 0.0, 0.0};
+    double efficiency_and_external[3] = {0.0, 0.0, 0.0};
+
+    double avg_cluster_size_eta1 = 0.0;
+    double avg_cluster_size_eta2 = 0.0;
+    double noise_rate = 0.0;
+};
+
+struct SummaryStats {
+    std::string config_path;
+    std::string measurement_type;
+    std::vector<MeasurementEntry> entries;
+    std::vector<PerFileStats> per_file_stats;
 };

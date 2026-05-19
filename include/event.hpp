@@ -37,10 +37,12 @@ private:
     EfficiencyCounters& efficiency_counters;
     EfficiencyCountersTracks& efficiency_counters_tracks;
 
+    bool use_external_trigger;
+
 public:
     // Constructor
-    Event(int event_number, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
-    Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);  // Move constructor for hits
+    Event(int event_number, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool use_external_trigger);
+    Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool use_external_trigger);  // Move constructor for hits
     ~Event();  // Destructor
 
     // Extract trigger information

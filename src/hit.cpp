@@ -40,7 +40,7 @@ void Hit::decodeDCTWord(int word) {
     if (rise == 1) {                      // Rising edge
         raw_bcid = word >> 12 & 0xFF;       // Bits 12-19
         raw_time_eta1 = word >> 7 & 0x1F;   // Bits 7-11
-        raw_time_eta2 = word >> 1 & 0x3F;   // Bits 1-5
+        raw_time_eta2 = word >> 1 & 0x1F;   // Bits 1-5
 
     } else {                              // Falling edge
         raw_bcid = word >> 11 & 0x1FF;      // Bits 11-19
@@ -60,6 +60,19 @@ void Hit::applyBCWrapAround(int BC0) {
     if (bcout > 128) bcout -= 256;
 }
 
+/*
+int mod256(int x) { return (x % 256 + 256) % 256; }
+
+/// Utility function for applying BC wrap-around correction to BCID and BCOut
+void Hit::applyBCWrapAround(int BC0) {
+    bcid = mod256(raw_bcid - BC0);
+
+    bcout = mod256(raw_bcout - BC0);
+    if (bcout < -128) bcout += 256;
+    if (bcout > 128) bcout -= 256;
+}
+*/
+
 /// Utility function for mapping channel number to detector layer and strip
 void Hit::geometryMapping() {
     int layer = (channel % 24) / 8;         // Detector layer (0, 1 or 2)
@@ -67,5 +80,6 @@ void Hit::geometryMapping() {
     int strip = 8 * column + channel % 8;   // Strip number (0-47)
 
     this->layer = layer;
+    this->column = column;
     this->strip = strip;
 }

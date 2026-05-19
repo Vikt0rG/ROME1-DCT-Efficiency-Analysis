@@ -13,7 +13,7 @@ private:
 
     // Processed data
     int bcid;                     // After BC wrap-around correction
-    int layer, strip;             // Geometry info
+    int layer, column, strip;     // Geometry info
     int time_eta1, time_eta2;     // Converted times
     int tot1, tot2;               // Time-over-threshold
 
