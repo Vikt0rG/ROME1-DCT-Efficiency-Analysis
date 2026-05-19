@@ -43,6 +43,9 @@
 # VSCode stuff
 .vscode/
 
+# Local secrets
+.env
+
 # Binaries
 *bin/
 
