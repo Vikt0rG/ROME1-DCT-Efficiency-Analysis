@@ -423,11 +423,8 @@ void DataProcesser::processFileFiledump(const std::string& file_path) {
 
     const int raw_bcout = 0;
     int clk = 0;
-    bool processing_event = false;
+    bool started = false;
     std::string token;
-    std::vector<int> event_words;
-    std::vector<int> event_clks;
-    int min_bcid_event = 256;
 
     // Initialize efficiency counters and struct once before processing all words in this file
     // Use member variables so they persist after processing
@@ -441,34 +438,68 @@ void DataProcesser::processFileFiledump(const std::string& file_path) {
 
         std::string header = token.substr(0, 2);
         if (header == "0a") {
-            // PASS 2: Process all words from this event using event-level BC0
-            if (processing_event && !event_words.empty()) {
-                if (min_bcid_event < 256) {
-                    BC0 = min_bcid_event;
-                }
-                for (size_t i = 0; i < event_words.size(); ++i) {
-                    processSingleWord(event_clks[i], event_words[i], raw_bcout, efficiency_counters, efficiency_counters_tracks, false);
-                }
-                if (current_event_hits.size() > 0) {
-                    processEvent(efficiency_counters, efficiency_counters_tracks);
-                    current_event_number++;
-                    current_event_hits.clear();
-                    clearEventVectors();
-                }
+            if (started && current_event_hits.size() > 0) {
+                processEvent(efficiency_counters, efficiency_counters_tracks);
+                current_event_number++;
+                current_event_hits.clear();
+                clearEventVectors();
             }
 
-            processing_event = true;
+            started = true;
             clk = 0;
-            event_words.clear();
-            event_clks.clear();
-            min_bcid_event = 256;
         }
 
-        if (!processing_event) {
+        if (!started) {
             continue;
         }
 
-        // PASS 1: Scan all words in the event to find the minimum BCID (BC0)
+        /*
+        // First pass to find minimum BCID in the event for BC0 calculation
+        int min_bcid = 256;
+        for (int i = 0; i < 2 * 128; i++) {
+            const size_t offset = static_cast<size_t>(i) * 8 + 2;
+            if (offset + 8 > token.length()) {
+                break;
+            }
+
+            unsigned int word = 0;
+            bool valid_hex = true;
+            for (int j = 0; j < 8; ++j) {
+                char c = token[offset + j];
+                word <<= 4;
+                if (c >= '0' && c <= '9') {
+                    word |= static_cast<unsigned int>(c - '0');
+                } else if (c >= 'a' && c <= 'f') {
+                    word |= static_cast<unsigned int>(c - 'a' + 10);
+                } else if (c >= 'A' && c <= 'F') {
+                    word |= static_cast<unsigned int>(c - 'A' + 10);
+                } else {
+                    valid_hex = false;
+                    break;
+                }
+            }
+
+            if (!valid_hex) {
+                continue;
+            }
+
+            if ((word & 0x0FFFFFFF) == 0x05555555) {
+                continue;
+            }
+
+            int raw_bcid = extractRawBCID(static_cast<int>(word));
+            int raw_bcid_mod = raw_bcid & 0xFF;
+            if (raw_bcid_mod < min_bcid) {
+                min_bcid = raw_bcid_mod;
+            }
+        }
+
+        if (current_event_hits.empty() && min_bcid < 256) {
+            BC0 = min_bcid;
+        }
+        */
+
+        // Second pass to process words and accumulate hits into events
         for (int i = 0; i < 2 * 128; i++) {
             const size_t offset = static_cast<size_t>(i) * 8 + 2;
             if (offset + 8 > token.length()) {
@@ -505,32 +536,16 @@ void DataProcesser::processFileFiledump(const std::string& file_path) {
                 continue;
             }
 
-            event_clks.push_back(clk);
-            event_words.push_back(static_cast<int>(word));
-
-            int raw_bcid = extractRawBCID(static_cast<int>(word));
-            int raw_bcid_mod = raw_bcid & 0xFF;
-            if (raw_bcid_mod < min_bcid_event) {
-                min_bcid_event = raw_bcid_mod;
-            }
+            processSingleWord(clk, static_cast<int>(word), raw_bcout, efficiency_counters, efficiency_counters_tracks, false);
         }
     }
 
     // Process any remaining event at the end of file
-    if (!event_words.empty()) {
-        if (min_bcid_event < 256) {
-            BC0 = min_bcid_event;
-        }
-        // PASS 2: Process all words from this event using event-level BC0
-        for (size_t i = 0; i < event_words.size(); ++i) {
-            processSingleWord(event_clks[i], event_words[i], raw_bcout, efficiency_counters, efficiency_counters_tracks, false);
-        }
-        if (current_event_hits.size() > 0) {
-            processEvent(efficiency_counters, efficiency_counters_tracks);
-            current_event_number++;
-            current_event_hits.clear();
-            clearEventVectors();
-        }
+    if (current_event_hits.size() > 0) {
+        processEvent(efficiency_counters, efficiency_counters_tracks);
+        current_event_number++;
+        current_event_hits.clear();
+        clearEventVectors();
     }
 
     // Update efficiencies from counters before writing histograms
@@ -600,6 +615,12 @@ int DataProcesser::extractRawBCID(int word) {
 void DataProcesser::processSingleWord(int clk, int word, int raw_bcout, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool end_on_clk) {
     // Only process not empty words
     if (word != EMPTY_WORD) {
+        // Calculate BC0 if this is the first hit of an event
+        if (current_event_hits.empty()) {
+            int raw_bcid = extractRawBCID(word);
+            BC0 = raw_bcid % 256;
+        }
+
         // Create a Hit object from the raw word data
         Hit hit(clk, word, raw_bcout, BC0);
         hit.setIdx(current_event_hits.size());
