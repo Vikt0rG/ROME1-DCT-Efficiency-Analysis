@@ -1,61 +1,125 @@
 #include "dataProcesser.hpp"
+#include "dataAnalyzer.hpp"
+#include "dataPlotter.hpp"
 
 
 int main(int argc, char** argv) {
 
-    // Process command line arguments
-    if (argc < 4) {
-        std::cerr << "Usage: " << argv[0] << " <input_file> <dt_max> <dt_min> [--self] [--no-external] [--use-old-data] [--output=<output_file>]" << std::endl;
-        return 1;
-    }
-    std::string input = argv[1];
-    int dt_max, dt_min;
-
-    // Throw an error if input is a directory
-    if (std::filesystem::exists(input) && std::filesystem::is_directory(input)) {
-        std::cerr << "Error: Input path is a directory. Please provide a single file as input." << std::endl;
+    if (argc < 2) {
+        std::cerr << "Usage:\n"
+                  << "  " << argv[0] << " process <input_file> <dt_max> <dt_min> [--no-external] [--use-old-data] [--self]\n"
+                  << "  " << argv[0] << " analyze --config <config_file>" << std::endl
+                  << "  " << argv[0] << " plotter --config <config_file>" << std::endl;
         return 1;
     }
 
-    try {
-        dt_max = std::stoi(argv[2]);
-        dt_min = std::stoi(argv[3]);
-    } catch (const std::exception& e) {
-        std::cerr << "Error: dt_max and dt_min must be valid integers" << std::endl;
-        return 1;
-    }
-
-    bool self_trigger = false;
-    bool use_external_trigger = true;
-    DataProcesser::InputFormat input_format = DataProcesser::InputFormat::FiledumpPackets;
-
-    for (int i = 4; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "--self") {
-            self_trigger = true;
-        } else if (arg == "--no-external") {
-            use_external_trigger = false;
-        } else if (arg == "--use-old-data") {
-            input_format = DataProcesser::InputFormat::DecodedWords;
+    std::string command = argv[1];
+    if (command == "process") {
+        if (argc < 5) {
+            std::cerr << "Usage: " << argv[0] << " process <input_file> <dt_max> <dt_min> [--no-external] [--use-old-data] [--self]" << std::endl;
+            return 1;
         }
-    }
 
-    // Suppress unused variable warnings (TODO: integrate these parameters into analysis)
-    (void)self_trigger;
+        std::string input = argv[2];
+        int dt_max = 0;
+        int dt_min = 0;
 
-    // Setup output file and trees
-    DataProcesser processor;
-    processor.setupOutputFile();
-    processor.setupBranches();
+        if (std::filesystem::exists(input) && std::filesystem::is_directory(input)) {
+            std::cerr << "Error: Input path is a directory. Please provide a single file as input." << std::endl;
+            return 1;
+        }
 
-    // Process input file
-    try {
-        processor.processInputData(input, dt_max, dt_min, input_format, use_external_trigger);
+        try {
+            dt_max = std::stoi(argv[3]);
+            dt_min = std::stoi(argv[4]);
+        } catch (const std::exception&) {
+            std::cerr << "Error: dt_max and dt_min must be valid integers" << std::endl;
+            return 1;
+        }
+
+        bool use_external_trigger = true; // a.k.a. no_external = false
+        bool self_trigger = false;
+        DataProcesser::InputFormat input_format = DataProcesser::InputFormat::FiledumpPackets;
+
+        for (int i = 5; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "--no-external") {
+                use_external_trigger = false;
+            } else if (arg == "--use-old-data") {
+                input_format = DataProcesser::InputFormat::DecodedWords;
+            } else if (arg == "--self") {
+                self_trigger = true;
+            }
+        }
+
+        // Suppress unused variable warnings (TODO: integrate these parameters into analysis)
+        (void)self_trigger;
+
+        DataProcesser processor;
+        processor.setupOutputFile();
+        processor.setupBranches();
+
+        try {
+            processor.processInputData(input, dt_max, dt_min, input_format, use_external_trigger);
+        } catch (const std::exception& e) {
+            std::cerr << "Error processing input data: " << e.what() << std::endl;
+            return 1;
+        }
+
         return 0;
-    } catch (const std::exception& e) {
-        std::cerr << "Error processing input data: " << e.what() << std::endl;
-        return 1;
     }
 
-    // Analyze data and produce plots
+    if (command == "analyze") {
+        std::string config_file;
+        for (int i = 2; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "--config" && i + 1 < argc) {
+                config_file = argv[++i];
+            }
+        }
+
+        if (config_file.empty()) {
+            std::cerr << "Usage: " << argv[0] << " analyze --config <config_file>" << std::endl;
+            return 1;
+        }
+
+        try {
+            DataAnalyzer analyzer(config_file);
+            analyzer.produceSummaryStats();
+        } catch (const std::exception& e) {
+            std::cerr << "Error analyzing data: " << e.what() << std::endl;
+            return 1;
+        }
+
+        return 0;
+    }
+
+    if (command == "plotter") {
+        std::string config_file;
+        for (int i = 2; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "--config" && i + 1 < argc) {
+                config_file = argv[++i];
+            }
+        }
+
+        if (config_file.empty()) {
+            std::cerr << "Usage: " << argv[0] << " plotter --config <config_file>" << std::endl;
+            return 1;
+        }
+
+        try {
+            DataPlotter plotter(config_file);
+            plotter.produceSummaryPlots();
+        } catch (const std::exception& e) {
+            std::cerr << "Error plotting data: " << e.what() << std::endl;
+            return 1;
+        }
+
+        return 0;
+    }
+
+    std::cerr << "Unknown command: " << command << "\n"
+              << "Valid commands are: process, analyze, plotter" << std::endl;
+    return 1;
 }
