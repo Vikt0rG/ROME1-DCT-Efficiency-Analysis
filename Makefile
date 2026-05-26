@@ -25,7 +25,7 @@ CC = $(shell root-config --cxx)
 # `root-config --cflags` 	: necessary ROOT include flags
 CFLAGS := -g -Wall -std=c++17 -O2 -I$(INCLUDE_DIR) -I$(UTILS_DIR) $(shell root-config --cflags)
 
-LDFLAGS := $(shell root-config --libs)
+LDFLAGS := $(shell root-config --libs) -lyaml-cpp
 
 # Default target
 all: build
