@@ -43,6 +43,7 @@ private:
 
     // Cluster and track vectors
     std::vector<int> cluster_size_eta1, cluster_size_eta2, cluster_tot1, cluster_tot2;
+    std::array<std::vector<int>, 3> cluster_size_eta1_layers, cluster_size_eta2_layers, cluster_tot1_layers, cluster_tot2_layers;  // Layer-specific cluster data
     std::vector<int> track_length_eta1, track_length_eta2, track_width_eta1, track_width_eta2, track_size_eta1, track_size_eta2;
 
     // Event state management
@@ -118,8 +119,7 @@ public:
 
     void pushBackHitData(const Hit& hit);
     void pushBackProcessedData(const Event& event);
-    void pushBackClusterDataEta1(const Cluster& cluster);
-    void pushBackClusterDataEta2(const Cluster& cluster);
+    void pushBackClusterData(const Cluster& cluster);
     void pushBackTrackDataEta1(const Track& track);
     void pushBackTrackDataEta2(const Track& track);
 
