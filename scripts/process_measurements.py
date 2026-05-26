@@ -111,6 +111,10 @@ def main():
     os.makedirs(target_txt_dir, exist_ok=True)
     os.makedirs(target_root_dir, exist_ok=True)
 
+    # Recompile the binary once before processing configs
+    vprint("Recompiling analysis binary...")
+    subprocess.run(["make", "build"], check=True, cwd=root_dir)
+
     # Step 3: Process each config file
     for cfg_path in args.configs:
         if not os.path.isfile(cfg_path):
@@ -279,7 +283,6 @@ def main():
                 if os.path.exists(expected_txt) and expected_txt not in txt_paths:
                     txt_paths.append(expected_txt)
 
-            # TODO: Recompile the binary before running analysis code
 
             # Step 7: Run analysis and write ROOT output
             root_path = os.path.join(target_root_dir, f"{name}.root")
@@ -288,10 +291,12 @@ def main():
 
             existing_txt = [p for p in txt_paths if os.path.exists(p)]
             if len(existing_txt) != 1:
-                print(f"Expected 1 txt for {name}, found {len(existing_txt)}. Skipping analysis.")
+                raise ValueError(f"Expected 1 txt for {name}, found {len(existing_txt)}. Skipping analysis.")
+                
                 continue
 
-            analysis_cmd = [analysis_bin, existing_txt[0], str(args.dt_max), str(args.dt_min)]
+            command = "process"
+            analysis_cmd = [analysis_bin, command, existing_txt[0], str(args.dt_max), str(args.dt_min)]
             if args.no_external:
                 analysis_cmd.append("--no-external")
 

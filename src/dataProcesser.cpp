@@ -1,6 +1,10 @@
 #include "dataProcesser.hpp"
 
 
+/// TODO:
+/// - Channel inversion for eta2 (?) side (in the same column: channel 1 of swaps with 8, 2 with 7, etc.)
+/// - Lift restrictions on track length/size to have them be of different sizes
+
 // ==========================================================================================
 // DataProcesser class implementation for processing raw DCT data
 // ==========================================================================================
@@ -78,6 +82,18 @@ void DataProcesser::setupBranches() {
     clusterization_tree->Branch("cluster_size_eta2", &cluster_size_eta2);
     clusterization_tree->Branch("cluster_tot1", &cluster_tot1);
     clusterization_tree->Branch("cluster_tot2", &cluster_tot2);
+    clusterization_tree->Branch("cluster_size_eta1_layer0", &cluster_size_eta1_layers[0]);
+    clusterization_tree->Branch("cluster_size_eta1_layer1", &cluster_size_eta1_layers[1]);
+    clusterization_tree->Branch("cluster_size_eta1_layer2", &cluster_size_eta1_layers[2]);
+    clusterization_tree->Branch("cluster_size_eta2_layer0", &cluster_size_eta2_layers[0]);
+    clusterization_tree->Branch("cluster_size_eta2_layer1", &cluster_size_eta2_layers[1]);
+    clusterization_tree->Branch("cluster_size_eta2_layer2", &cluster_size_eta2_layers[2]);
+    clusterization_tree->Branch("cluster_tot1_layer0", &cluster_tot1_layers[0]);
+    clusterization_tree->Branch("cluster_tot1_layer1", &cluster_tot1_layers[1]);
+    clusterization_tree->Branch("cluster_tot1_layer2", &cluster_tot1_layers[2]);
+    clusterization_tree->Branch("cluster_tot2_layer0", &cluster_tot2_layers[0]);
+    clusterization_tree->Branch("cluster_tot2_layer1", &cluster_tot2_layers[1]);
+    clusterization_tree->Branch("cluster_tot2_layer2", &cluster_tot2_layers[2]);
 
     // Branch definitions for track reconstruction tree
     track_reconstruction_tree->Branch("track_length_eta1", &track_length_eta1);
@@ -298,6 +314,12 @@ void DataProcesser::clearEventVectors() {
     cluster_size_eta2.clear();
     cluster_tot1.clear();
     cluster_tot2.clear();
+    for (int layer = 0; layer < 3; layer++) {
+        cluster_size_eta1_layers[layer].clear();
+        cluster_size_eta2_layers[layer].clear();
+        cluster_tot1_layers[layer].clear();
+        cluster_tot2_layers[layer].clear();
+    }
 
     track_length_eta1.clear();
     track_length_eta2.clear();
@@ -351,7 +373,7 @@ void DataProcesser::pushBackProcessedData(const Event& event) {
         if (hit.hasEta1Time()) {
             if (hit.getTimeEta1() < -1) {
                 std::cout << "FATAL: Hit number " << hit.getIdx() << " with negative BCID after BC0 correction: " << hit.getBCID() << " (raw BCID: " << hit.getRawBCID() << ", BC0: " << BC0 << ")" << std::endl;
-                std::exit(1);
+                // std::exit(1);
             }
             proc_time1.push_back(hit.getTimeEta1());
             proc_dt_time1_trigger.push_back(hit.getTimeEta1() - event.getTriggerTime());
@@ -367,15 +389,27 @@ void DataProcesser::pushBackProcessedData(const Event& event) {
 }
 
 /// Utility functions to push cluster-level data into the corresponding vectors for tree filling
-void DataProcesser::pushBackClusterDataEta1(const Cluster& cluster) {
-    cluster_size_eta1.push_back(cluster.getSize()); // Total cluster size
-    if (cluster.getTot1() > 0) cluster_tot1.push_back(cluster.getTot1());
+void DataProcesser::pushBackClusterData(const Cluster& cluster) {
+    if (cluster.ETA1) {
+        // Cluster size information
+        cluster_size_eta1.push_back(cluster.getSize());
+        cluster_size_eta1_layers[cluster.getLayer()].push_back(cluster.getSize());
+
+        // ToT information
+        if (cluster.getTot1() > 0) {
+            cluster_tot1.push_back(cluster.getTot1());
+            cluster_tot1_layers[cluster.getLayer()].push_back(cluster.getTot1());
+        }
+    } else if (cluster.ETA2) { // ETA2 side, same structure but different vectors
+        cluster_size_eta2.push_back(cluster.getSize());
+        cluster_size_eta2_layers[cluster.getLayer()].push_back(cluster.getSize());
+        if (cluster.getTot2() > 0) {
+            cluster_tot2.push_back(cluster.getTot2());
+            cluster_tot2_layers[cluster.getLayer()].push_back(cluster.getTot2());
+        }
+    }
 }
 
-void DataProcesser::pushBackClusterDataEta2(const Cluster& cluster) {
-    cluster_size_eta2.push_back(cluster.getSize()); // Total cluster size
-    if (cluster.getTot2() > 0) cluster_tot2.push_back(cluster.getTot2());
-}
 
 /// Utility functions to push track-level data into the corresponding vectors for tree filling
 void DataProcesser::pushBackTrackDataEta1(const Track& track) {
@@ -678,10 +712,10 @@ void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCounter
 
     // Push back cluster-level data for both eta1 and eta2 sides
     for (const auto& cluster : event.getClustersEta1()) {
-        pushBackClusterDataEta1(cluster);
+        pushBackClusterData(cluster);
     }
     for (const auto& cluster : event.getClustersEta2()) {
-        pushBackClusterDataEta2(cluster);
+        pushBackClusterData(cluster);
     }
 
     // Fill the clusterization tree (write if either eta1 or eta2 has clusters)

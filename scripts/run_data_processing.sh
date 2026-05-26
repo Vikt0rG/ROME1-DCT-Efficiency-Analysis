@@ -23,7 +23,7 @@ if [[ "$@" == *"--help"* ]]; then
     echo "  -h, --help          Display this help message"
     echo ""
     echo "EXAMPLES:"
-    echo "  $0 /root/data/raw/raw_data.txt --batch --dt-max -120 --dt-min -200"
+    echo "  $0 /root/data/raw/raw_data.txt --dt-max -120 --dt-min -200"
     exit 0
 fi
 
@@ -60,13 +60,19 @@ while [[ "$#" -gt 0 ]]; do
              dt_min="$2"
              shift 2
              ;;
+        --no-external)
+            no_external="--no-external"
+            shift
+            ;;
+            echo "Unknown option: $1"
+            usage
+            ;;
         --old-data-type)
             old_data_type="--use-old-data"
             shift
             ;;
-        --no-external)
-            no_external="--no-external"
-            shift
+        --help|-h)
+            usage
             ;;
         *)
             echo "Unknown option: $1"
@@ -94,11 +100,11 @@ if [ -d "$input" ]; then
     echo "Input is a directory. Processing all .txt files in $input..."
     for file in "$input"/*.txt; do
         echo "Processing file: $file"
-        "$rootDir/bin/analysis" "$file" "$dt_max" "$dt_min" $use_self_trigger $old_data_type $no_external
+        "$rootDir/bin/analysis" process "$file" "$dt_max" "$dt_min" $no_external $old_data_type $use_self_trigger
         mv ./output.root "$outputDir"
     done
 else
     echo "Input is a single file. Processing $input..."
-    "$rootDir/bin/analysis" "$input" "$dt_max" "$dt_min" $use_self_trigger $old_data_type $no_external
+    "$rootDir/bin/analysis" process "$input" "$dt_max" "$dt_min" $no_external $old_data_type $use_self_trigger
     mv ./output.root "$outputDir"
 fi

@@ -5,12 +5,12 @@
 // Cluster class implementation
 // ============================================================
 /// Constructor that initializes the cluster with the first hit
-Cluster::Cluster(Hit* first_hit, EtaSide side)
-    : cluster_id(0), center_hit_index(0), tot1(-1), tot2(-1), eta_side(side) {
+Cluster::Cluster(Hit* first_hit, EtaSide side, int layer)
+    : cluster_id(0), layer(layer), center_hit_index(0), tot1(-1), tot2(-1), eta_side(side) {
     cluster_hits.push_back(first_hit);
 }
 
-/// NEW: Core clustering logic: Add a hit to the cluster if it is within the time window and strip distance
+/// Core clustering logic: Add a hit to the cluster if it is within the time window and strip distance
 // A hit is added ONLY if it satisfies BOTH strip AND time conditions with AT LEAST ONE existing member
 bool Cluster::addHit(Hit* hit) {
     // Check against each existing cluster member
@@ -31,6 +31,9 @@ bool Cluster::addHit(Hit* hit) {
 
         if (eta_side == ETA1) std::cout << "  Potential cluster partner: Hit " << hit->getIdx() << "; Layer: " << hit->getLayer() << "; Strip: " << hit->getStrip() << "; Time " << hit->getTimeEta1() << std::endl;
 
+        // Both conditions satisfied for this cluster member - add hit
+        cluster_hits.push_back(hit);
+
         // Update cluster center if new hit has smaller rising time (use correct eta side)
         if (eta_side == ETA1) {
             if (hit->getTimeEta1() < cluster_hits[center_hit_index]->getTimeEta1()) {
@@ -42,8 +45,6 @@ bool Cluster::addHit(Hit* hit) {
             }
         }
 
-        // Both conditions satisfied for this cluster member - add hit
-        cluster_hits.push_back(hit);
         return true;
     }
 
