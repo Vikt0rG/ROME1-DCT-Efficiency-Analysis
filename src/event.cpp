@@ -111,7 +111,7 @@ void Event::clusterize() {
         if (hit.getRise() == 0 || hit.getChannel() == trigger_channel || hit.inClusterEta1() || hit.getTimeEta1() == -1) continue;
         std::cout << "------------------------------------------------------------------" << std::endl;
         std::cout << "Processing side η1: Hit: " << hit.getIdx() << "; Layer " << hit.getLayer() << "; Strip: " << hit.getStrip() << "; Time " << hit.getTimeEta1() << std::endl;
-        Cluster cluster(&hit, Cluster::ETA1);
+        Cluster cluster(&hit, Cluster::ETA1, hit.getLayer());
         hit.setClusterIDEta1(cluster_id_counter_eta1);
 
         // Loop over the remaining hits to find cluster partners for the current hit
@@ -154,7 +154,7 @@ void Event::clusterize() {
         if (hit.getRise() == 0 || hit.getChannel() == trigger_channel || hit.getTimeEta2() == -1 || hit.inClusterEta2()) continue;
         std::cout << "------------------------------------------------------------------" << std::endl;
         std::cout << "Processing side η2: Hit: " << hit.getIdx() << "; Layer " << hit.getLayer() << "; Strip: " << hit.getStrip() << "; Time " << hit.getTimeEta2() << std::endl;
-        Cluster cluster(&hit, Cluster::ETA2);
+        Cluster cluster(&hit, Cluster::ETA2, hit.getLayer());
         hit.setClusterIDEta2(cluster_id_counter_eta2);
 
         for (Hit& potential_partner : hits) {

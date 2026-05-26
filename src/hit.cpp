@@ -12,7 +12,7 @@ Hit::Hit(int clk, int word, int bcout, int BC0)
 
     // Apply BC0 in the event processing
     applyBCWrapAround(BC0);
-    
+
     // Convert raw to physical time
     time_eta1 = TimeUtils::convertRawTimeToPhysical(raw_time_eta1, bcid);
     time_eta2 = TimeUtils::convertRawTimeToPhysical(raw_time_eta2, bcid);
