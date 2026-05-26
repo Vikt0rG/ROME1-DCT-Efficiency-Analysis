@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <array>
 
 
 // ==========================================================================================
@@ -116,14 +117,16 @@ struct PerFileStats {
     int layer = 0;
     double hv = 0.0;
 
-    double efficiency_eta1_external[3] = {0.0, 0.0, 0.0};
-    double efficiency_eta2_external[3] = {0.0, 0.0, 0.0};
-    double efficiency_or_external[3] = {0.0, 0.0, 0.0};
-    double efficiency_and_external[3] = {0.0, 0.0, 0.0};
+    EfficiencyResults efficiency_results;
+    EfficiencyResultsTracks efficiency_results_tracks;
 
     double avg_cluster_size_eta1 = 0.0;
     double avg_cluster_size_eta2 = 0.0;
+    double avg_cluster_size_eta1_layers[3] = {0.0, 0.0, 0.0};
+    double avg_cluster_size_eta2_layers[3] = {0.0, 0.0, 0.0};
     double noise_rate = 0.0;
+    double noise_rate_eta1[3] = {0.0, 0.0, 0.0};
+    double noise_rate_eta2[3] = {0.0, 0.0, 0.0};
 };
 
 struct SummaryStats {

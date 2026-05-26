@@ -15,6 +15,7 @@ public:
 
 private:
     int cluster_id;                       // Unique identifier for the cluster
+    int layer;                            // Layer which the cluster belongs to (0, 1, or 2)
     std::vector<Hit*> cluster_hits;       // Hits in this cluster (NOT copied, referenced)
     int center_hit_index;                 // Index of first-in-time hit (cluster center)
     int tot1, tot2;                       // Time-over-threshold for both sides
@@ -22,7 +23,7 @@ private:
 
 public:
     // Constructor
-    Cluster(Hit* first_hit, EtaSide side);
+    Cluster(Hit* first_hit, EtaSide side, int layer);
 
     // Core clustering logic
     bool addHit(Hit* hit);
@@ -34,7 +35,7 @@ public:
     Hit* getCenterHit() const { return cluster_hits[center_hit_index]; }
     int getSize() const { return cluster_hits.size(); }
     int getStrip() const { return getCenterHit()->getStrip(); }
-    int getLayer() const { return getCenterHit()->getLayer(); }
+    int getLayer() const { return layer; }
     int getCenterTime() const { return getCenterHit()->getTimeEta1(); }
     int getTot1() const { return tot1; }
     int getTot2() const { return tot2; }
