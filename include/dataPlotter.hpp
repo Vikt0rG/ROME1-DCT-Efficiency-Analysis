@@ -1,10 +1,32 @@
 #pragma once
 
 #include <filesystem>
+#include <memory>
+#include <stdexcept>
+#include <string_view>
+
 #include <string>
 #include <vector>
+#include <array>
+#include <map>
+#include <unordered_map>
+
+#include <TGraph.h>
+#include <TDirectory.h>
+#include <TFile.h>
+#include <TGraph.h>
+#include <TMultiGraph.h>
+#include <TTree.h>
+#include <TTreeReader.h>
+#include <TTreeReaderArray.h>
+#include <TTreeReaderValue.h>
 
 #include "types.hpp"
+#include "configParser.hpp"
+
+/// TODO: 
+/// - Need function to style graphs (markers, colors, ticks, etc.) / ATLAS Style
+/// - ATLAS Logo
 
 // ============================================================
 // DataPlotter Class: Plotting summary statistics
