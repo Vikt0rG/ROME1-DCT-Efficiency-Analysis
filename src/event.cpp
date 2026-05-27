@@ -54,45 +54,83 @@ void Event::extractTriggerTime() {
     }
 }
 
+/// Utility function to estimate whether there are more rising or falling edges in the event for ToT calculation
+bool hasMoreRisingEdges(const std::vector<Hit>& hits) {
+    int rising_count = 0;
+    int falling_count = 0;
+    for (const auto& hit : hits) {
+        if (hit.getRise() == 1) rising_count++;
+        else if (hit.getRise() == 0) falling_count++;
+    }
+    return rising_count > falling_count;
+}
+
 /// Time Over Threshold calculation before clusterization
 void Event::calculateTOT() {
-    for (Hit& hit : hits) {
+    // Vectors to keep track which hits have been paired for ToT calculation to avoid double counting
+    // Note: For pairing rely on eta1 side only unless it doesn't have time information, then use eta2 side.
+    std::vector<bool> paired(hits.size(), false);
+
+    // Determine if we have more rising edges than falling edges in the event, which can indicate potential data issues (?)
+    bool more_rising_edges = hasMoreRisingEdges(hits);
+    bool more_falling_edges = !more_rising_edges;
+
+    for (size_t i = 0; i < hits.size(); i++) {
+        Hit& hit = hits[i];
         int tot1 = -1;
         int tot2 = -1;
-        if (hit.getChannel() == trigger_channel || hit.getRise() == 0) continue; // Skip hits on trigger channel and falling edges
-        
-        // Find the closest falling edge partner on the same channel (after the rising edge)
-        Hit* best_partner_eta1 = nullptr;
-        Hit* best_partner_eta2 = nullptr;
+
+        if (hit.getChannel() == trigger_channel) continue; // Skip hits on trigger channel
+
+        if (paired[i]) continue; // Skip already paired hits
+
+        // Greedy approach: Skip hits that are more common, to match those to the less common ones
+        if ((hit.getRise() == 0 && more_falling_edges) || (hit.getRise() == 1 && more_rising_edges)) continue;
+
+        // Find the closest in-time partner edge on the same channel
+        int best_j = -1;
         int min_dt_eta1 = INT_MAX;
         int min_dt_eta2 = INT_MAX;
-        
-        for (Hit& potential_partner : hits) {
-            if (&potential_partner == &hit) continue; // Skip the same hit
-            if (potential_partner.getChannel() != hit.getChannel() || potential_partner.getRise() != 0) continue;
-            
-            // Find closest eta1 partner
+        const int target_rise = (hit.getRise() == 1) ? 0 : 1;
+
+        for (size_t j = 0; j < hits.size(); j++) {
+            Hit& potential_partner = hits[j];
+            if (&potential_partner == &hit || paired[j]) continue;  // Skip the same hit or already paired hits
+            if (potential_partner.getChannel() != hit.getChannel()) continue;   // Skip hits from different channels
+            if (potential_partner.getRise() != target_rise) continue;   // Skip hits with the same edge type
+
+            // Find closest partner using eta1 time information if available (fallback to eta2 if not)
             if (hit.hasEta1Time() && potential_partner.hasEta1Time()) {
                 int dt1 = potential_partner.getTimeEta1() - hit.getTimeEta1();
                 if (dt1 > 0 && dt1 < min_dt_eta1) {
                     min_dt_eta1 = dt1;
-                    best_partner_eta1 = &potential_partner;
+                    best_j = static_cast<int>(j);
                 }
-            }
-            
-            // Find closest eta2 partner
-            if (hit.hasEta2Time() && potential_partner.hasEta2Time()) {
+            } else if (hit.hasEta2Time() && potential_partner.hasEta2Time()) {
                 int dt2 = potential_partner.getTimeEta2() - hit.getTimeEta2();
                 if (dt2 > 0 && dt2 < min_dt_eta2) {
                     min_dt_eta2 = dt2;
-                    best_partner_eta2 = &potential_partner;
+                    best_j = static_cast<int>(j);
                 }
             }
         }
-        
-        if (best_partner_eta1 && min_dt_eta1 > 0) tot1 = min_dt_eta1;
-        if (best_partner_eta2 && min_dt_eta2 > 0) tot2 = min_dt_eta2;
-        
+
+        if (best_j >= 0) {
+            paired[i] = true;
+            paired[best_j] = true;
+            if (min_dt_eta1 < INT_MAX) tot1 = min_dt_eta1;
+            if (min_dt_eta2 < INT_MAX) tot2 = min_dt_eta2;
+        }
+
+        // DEBUG: Print out hit informations for both rising and falling edge if ToT is too high
+        if (tot1 > 1000 || tot2 > 1000) {
+            std::cout << "" << std::endl;
+            std::cout << "Hit " << hit.getIdx() << " from event number " << event_number << " on channel " << hit.getChannel() << " with hit BCID " << hit.getBCID() << " and times " << hit.getTimeEta1() << ", " << hit.getTimeEta2() << " has large ToT: " << tot1 << " (eta1), " << tot2 << " (eta2)" << std::endl;
+            if (best_j >= 0) {
+                std::cout << "  Closest partner: Hit " << hits[best_j].getIdx() << " with BCID " << hits[best_j].getBCID() << ", time = " << hits[best_j].getTimeEta1() << std::endl;
+            }
+        }
+
         hit.setTot1(tot1);
         hit.setTot2(tot2);
     }
@@ -109,8 +147,8 @@ void Event::clusterize() {
 
         // Initialize a new cluster object if the rising non-trigger hit is not already in a cluster and has valid time information for η1
         if (hit.getRise() == 0 || hit.getChannel() == trigger_channel || hit.inClusterEta1() || hit.getTimeEta1() == -1) continue;
-        std::cout << "------------------------------------------------------------------" << std::endl;
-        std::cout << "Processing side η1: Hit: " << hit.getIdx() << "; Layer " << hit.getLayer() << "; Strip: " << hit.getStrip() << "; Time " << hit.getTimeEta1() << std::endl;
+        // std::cout << "------------------------------------------------------------------" << std::endl;
+        // std::cout << "Processing side η1: Hit: " << hit.getIdx() << "; Layer " << hit.getLayer() << "; Strip: " << hit.getStrip() << "; Time " << hit.getTimeEta1() << std::endl;
         Cluster cluster(&hit, Cluster::ETA1, hit.getLayer());
         hit.setClusterIDEta1(cluster_id_counter_eta1);
 
@@ -139,6 +177,7 @@ void Event::clusterize() {
         clusters_eta1.push_back(cluster);
         cluster_id_counter_eta1++;
 
+        /*
         // DEBUG: Print out parameters of the hits belonging to the cluster for the current hit
         std::cout << "******************************************************************" << std::endl;
         std::cout << "Resulting cluster: " << std::endl;
@@ -146,14 +185,15 @@ void Event::clusterize() {
             std::cout << cluster_hit->getIdx() << ": layer = " << cluster_hit->getLayer() << ", strip = " << cluster_hit->getStrip() << ", time = " << cluster_hit->getTimeEta1() << std::endl;
         }
         std::cout << "\n";
+        */
     }
 
     // Side η2 clusterization (same logic as for η1)
     int cluster_id_counter_eta2 = 0;
     for (Hit& hit : hits) {
         if (hit.getRise() == 0 || hit.getChannel() == trigger_channel || hit.getTimeEta2() == -1 || hit.inClusterEta2()) continue;
-        std::cout << "------------------------------------------------------------------" << std::endl;
-        std::cout << "Processing side η2: Hit: " << hit.getIdx() << "; Layer " << hit.getLayer() << "; Strip: " << hit.getStrip() << "; Time " << hit.getTimeEta2() << std::endl;
+        // std::cout << "------------------------------------------------------------------" << std::endl;
+        // std::cout << "Processing side η2: Hit: " << hit.getIdx() << "; Layer " << hit.getLayer() << "; Strip: " << hit.getStrip() << "; Time " << hit.getTimeEta2() << std::endl;
         Cluster cluster(&hit, Cluster::ETA2, hit.getLayer());
         hit.setClusterIDEta2(cluster_id_counter_eta2);
 
@@ -173,12 +213,14 @@ void Event::clusterize() {
         clusters_eta2.push_back(cluster);
         cluster_id_counter_eta2++;
 
+        /*
         std::cout << "******************************************************************" << std::endl;
         std::cout << "Resulting cluster: " << std::endl;
         for (Hit* cluster_hit : cluster.getHits()) {
             std::cout << cluster_hit->getIdx() << ": layer = " << cluster_hit->getLayer() << ", strip = " << cluster_hit->getStrip() << ", time = " << cluster_hit->getTimeEta2() << std::endl;
         }
         std::cout << "\n";
+        */
     }
 }
 
@@ -244,8 +286,8 @@ void Event::reconstructTracks() {
         // NOTE: Here we no longer need checks for rising edge, non-trigger channel and valid
         // time information as these are already ensured for cluster centers at the cluster level
         if (cluster.getCenterHit()->inTrackEta1()) continue;
-        std::cout << "------------------------------------------------------------------" << std::endl;
-        std::cout << "Processing track reconstruction for side η1: " << std::endl;
+        // std::cout << "------------------------------------------------------------------" << std::endl;
+        // std::cout << "Processing track reconstruction for side η1: " << std::endl;
         Track track(track_id_counter_eta1, cluster.getCenterHit(), Track::ETA1);
         cluster.getCenterHit()->setTrackIDEta1(track_id_counter_eta1);
 
@@ -268,6 +310,7 @@ void Event::reconstructTracks() {
         tracks_eta1.push_back(track);
         track_id_counter_eta1++;
 
+        /*
         // DEBUG: Print out parameters of the hits belonging to the track for the current cluster center
         std::cout << "******************************************************************" << std::endl;
         std::cout << "Resulting track: " << std::endl;
@@ -276,14 +319,15 @@ void Event::reconstructTracks() {
             if (track.getLayerCount(0) == 0) std::exit(1); // Sanity check to ensure layer count is correctly calculated for eta1 tracks
         }
         std::cout << "\n";
+        */
     }
 
     // Side η2 track reconstruction logic (same logic as for η1)
     int track_id_counter_eta2 = 0;
     for (Cluster& cluster : clusters_eta2) {
         if (cluster.getCenterHit()->inTrackEta2()) continue;
-        std::cout << "------------------------------------------------------------------" << std::endl;
-        std::cout << "Processing track reconstruction for side η2: " << std::endl;
+        // std::cout << "------------------------------------------------------------------" << std::endl;
+        // std::cout << "Processing track reconstruction for side η2: " << std::endl;
         Track track(track_id_counter_eta2, cluster.getCenterHit(), Track::ETA2);
         cluster.getCenterHit()->setTrackIDEta2(track_id_counter_eta2);
 
@@ -299,12 +343,14 @@ void Event::reconstructTracks() {
         tracks_eta2.push_back(track);
         track_id_counter_eta2++;
 
+        /*
         std::cout << "******************************************************************" << std::endl;
         std::cout << "Resulting track: " << std::endl;
         for (Hit* track_hit : track.getHits()) {
             std::cout << track_hit->getIdx() << ": layer = " << track_hit->getLayer() << ", strip = " << track_hit->getStrip() << ", time = " << track_hit->getTimeEta2() << std::endl;
         }
         std::cout << "\n";
+        */
     }
 }
 
