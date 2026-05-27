@@ -51,22 +51,24 @@ void Hit::decodeDCTWord(int word) {
 
 /// Utility function for applying BC wrap-around correction to BCID and BCOut
 void Hit::applyBCWrapAround(int BC0) {
-    bcid = raw_bcid - BC0;
+    bcid = (raw_bcid - BC0) % 256;
     if (bcid < -128) bcid += 256;
     if (bcid > 128) bcid -= 256;
-
+    
     bcout = (raw_bcout - BC0) % 256;
     if (bcout < -128) bcout += 256;
     if (bcout > 128) bcout -= 256;
 }
-
+    
 /*
 int mod256(int x) { return (x % 256 + 256) % 256; }
-
+    
 /// Utility function for applying BC wrap-around correction to BCID and BCOut
 void Hit::applyBCWrapAround(int BC0) {
     bcid = mod256(raw_bcid - BC0);
-
+    if (bcid < -128) bcid += 256;
+    if (bcid > 128) bcid -= 256;
+    
     bcout = mod256(raw_bcout - BC0);
     if (bcout < -128) bcout += 256;
     if (bcout > 128) bcout -= 256;
