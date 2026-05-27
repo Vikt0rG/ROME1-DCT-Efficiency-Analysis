@@ -1,23 +1,5 @@
 #include "dataPlotter.hpp"
 
-#include <array>
-#include <map>
-#include <memory>
-#include <stdexcept>
-#include <string_view>
-#include <unordered_map>
-
-#include <TDirectory.h>
-#include <TFile.h>
-#include <TGraph.h>
-#include <TMultiGraph.h>
-#include <TTree.h>
-#include <TTreeReader.h>
-#include <TTreeReaderArray.h>
-#include <TTreeReaderValue.h>
-
-#include "configParser.hpp"
-
 // Constructor implementation: Parse config file and populate parsed_entries vector
 DataPlotter::DataPlotter(const std::string& config_file_path)
     : config_path(config_file_path) {
