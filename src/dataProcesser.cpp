@@ -346,7 +346,6 @@ void DataProcesser::pushBackHitData(const Hit& hit) {
 void DataProcesser::pushBackProcessedData(const Event& event) {
     proc_trigger_time.push_back(event.getTriggerTime());
     // Loop over hits in the event and push processed data into vectors
-    /*
     for (const auto& hit : event.getHits()) {
         proc_layer.push_back(hit.getLayer());
         proc_strip.push_back(hit.getStrip());
@@ -358,8 +357,8 @@ void DataProcesser::pushBackProcessedData(const Event& event) {
         proc_tot1.push_back(hit.getToT1());
         proc_tot2.push_back(hit.getToT2());
     }
-    */
 
+    /*
     /// WIP: Decide whether to do filtering first: 
     /// FILTERING: Only push information of the non-trigger channel rising hits with valid time information (to match with ToT calculation which only processes rising edges)
     for (const auto& hit : event.getHits()) {
@@ -372,7 +371,7 @@ void DataProcesser::pushBackProcessedData(const Event& event) {
         }
         if (hit.hasEta1Time()) {
             if (hit.getTimeEta1() < -1) {
-                std::cout << "FATAL: Hit number " << hit.getIdx() << " with negative BCID after BC0 correction: " << hit.getBCID() << " (raw BCID: " << hit.getRawBCID() << ", BC0: " << BC0 << ")" << std::endl;
+                // std::cout << "FATAL: Hit number " << hit.getIdx() << " with negative BCID after BC0 correction: " << hit.getBCID() << " (raw BCID: " << hit.getRawBCID() << ", BC0: " << BC0 << ")" << std::endl;
                 // std::exit(1);
             }
             proc_time1.push_back(hit.getTimeEta1());
@@ -386,6 +385,7 @@ void DataProcesser::pushBackProcessedData(const Event& event) {
         if (hit.getToT1() > 0) proc_tot1.push_back(hit.getToT1());
         if (hit.getToT2() > 0) proc_tot2.push_back(hit.getToT2());
     }
+    */
 }
 
 /// Utility functions to push cluster-level data into the corresponding vectors for tree filling
@@ -657,9 +657,9 @@ void DataProcesser::processSingleWord(int clk, int word, int raw_bcout, Efficien
 /// Process a complete event that has been accumulated
 void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks) {
     n_hits = current_event_hits.size();
-    std::cout << "\n" << std::endl;
-    std::cout << "╔═════════════════════════════════════════════════════════════════╗" << std::endl;
-    std::cout << "║ Processing event No. " << current_event_number << " with " << n_hits << " hits" << std::endl;
+    // std::cout << "\n" << std::endl;
+    // std::cout << "╔═════════════════════════════════════════════════════════════════╗" << std::endl;
+    // std::cout << "║ Processing event No. " << current_event_number << " with " << n_hits << " hits" << std::endl;
     
     // Fill the input data tree with raw hit information
     if (input_data_tree && hit_clk.size() > 0) {
