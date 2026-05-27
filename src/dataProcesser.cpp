@@ -390,7 +390,7 @@ void DataProcesser::pushBackProcessedData(const Event& event) {
 
 /// Utility functions to push cluster-level data into the corresponding vectors for tree filling
 void DataProcesser::pushBackClusterData(const Cluster& cluster) {
-    if (cluster.ETA1) {
+    if (cluster.getSide() == Cluster::ETA1) {
         // Cluster size information
         cluster_size_eta1.push_back(cluster.getSize());
         cluster_size_eta1_layers[cluster.getLayer()].push_back(cluster.getSize());
@@ -400,7 +400,7 @@ void DataProcesser::pushBackClusterData(const Cluster& cluster) {
             cluster_tot1.push_back(cluster.getTot1());
             cluster_tot1_layers[cluster.getLayer()].push_back(cluster.getTot1());
         }
-    } else if (cluster.ETA2) { // ETA2 side, same structure but different vectors
+    } else if (cluster.getSide() == Cluster::ETA2) { // ETA2 side, same structure but different vectors
         cluster_size_eta2.push_back(cluster.getSize());
         cluster_size_eta2_layers[cluster.getLayer()].push_back(cluster.getSize());
         if (cluster.getTot2() > 0) {

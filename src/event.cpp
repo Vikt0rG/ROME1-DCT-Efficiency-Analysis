@@ -122,15 +122,6 @@ void Event::calculateTOT() {
             if (min_dt_eta2 < INT_MAX) tot2 = min_dt_eta2;
         }
 
-        // DEBUG: Print out hit informations for both rising and falling edge if ToT is too high
-        if (tot1 > 1000 || tot2 > 1000) {
-            std::cout << "" << std::endl;
-            std::cout << "Hit " << hit.getIdx() << " from event number " << event_number << " on channel " << hit.getChannel() << " with hit BCID " << hit.getBCID() << " and times " << hit.getTimeEta1() << ", " << hit.getTimeEta2() << " has large ToT: " << tot1 << " (eta1), " << tot2 << " (eta2)" << std::endl;
-            if (best_j >= 0) {
-                std::cout << "  Closest partner: Hit " << hits[best_j].getIdx() << " with BCID " << hits[best_j].getBCID() << ", time = " << hits[best_j].getTimeEta1() << std::endl;
-            }
-        }
-
         hit.setTot1(tot1);
         hit.setTot2(tot2);
     }

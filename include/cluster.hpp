@@ -33,6 +33,7 @@ public:
 
     // Accessors
     Hit* getCenterHit() const { return cluster_hits[center_hit_index]; }
+    EtaSide getSide() const { return eta_side; }
     int getSize() const { return cluster_hits.size(); }
     int getStrip() const { return getCenterHit()->getStrip(); }
     int getLayer() const { return layer; }
