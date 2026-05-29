@@ -33,7 +33,7 @@ private:
 
     // Raw data vectors
     std::vector<int> hit_clk, hit_channel, hit_raw_bcid, hit_bcid;
-    std::vector<int> hit_time1, hit_time2, hit_rise, hit_raw_bcout, hit_bcout;
+    std::vector<int> hit_time1, hit_time2, hit_rise;
 
     // Processed data vectors
     std::vector<int> proc_layer, proc_strip, proc_time1, proc_time2;
@@ -82,8 +82,6 @@ public:
     std::vector<int>& getHitTime1() { return hit_time1; }
     std::vector<int>& getHitTime2() { return hit_time2; }
     std::vector<int>& getHitRise() { return hit_rise; }
-    std::vector<int>& getHitRawBcout() { return hit_raw_bcout; }
-    std::vector<int>& getHitBcout() { return hit_bcout; }
 
     std::vector<int>& getProcLayer() { return proc_layer; }
     std::vector<int>& getProcStrip() { return proc_strip; }
@@ -113,7 +111,7 @@ public:
     void processFileFiledump(const std::string& file_path);
     void processFileDecoded(const std::string& file_path);
     void processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
-    void processSingleWord(int clk, int word, int raw_bcout, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool end_on_clk = true);
+    void processSingleWord(int clk, int word, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool end_on_clk = true);
 
     int extractRawBCID(int word);
 

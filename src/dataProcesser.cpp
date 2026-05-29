@@ -1,4 +1,5 @@
 #include "dataProcesser.hpp"
+#include "backgroundRejection.hpp"
 
 
 /// TODO:
@@ -60,8 +61,6 @@ void DataProcesser::setupBranches() {
     input_data_tree->Branch("hit_time1", &hit_time1);
     input_data_tree->Branch("hit_time2", &hit_time2);
     input_data_tree->Branch("hit_rise", &hit_rise);
-    input_data_tree->Branch("hit_raw_bcout", &hit_raw_bcout);
-    input_data_tree->Branch("hit_bcout", &hit_bcout);
 
     // Branch definitions for processed data tree
     processed_data_tree->Branch("n_events", &current_event_number);
@@ -296,8 +295,6 @@ void DataProcesser::clearEventVectors() {
     hit_time1.clear();
     hit_time2.clear();
     hit_rise.clear();
-    hit_raw_bcout.clear();
-    hit_bcout.clear();
 
     proc_layer.clear();
     proc_strip.clear();
@@ -338,8 +335,6 @@ void DataProcesser::pushBackHitData(const Hit& hit) {
     hit_time1.push_back(hit.getRawTimeEta1());
     hit_time2.push_back(hit.getRawTimeEta2());
     hit_rise.push_back(hit.getRise());
-    hit_raw_bcout.push_back(hit.getRawBCOut());
-    hit_bcout.push_back(hit.getBCOut());
 }
 
 /// Utility function to push processed hit data into the corresponding vectors for tree filling
@@ -446,6 +441,20 @@ void DataProcesser::processInputData(const std::string& file_path, const int dt_
     }
 }
 
+
+
+/// WIP: First just process txt file and fill InputData tree
+
+
+
+/// WIP: After filling InputData tree, run background rejection and modify the InputData tree
+
+
+
+/// WIP: After background rejection, run actual data processing code
+
+
+
 /// Process a single file by reading lines and extracting word data
 /// New format: filedump_*.txt packets as produced by fast DAQ
 void DataProcesser::processFileFiledump(const std::string& file_path) {
@@ -455,7 +464,6 @@ void DataProcesser::processFileFiledump(const std::string& file_path) {
         return;
     }
 
-    const int raw_bcout = 0;
     int clk = 0;
     bool processing_event = false;
     std::string token;
@@ -481,7 +489,7 @@ void DataProcesser::processFileFiledump(const std::string& file_path) {
                     BC0 = min_bcid_event;
                 }
                 for (size_t i = 0; i < event_words.size(); ++i) {
-                    processSingleWord(event_clks[i], event_words[i], raw_bcout, efficiency_counters, efficiency_counters_tracks, false);
+                    processSingleWord(event_clks[i], event_words[i], efficiency_counters, efficiency_counters_tracks, false);
                 }
                 if (current_event_hits.size() > 0) {
                     processEvent(efficiency_counters, efficiency_counters_tracks);
@@ -557,7 +565,7 @@ void DataProcesser::processFileFiledump(const std::string& file_path) {
         }
         // PASS 2: Process all words from this event using event-level BC0
         for (size_t i = 0; i < event_words.size(); ++i) {
-            processSingleWord(event_clks[i], event_words[i], raw_bcout, efficiency_counters, efficiency_counters_tracks, false);
+            processSingleWord(event_clks[i], event_words[i], efficiency_counters, efficiency_counters_tracks, false);
         }
         if (current_event_hits.size() > 0) {
             processEvent(efficiency_counters, efficiency_counters_tracks);
@@ -595,7 +603,7 @@ void DataProcesser::processFileDecoded(const std::string& file_path) {
 
     // Read words from file: "clk word raw_bcout" format
     while (infile >> std::dec >> clk >> std::hex >> word >> raw_bcout) {
-        processSingleWord(clk, word, raw_bcout, efficiency_counters, efficiency_counters_tracks);
+        processSingleWord(clk, word, efficiency_counters, efficiency_counters_tracks);
     }
 
     // Process any remaining event at the end of file
@@ -631,11 +639,11 @@ int DataProcesser::extractRawBCID(int word) {
 
 /// Process a single word and accumulate into events
 /// When CLK reaches 127 (end of BC frame), process the accumulated event
-void DataProcesser::processSingleWord(int clk, int word, int raw_bcout, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool end_on_clk) {
+void DataProcesser::processSingleWord(int clk, int word, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool end_on_clk) {
     // Only process not empty words
     if (word != EMPTY_WORD) {
         // Create a Hit object from the raw word data
-        Hit hit(clk, word, raw_bcout, BC0);
+        Hit hit(clk, word, BC0);
         hit.setIdx(current_event_hits.size());
         current_event_hits.push_back(hit);
 
