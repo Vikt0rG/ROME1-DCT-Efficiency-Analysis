@@ -8,7 +8,7 @@
 class Hit {
 private:
     // Raw data from the DCT
-    int clk, channel, raw_bcid, raw_bcout, bcout;
+    int clk, channel, raw_bcid;
     int raw_time_eta1, raw_time_eta2, rise;
 
     // Processed data
@@ -26,7 +26,7 @@ private:
 
 public:
     // Constructor from raw word
-    Hit(int clk, int word, int bcout, int BC0);
+    Hit(int clk, int word, int BC0);
 
     // Accessors
     int getIdx() const { return hit_id; }
@@ -42,9 +42,7 @@ public:
     int getTimeEta1() const { return time_eta1; }
     int getTimeEta2() const { return time_eta2; }
     int getBCID() const { return bcid; }
-    int getBCOut() const { return bcout; }
     int getRawBCID() const { return raw_bcid; }
-    int getRawBCOut() const { return raw_bcout; }
     int getRawTimeEta1() const { return raw_time_eta1; }
     int getRawTimeEta2() const { return raw_time_eta2; }
     int getRise() const { return rise; }
