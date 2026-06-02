@@ -7,10 +7,13 @@
 
 // ==========================================================================================
 // Common types and structures used across the project
-struct RawWord {
+struct DCTWord {
     int clk;
-    int word;
-    int raw_bcout;
+    int channel;
+    int raw_bcid;
+    int raw_time_eta1;
+    int raw_time_eta2;
+    int rise;
 };
 
 // ==========================================================================================
