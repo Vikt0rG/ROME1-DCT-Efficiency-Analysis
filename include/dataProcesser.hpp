@@ -21,24 +21,27 @@
 // ============================================================
 class DataProcesser {
 private:
-    TFile* _output_file;
+    TFile* _output_file = nullptr;
 
     // Trees
-    TTree* input_data_tree;
-    TTree* processed_data_tree;
-    TTree* clusterization_tree;
-    TTree* track_reconstruction_tree;
+    TTree* input_data_tree = nullptr;
+    TTree* processed_data_tree = nullptr;
+    TTree* clusterization_tree = nullptr;
+    TTree* track_reconstruction_tree = nullptr;
 
     // Efficiency counters and results
-    EfficiencyCounters efficiency_counters;
-    EfficiencyCountersTracks efficiency_counters_tracks;
-    EfficiencyResults efficiency_results;
-    EfficiencyResultsTracks efficiency_results_tracks;
+    EfficiencyCounters efficiency_counters{};
+    EfficiencyCountersTracks efficiency_counters_tracks{};
+    EfficiencyResults efficiency_results{};
+    EfficiencyResultsTracks efficiency_results_tracks{};
 
     // Raw data vectors and structs
     DCTWord _dct_word;
     std::vector<int> hit_clk, hit_channel, hit_raw_bcid;
     std::vector<int> hit_raw_time1, hit_raw_time2, hit_rise;
+
+    // Flag vector after background rejection
+    std::vector<bool> is_signal;
 
     // Processed data vectors
     std::vector<int> proc_layer, proc_strip, proc_bc0, proc_bcid, proc_time1, proc_time2;
@@ -52,19 +55,18 @@ private:
     std::vector<int> track_length_eta1, track_length_eta2, track_width_eta1, track_width_eta2, track_size_eta1, track_size_eta2;
 
     // Event state management
-    int BC0;  // BC0 reference for current event
-    Event* current_event;
-    int current_event_number;
-    int n_hits;
+    int BC0 = -100;  // BC0 reference for current event: Set to -100 as an invalid default value to detect if it was properly set
+    int current_event_number = 0;
+    int n_hits = 0;
     std::vector<Hit> current_event_hits;
     
     // Time window parameters for efficiency calculation
-    int _dt_max;
-    int _dt_min;
+    int _dt_max = 20;
+    int _dt_min = 0;
 
     // Flags
-    bool _use_external_trigger;
-    bool _reject_background;
+    bool _use_external_trigger = true;
+    bool _reject_background = true;
 
 
 public:
