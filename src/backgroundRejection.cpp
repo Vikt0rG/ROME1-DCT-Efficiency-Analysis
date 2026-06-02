@@ -90,15 +90,6 @@ std::pair<int, int> setSignalRange(TF1* fitFunc) {
 }
 
 
-struct SelectionMask {
-    std::string name;
-    std::vector<bool> mask;
-
-    SelectionMask(const std::string& n, std::vector<bool>&& m) 
-        : name(n), mask(std::move(m)) {}
-};
-
-
 std::vector<SelectionMask> getMasks(
     const std::vector<int>& hit_time1,
     const std::vector<int>& hit_time2,
