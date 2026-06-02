@@ -7,13 +7,34 @@
 
 // ==========================================================================================
 // Common types and structures used across the project
+
+/// @struct DCTWord
+/// @brief Represents a single DCT word with its decoded fields.
+/// @param clk Clock cycle at which the word exits the DCT.
+/// @param channel Channel number of the hit.
+/// @param raw_bcid Raw BCID of the hit.
+/// @param raw_time_eta1 Raw hit time for η1 side.
+/// @param raw_time_eta2 Raw hit time for η2 side.
+/// @param rise Hit's rising edge flag.
 struct DCTWord {
-    int clk;
-    int channel;
-    int raw_bcid;
-    int raw_time_eta1;
-    int raw_time_eta2;
-    int rise;
+    int clk = 0;
+    int channel = 0;
+    int raw_bcid = 0;
+    int raw_time_eta1 = 0;
+    int raw_time_eta2 = 0;
+    int rise = 0;
+};
+
+/// @struct SelectionMask
+/// @brief Represents a selection mask with a name and a boolean vector indicating selected entries.
+/// @param name Name of the selection mask.
+/// @param mask Boolean vector where true indicates selected entries.
+struct SelectionMask {
+    std::string name;
+    std::vector<bool> mask;
+
+    SelectionMask(const std::string& n, std::vector<bool>&& m) 
+        : name(n), mask(std::move(m)) {}
 };
 
 // ==========================================================================================
