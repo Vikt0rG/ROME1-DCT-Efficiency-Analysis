@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <types.hpp>
 
 #include <TTree.h>
 #include <TBranch.h>
@@ -31,12 +32,6 @@ std::vector<double> fitBackground(TH1* hist, TF1* fitFunc, const std::vector<dou
 /// @param fitFunc 
 /// @return Pair of integers representing the signal range.
 std::pair<int, int> setSignalRange(TF1* fitFunc);
-
-/// @struct SelectionMask
-/// @brief Represents a selection mask with a name and a boolean vector indicating selected entries.
-/// @param name Name of the selection mask.
-/// @param mask Boolean vector where true indicates selected entries.
-struct SelectionMask;
 
 /// @brief Generates selection masks for rising and falling edges based on hit times and rise information.
 /// @param hit_time1 
