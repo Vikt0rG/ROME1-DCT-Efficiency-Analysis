@@ -21,22 +21,27 @@
 // ============================================================
 class DataProcesser {
 private:
-    TFile* output_file;
+    TFile* _output_file;
+
+    // Trees
     TTree* input_data_tree;
     TTree* processed_data_tree;
     TTree* clusterization_tree;
     TTree* track_reconstruction_tree;
+
+    // Efficiency counters and results
     EfficiencyCounters efficiency_counters;
     EfficiencyCountersTracks efficiency_counters_tracks;
     EfficiencyResults efficiency_results;
     EfficiencyResultsTracks efficiency_results_tracks;
 
-    // Raw data vectors
-    std::vector<int> hit_clk, hit_channel, hit_raw_bcid, hit_bcid;
-    std::vector<int> hit_time1, hit_time2, hit_rise;
+    // Raw data vectors and structs
+    DCTWord _dct_word;
+    std::vector<int> hit_clk, hit_channel, hit_raw_bcid;
+    std::vector<int> hit_raw_time1, hit_raw_time2, hit_rise;
 
     // Processed data vectors
-    std::vector<int> proc_layer, proc_strip, proc_time1, proc_time2;
+    std::vector<int> proc_layer, proc_strip, proc_bc0, proc_bcid, proc_time1, proc_time2;
     std::vector<int> proc_dt_time1_time2, proc_trigger_time;
     std::vector<int> proc_dt_time1_trigger, proc_dt_time2_trigger;
     std::vector<int> proc_tot1, proc_tot2;
@@ -47,17 +52,19 @@ private:
     std::vector<int> track_length_eta1, track_length_eta2, track_width_eta1, track_width_eta2, track_size_eta1, track_size_eta2;
 
     // Event state management
+    int BC0;  // BC0 reference for current event
     Event* current_event;
     int current_event_number;
     int n_hits;
     std::vector<Hit> current_event_hits;
-    int BC0;  // BC0 reference for current event
     
     // Time window parameters for efficiency calculation
-    int dt_max;
-    int dt_min;
+    int _dt_max;
+    int _dt_min;
 
-    bool use_external_trigger;
+    // Flags
+    bool _use_external_trigger;
+    bool _reject_background;
 
 
 public:
@@ -78,13 +85,14 @@ public:
     std::vector<int>& getHitClk() { return hit_clk; }
     std::vector<int>& getHitChannel() { return hit_channel; }
     std::vector<int>& getHitRawBcid() { return hit_raw_bcid; }
-    std::vector<int>& getHitBcid() { return hit_bcid; }
-    std::vector<int>& getHitTime1() { return hit_time1; }
-    std::vector<int>& getHitTime2() { return hit_time2; }
+    std::vector<int>& getHitRawTime1() { return hit_raw_time1; }
+    std::vector<int>& getHitRawTime2() { return hit_raw_time2; }
     std::vector<int>& getHitRise() { return hit_rise; }
 
     std::vector<int>& getProcLayer() { return proc_layer; }
     std::vector<int>& getProcStrip() { return proc_strip; }
+    std::vector<int>& getProcBC0() { return proc_bc0; }
+    std::vector<int>& getProcBCID() { return proc_bcid; }
     std::vector<int>& getProcTime1() { return proc_time1; }
     std::vector<int>& getProcTime2() { return proc_time2; }
     std::vector<int>& getProcDtTime1Time2() { return proc_dt_time1_time2; }
@@ -108,6 +116,16 @@ public:
 
     // Processing
     void processInputData(const std::string& input_path, const int dt_max, const int dt_min, InputFormat format = InputFormat::FiledumpPackets, bool use_external_trigger_arg = true);
+
+    // NEW PIPELINE
+    void processInputData(const std::string& input_path, const int dt_max, const int dt_min, InputFormat format, bool use_external_trigger_arg, bool reject_background_arg);
+    void processDataFiledump(const std::string& file_path);
+    void processSingleWord(int clk, int word);
+    void decodeDCTWord(int word);
+    void processSingleHit(DCTWord& word);
+    void applyBackgroundRejection();
+    void processDataInputTree(TFile* root_file);
+
     void processFileFiledump(const std::string& file_path);
     void processFileDecoded(const std::string& file_path);
     void processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
@@ -115,16 +133,18 @@ public:
 
     int extractRawBCID(int word);
 
-    void pushBackHitData(const Hit& hit);
-    void pushBackProcessedData(const Event& event);
-    void pushBackClusterData(const Cluster& cluster);
-    void pushBackTrackDataEta1(const Track& track);
-    void pushBackTrackDataEta2(const Track& track);
+    void pushBackWordData(const DCTWord&);
+    void pushBackHitData(const Hit&);
+    void pushBackProcessedData(const Event&);
+    void pushBackClusterData(const Cluster&);
+    void pushBackTrackDataEta1(const Track&);
+    void pushBackTrackDataEta2(const Track&);
 
     // Analysis
     void updateEfficiencies();
     void createHistograms();
 
     // Cleanup
+    void clearRawDataVectors();
     void clearEventVectors();
 };
