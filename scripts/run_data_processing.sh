@@ -64,11 +64,12 @@ while [[ "$#" -gt 0 ]]; do
             no_external="--no-external"
             shift
             ;;
-            echo "Unknown option: $1"
-            usage
-            ;;
         --old-data-type)
             old_data_type="--use-old-data"
+            shift
+            ;;
+        --reject-background)
+            reject_background="--reject-background"
             shift
             ;;
         --help|-h)
@@ -100,11 +101,11 @@ if [ -d "$input" ]; then
     echo "Input is a directory. Processing all .txt files in $input..."
     for file in "$input"/*.txt; do
         echo "Processing file: $file"
-        "$rootDir/bin/analysis" process "$file" "$dt_max" "$dt_min" $no_external $old_data_type $use_self_trigger
+        "$rootDir/bin/analysis" process "$file" "$dt_max" "$dt_min" $no_external $old_data_type $reject_background $use_self_trigger
         mv ./output.root "$outputDir"
     done
 else
     echo "Input is a single file. Processing $input..."
-    "$rootDir/bin/analysis" process "$input" "$dt_max" "$dt_min" $no_external $old_data_type $use_self_trigger
+    "$rootDir/bin/analysis" process "$input" "$dt_max" "$dt_min" $no_external $old_data_type $reject_background $use_self_trigger
     mv ./output.root "$outputDir"
 fi

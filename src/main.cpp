@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
         }
 
         bool use_external_trigger = true; // a.k.a. no_external = false
-        bool reject_background = true; // By default, apply background rejection to improve efficiency results
+        bool reject_background = false; // By default, apply background rejection to improve efficiency results
         bool self_trigger = false;
         DataProcesser::InputFormat input_format = DataProcesser::InputFormat::FiledumpPackets;
 
