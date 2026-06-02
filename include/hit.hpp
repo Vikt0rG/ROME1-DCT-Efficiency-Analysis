@@ -8,71 +8,71 @@
 class Hit {
 private:
     // Raw data from the DCT
-    int clk, channel, raw_bcid;
-    int raw_time_eta1, raw_time_eta2, rise;
+    int _clk, _channel, _raw_bcid;
+    int _raw_time_eta1, _raw_time_eta2, _rise;
 
-    // Processed data
-    int bcid;                     // After BC wrap-around correction
-    int layer, column, strip;     // Geometry info
-    int time_eta1, time_eta2;     // Converted times
-    int tot1, tot2;               // Time-over-threshold
+    // Processed data - initialized to invalid values until calculated
+    int _bcid = -1;                             // After BC wrap-around correction
+    int _layer = -1, _column = -1, _strip = -1; // Geometry info
+    int _time_eta1 = -1, _time_eta2 = -1;       // Converted times
+    int _tot1 = -1, _tot2 = -1;                 // Time-over-threshold
 
-    // IDs
-    int hit_id;                   // Unique identifier for this hit
-    int cluster_id_eta1;          // ID of cluster this hit belongs to (if any)
-    int cluster_id_eta2;
-    int track_id_eta1;            // ID of track this hit belongs to (if any)
-    int track_id_eta2;
+    // IDs - initialized to invalid indices until assigned
+    int _hit_id = -1;                   // Unique identifier for this hit
+    int _cluster_id_eta1 = -1;          // ID of cluster this hit belongs to (if any)
+    int _cluster_id_eta2 = -1;
+    int _track_id_eta1 = -1;            // ID of track this hit belongs to (if any)
+    int _track_id_eta2 = -1;
 
 public:
     // Constructor from raw word
     Hit(int clk, int channel, int raw_bcid, int raw_time_eta1, int raw_time_eta2, int rise);
 
     // Getters for hit IDs
-    int getIdx() const { return hit_id; }
-    int getClusterIDEta1() const { return cluster_id_eta1; }
-    int getClusterIDEta2() const { return cluster_id_eta2; }
-    int getTrackIDEta1() const { return track_id_eta1; }
-    int getTrackIDEta2() const { return track_id_eta2; }
+    int getIdx() const { return _hit_id; }
+    int getClusterIDEta1() const { return _cluster_id_eta1; }
+    int getClusterIDEta2() const { return _cluster_id_eta2; }
+    int getTrackIDEta1() const { return _track_id_eta1; }
+    int getTrackIDEta2() const { return _track_id_eta2; }
 
     // Getters for raw hit data
-    int getClk() const { return clk; }
-    int getChannel() const { return channel; }
-    int getRawBCID() const { return raw_bcid; }
-    int getRawTimeEta1() const { return raw_time_eta1; }
-    int getRawTimeEta2() const { return raw_time_eta2; }
-    int getRise() const { return rise; }
+    int getClk() const { return _clk; }
+    int getChannel() const { return _channel; }
+    int getRawBCID() const { return _raw_bcid; }
+    int getRawTimeEta1() const { return _raw_time_eta1; }
+    int getRawTimeEta2() const { return _raw_time_eta2; }
+    int getRise() const { return _rise; }
 
     // Getters for processed hit data
-    int getLayer() const { return layer; }
-    int getStrip() const { return strip; }
-    int getBCID() const { return bcid; }
-    int getTimeEta1() const { return time_eta1; }
-    int getTimeEta2() const { return time_eta2; }
-    int getToT1() const { return tot1; }
-    int getToT2() const { return tot2; }
+    int getLayer() const { return _layer; }
+    int getStrip() const { return _strip; }
+    int getBCID() const { return _bcid; }
+    int getTimeEta1() const { return _time_eta1; }
+    int getTimeEta2() const { return _time_eta2; }
+    int getToT1() const { return _tot1; }
+    int getToT2() const { return _tot2; }
 
     // Setters
-    void setIdx(int idx) { hit_id = idx; }
-    void setTot1(int tot) { tot1 = tot; }
-    void setTot2(int tot) { tot2 = tot; }
-    void setClusterIDEta1(int cluster_id) { this->cluster_id_eta1 = cluster_id; }
-    void setClusterIDEta2(int cluster_id) { this->cluster_id_eta2 = cluster_id; }
-    void setTrackIDEta1(int track_id) { this->track_id_eta1 = track_id; }
-    void setTrackIDEta2(int track_id) { this->track_id_eta2 = track_id; }
+    void setIdx(int idx) { _hit_id = idx; }
+    void setTot1(int tot) { _tot1 = tot; }
+    void setTot2(int tot) { _tot2 = tot; }
+    void setClusterIDEta1(int cluster_id) { this->_cluster_id_eta1 = cluster_id; }
+    void setClusterIDEta2(int cluster_id) { this->_cluster_id_eta2 = cluster_id; }
+    void setTrackIDEta1(int track_id) { this->_track_id_eta1 = track_id; }
+    void setTrackIDEta2(int track_id) { this->_track_id_eta2 = track_id; }
 
     // Processing methods
     void geometryMapping();
     void applyBCIDCorrection(int BC0);
 
     // Predicates for clustering and track reconstruction
-    bool inClusterEta1() const { return cluster_id_eta1 != -1; }
-    bool inClusterEta2() const { return cluster_id_eta2 != -1; }
-    bool inTrackEta1() const { return track_id_eta1 != -1; }
-    bool inTrackEta2() const { return track_id_eta2 != -1; }
+    bool inClusterEta1() const { return _cluster_id_eta1 != -1; }
+    bool inClusterEta2() const { return _cluster_id_eta2 != -1; }
+    bool inTrackEta1() const { return _track_id_eta1 != -1; }
+    bool inTrackEta2() const { return _track_id_eta2 != -1; }
 
     // Query methods
-    bool hasEta1Time() const { return time_eta1 != -1; }
-    bool hasEta2Time() const { return time_eta2 != -1; }
-    bool hasTimeInfo() const { return time_eta1 != -1 || time_eta2 != -1; }
+    bool hasEta1Time() const { return _time_eta1 != -1; }
+    bool hasEta2Time() const { return _time_eta2 != -1; }
+    bool hasTimeInfo() const { return _time_eta1 != -1 || _time_eta2 != -1; }
 };
