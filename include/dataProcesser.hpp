@@ -66,7 +66,7 @@ private:
 
     // Flags
     bool _use_external_trigger = true;
-    bool _reject_background = true;
+    bool _reject_background = false;
 
 
 public:
