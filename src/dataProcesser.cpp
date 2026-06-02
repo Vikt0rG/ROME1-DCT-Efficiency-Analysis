@@ -10,27 +10,7 @@
 /// DataProcesser class implementation for processing raw DCT data
 /// ==========================================================================================
 /// Constructor and destructor for DataProcesser class
-DataProcesser::DataProcesser() {
-    _output_file = nullptr;
-
-    input_data_tree = nullptr;
-    processed_data_tree = nullptr;
-    clusterization_tree = nullptr;
-    track_reconstruction_tree = nullptr;
-
-    current_event = nullptr;
-    current_event_number = 0;
-    n_hits = 0;
-    BC0 = 0;
-
-    _dt_max = -100;    // Default time window (ticks) - see constants.hpp
-    _dt_min = -180;    // Default time window (ticks) - see constants.hpp
-    initializeCounters();
-
-    // Flags
-    _use_external_trigger = true;
-    _reject_background = true;
-}
+DataProcesser::DataProcesser() = default;
 
 DataProcesser::~DataProcesser() {
     if (_output_file) { 
@@ -50,10 +30,10 @@ DataProcesser::~DataProcesser() {
 /// Utility function to setup the output ROOT file and create the necessary trees
 void DataProcesser::setupOutputFile() {
     _output_file = new TFile("output.root", "RECREATE");
-    input_data_tree = new TTree("InputData", "Raw hit data from the DCT");
-    processed_data_tree = new TTree("ProcessedData", "Processed hit and event-level data");
-    clusterization_tree = new TTree("Clusterization", "Cluster-level data");
-    track_reconstruction_tree = new TTree("TrackReconstruction", "Track-level data");
+    input_data_tree = new TTree("InputData", "Raw hit data from the DCT", 1, _output_file);
+    processed_data_tree = new TTree("ProcessedData", "Processed hit and event-level data", 1, _output_file);
+    clusterization_tree = new TTree("Clusterization", "Cluster-level data", 1, _output_file);
+    track_reconstruction_tree = new TTree("TrackReconstruction", "Track-level data", 1, _output_file);
 }
 
 /// Utility function to setup branches for all trees in the output file
@@ -65,6 +45,8 @@ void DataProcesser::setupBranches() {
     input_data_tree->Branch("hit_raw_time1", &hit_raw_time1);
     input_data_tree->Branch("hit_raw_time2", &hit_raw_time2);
     input_data_tree->Branch("hit_rise", &hit_rise);
+
+    if (_reject_background) input_data_tree->Branch("is_signal", &is_signal);
 
     // Branch definitions for processed data tree
     processed_data_tree->Branch("n_events", &current_event_number);
@@ -107,14 +89,6 @@ void DataProcesser::setupBranches() {
     track_reconstruction_tree->Branch("track_width_eta2", &track_width_eta2);
     track_reconstruction_tree->Branch("track_size_eta1", &track_size_eta1);
     track_reconstruction_tree->Branch("track_size_eta2", &track_size_eta2);
-}
-
-/// Utility function to initialize efficiency counters and results
-void DataProcesser::initializeCounters() {
-    efficiency_counters = {};
-    efficiency_counters_tracks = {};
-    efficiency_results = {};
-    efficiency_results_tracks = {};
 }
 
 /// ------------------------------------------------------------------------------------------
@@ -443,7 +417,7 @@ void DataProcesser::pushBackTrackDataEta2(const Track& track) {
 /// ------------------------------------------------------------------------------------------
 /// Main processing pipeline functions
 
-/// WIP: New entry point/start of the processing pipeline: Processing txt file and fill InputData tree with raw hit data
+/// ENtry point of the processing pipeline: Processing txt file and fill InputData tree with raw hit data
 void DataProcesser::processInputData(const std::string& raw_data_file_path, const int dt_max_arg, const int dt_min_arg, InputFormat format, bool use_external_trigger_arg, bool reject_background_arg) {
 
     // Store CLI parameters & flags for use throughout processing
@@ -473,7 +447,7 @@ void DataProcesser::processInputData(const std::string& raw_data_file_path, cons
     }
 }
 
-/// NEW: WIP: Function to handle raw hit extraction (for filling InputData tree).
+/// Function to handle raw hit extraction (for filling InputData tree).
 void DataProcesser::processDataFiledump(const std::string& file_path) {
     // Open the file and read line by line, extracting raw hit data in word format and filling the InputData tree
     std::ifstream infile(file_path);
@@ -569,7 +543,7 @@ void DataProcesser::processDataFiledump(const std::string& file_path) {
     infile.close();
 }
 
-/// NEW: Process a single word and accumulate its data into the current event's hit vector
+/// Process a single word and accumulate its data into the current event's hit vector
 void DataProcesser::processSingleWord(int clk, int word) {
     if (word == EMPTY_WORD) return;
 
@@ -601,14 +575,14 @@ void DataProcesser::decodeDCTWord(int word) {
 
 /// WIP: After filling InputData tree, run background rejection and modify the InputData tree
 void DataProcesser::applyBackgroundRejection() {
+    return; // For now do nothing
 }
 
 
-/// WIP: After background rejection is applied, run the second pass to search for BC0 and run event processing
+/// After background rejection is applied, run the second pass to search for BC0 and run event processing
 void DataProcesser::processDataInputTree(TFile* root_file) {
 
-    // Check if the InputData tree is filled
-
+    // Check if the InputData tree is filled and can be accessed
     if (!root_file || !root_file->Get("InputData")) {
         std::cerr << "ERROR: Input file is null or InputData tree not found." << std::endl;
         return;
@@ -619,159 +593,56 @@ void DataProcesser::processDataInputTree(TFile* root_file) {
         std::cerr << "ERROR: InputData is not a TTree." << std::endl;
         return;
     }
-    if (tree->GetEntries() == 0) {
+    int n_entries = tree->GetEntries();
+    if (n_entries == 0) {
         std::cerr << "ERROR: InputData tree is empty." << std::endl;
         return;
     }
 
-    // TODO: Before running processEvent, fill current_event_hits with new hit information
-    // Best case: Just update current_event_hits with applyBCIDcorrection to get correct times (not possible since this one is called after filling InputData tree)
-    // -> Recreate current_event_hits with corrected times
+    // Read back raw data and recreate Hit objects
+    for (int i = 0; i < n_entries; ++i) {
+        tree->GetEntry(i);
 
-    // Read tree entry by entry (vectors of length equal to number of hits in that event) and fill current_event_hits vector with Hit objects for that event
-    // then call processEvent, updateEfficiencies and createHistograms for each event
-
-}
-
-/// NEW: WIP: Process single hits and accumulate them into current event hits vector for and pass it to processEvent
-void DataProcesser::processSingleHit(DCTWord& word) {
-
-    // Create a Hit object from the raw hit data
-    Hit hit(word.clk, word.channel, word.raw_bcid, word.raw_time_eta1, word.raw_time_eta2, word.rise);
-    hit.setIdx(current_event_hits.size());
-    current_event_hits.push_back(hit);
-}
-
-/// OLD:
-/// Process a single file by reading lines and extracting word data
-/// New format: filedump_*.txt packets as produced by fast DAQ
-void DataProcesser::processFileFiledump(const std::string& file_path) {
-    std::ifstream infile(file_path);
-    if (!infile.is_open()) {
-        std::cerr << "ERROR: Cannot open file: " << file_path << std::endl;
-        return;
-    }
-
-    int clk = 0;
-    bool processing_event = false;
-    std::string token;
-    std::vector<int> event_words;
-    std::vector<int> event_clks;
-    int min_bcid_event = 256;
-
-    // Initialize efficiency counters and struct once before processing all words in this file
-    // Use member variables so they persist after processing
-    efficiency_counters = {};
-    efficiency_counters_tracks = {};
-
-    while (infile >> token) {
-        if (token.length() <= 512) {
-            continue;
-        }
-
-        std::string header = token.substr(0, 2);
-        if (header == "0a") {
-            // PASS 2: Process all words from this event using event-level BC0
-            if (processing_event && !event_words.empty()) {
-                if (min_bcid_event < 256) {
-                    BC0 = min_bcid_event;
-                }
-                for (size_t i = 0; i < event_words.size(); ++i) {
-                    processSingleWord(event_clks[i], event_words[i], efficiency_counters, efficiency_counters_tracks, false);
-                }
-                if (current_event_hits.size() > 0) {
-                    processEvent(efficiency_counters, efficiency_counters_tracks);
-                    current_event_number++;
-                    current_event_hits.clear();
-                    clearEventVectors();
-                }
-            }
-
-            processing_event = true;
-            clk = 0;
-            event_words.clear();
-            event_clks.clear();
-            min_bcid_event = 256;
-        }
-
-        if (!processing_event) {
-            continue;
-        }
-
-        // PASS 1: Scan all words in the event to find the minimum BCID (BC0)
-        for (int i = 0; i < 2 * 128; i++) {
-            const size_t offset = static_cast<size_t>(i) * 8 + 2;
-            if (offset + 8 > token.length()) {
-                break;
-            }
-
-            unsigned int word = 0;
-            bool valid_hex = true;
-            for (int j = 0; j < 8; ++j) {
-                char c = token[offset + j];
-                word <<= 4;
-                if (c >= '0' && c <= '9') {
-                    word |= static_cast<unsigned int>(c - '0');
-                } else if (c >= 'a' && c <= 'f') {
-                    word |= static_cast<unsigned int>(c - 'a' + 10);
-                } else if (c >= 'A' && c <= 'F') {
-                    word |= static_cast<unsigned int>(c - 'A' + 10);
-                } else {
-                    valid_hex = false;
-                    break;
-                }
-            }
-
-            if (!valid_hex) {
+        // Accumulate hits for the current event
+        for (size_t j = 0; j < hit_clk.size(); ++j) {
+            // Skip background hits
+            if (!is_signal.empty() && !is_signal[j]) {
                 continue;
             }
 
-            int dct = (word >> 28) & 0xF;
-            if (dct == 1) {
-                clk++;
-            }
+            // Recreate a Hit object from the raw hit data
+            Hit hit(hit_clk[j], hit_channel[j], hit_raw_bcid[j], hit_raw_time1[j], hit_raw_time2[j], hit_rise[j]);
+            hit.setIdx(current_event_hits.size());
+            current_event_hits.push_back(hit);
+        }
 
-            if ((word & 0x0FFFFFFF) == 0x05555555) {
-                continue;
-            }
+        if (current_event_hits.empty()) continue;   // Skip event if there are no hits after background rejection
 
-            event_clks.push_back(clk);
-            event_words.push_back(static_cast<int>(word));
-
-            int raw_bcid = extractRawBCID(static_cast<int>(word));
-            int raw_bcid_mod = raw_bcid & 0xFF;
-            if (raw_bcid_mod < min_bcid_event) {
-                min_bcid_event = raw_bcid_mod;
+        // After accumulating hits for this event, find BC0 (smallest raw BCID among hits in this event) and apply BCID correction to all hits in this event
+        int min_raw_bcid = 256;
+        for (const auto& hit : current_event_hits) {
+            if (hit.getRawBCID() % 256 < min_raw_bcid) {
+                min_raw_bcid = hit.getRawBCID() % 256;
             }
         }
+        BC0 = min_raw_bcid;
+        for (auto& hit : current_event_hits) {
+            hit.applyBCIDCorrection(BC0);
+        }
+
+        // Now we can call processEvent to process this event
+        processEvent(efficiency_counters, efficiency_counters_tracks);
+        current_event_number++;
+        current_event_hits.clear();
+        clearEventVectors();
     }
 
-    // Process any remaining event at the end of file
-    if (!event_words.empty()) {
-        if (min_bcid_event < 256) {
-            BC0 = min_bcid_event;
-        }
-        // PASS 2: Process all words from this event using event-level BC0
-        for (size_t i = 0; i < event_words.size(); ++i) {
-            processSingleWord(event_clks[i], event_words[i], efficiency_counters, efficiency_counters_tracks, false);
-        }
-        if (current_event_hits.size() > 0) {
-            processEvent(efficiency_counters, efficiency_counters_tracks);
-            current_event_number++;
-            current_event_hits.clear();
-            clearEventVectors();
-        }
-    }
-
-    // Update efficiencies from counters before writing histograms
+    // Once all counters are updated, calculate the final efficiencies and create respective histograms
     updateEfficiencies();
-
-    // Create and write efficiency histograms to output file
     createHistograms();
-
-    infile.close();
 }
 
+/*
 /// OLD:
 /// Process a single file by reading decoded words: "clk word raw_bcout" format
 void DataProcesser::processFileDecoded(const std::string& file_path) {
@@ -811,21 +682,7 @@ void DataProcesser::processFileDecoded(const std::string& file_path) {
 
     infile.close();
 }
-
-/// Helper function to extract raw BCID from DCT word
-int DataProcesser::extractRawBCID(int word) {
-    int rise = word & 0x01;               // Bit 0
-    int raw_bcid;
-    
-    if (rise == 1) {  // Rising edge
-        raw_bcid = (word >> 12) & 0xFF;   // Bits 12-19
-    } else {          // Falling edge
-        raw_bcid = (word >> 11) & 0x1FF;  // Bits 11-19
-    }
-    
-    return raw_bcid;
-}
-
+*/
 
 /// Process a complete event that has been accumulated
 void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks) {
