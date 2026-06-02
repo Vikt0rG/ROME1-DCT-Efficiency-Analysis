@@ -5,21 +5,15 @@
 // Hit class implementation
 // ==========================================================================================
 /// Constructor that takes raw DCT word and BC0 for processing
-Hit::Hit(int clk, int word, int BC0) : clk(clk) {
-    // Decode the raw DCT word to extract channel, BCID, time information and rise/fall edge
-    decodeDCTWord(word);
+Hit::Hit(int clk, int channel, int raw_bcid, int raw_time_eta1, int raw_time_eta2, int rise) : clk(clk) {
 
-    // Apply BC0 in the event processing
-    applyBCWrapAround(BC0);
-
-    // Convert raw to physical time
-    time_eta1 = TimeUtils::convertRawTimeToPhysical(raw_time_eta1, bcid);
-    time_eta2 = TimeUtils::convertRawTimeToPhysical(raw_time_eta2, bcid);
-
-    // Map channel to layer and strip
+    // Map channel to layer, column and strip
     geometryMapping();
 
-    // Initialize ToT values to -1
+    // Initialize variables to calculate as -1 (indicating invalid/unavailable) until processed
+    bcid = -1;
+    time_eta1 = -1;
+    time_eta2 = -1;
     tot1 = -1;
     tot2 = -1;
 
@@ -31,30 +25,6 @@ Hit::Hit(int clk, int word, int BC0) : clk(clk) {
     track_id_eta2 = -1;
 }
 
-/// Utility function for extracting information from the raw DCT word
-void Hit::decodeDCTWord(int word) {
-    channel = (word >> 20) & 0xFF;          // Bits 20-27
-    rise = word & 0x01;                     // Bit 0
-
-    if (rise == 1) {                      // Rising edge
-        raw_bcid = word >> 12 & 0xFF;       // Bits 12-19
-        raw_time_eta1 = word >> 7 & 0x1F;   // Bits 7-11
-        raw_time_eta2 = word >> 1 & 0x1F;   // Bits 1-5
-
-    } else {                              // Falling edge
-        raw_bcid = word >> 11 & 0x1FF;      // Bits 11-19
-        raw_time_eta1 = word >> 6 & 0x1F;   // Bits 6-10
-        raw_time_eta2 = word >> 1 & 0x1F;   // Bits 1-5
-    }
-}
-
-/// Utility function for applying BC wrap-around correction to BCID
-void Hit::applyBCWrapAround(int BC0) {
-    bcid = (raw_bcid - BC0) % 256;
-    if (bcid < -128) bcid += 256;
-    if (bcid > 128) bcid -= 256;
-}
-    
 /*
 int mod256(int x) { return (x % 256 + 256) % 256; }
     
@@ -76,3 +46,15 @@ void Hit::geometryMapping() {
     this->column = column;
     this->strip = strip;
 }
+
+/// NEW: WIP: Apply BCID correction after setting BC0 to calculate physical time
+void Hit::applyBCIDCorrection(int BC0) {
+    // Apply BCID wrap-around
+    bcid = (raw_bcid - BC0) % 256;
+    if (bcid < -128) bcid += 256;
+    if (bcid > 128) bcid -= 256;
+
+    // Convert raw to physical time
+    time_eta1 = TimeUtils::convertRawTimeToPhysical(raw_time_eta1, bcid);
+    time_eta2 = TimeUtils::convertRawTimeToPhysical(raw_time_eta2, bcid);
+} 

@@ -26,27 +26,29 @@ private:
 
 public:
     // Constructor from raw word
-    Hit(int clk, int word, int BC0);
+    Hit(int clk, int channel, int raw_bcid, int raw_time_eta1, int raw_time_eta2, int rise);
 
-    // Accessors
+    // Getters for hit IDs
     int getIdx() const { return hit_id; }
     int getClusterIDEta1() const { return cluster_id_eta1; }
     int getClusterIDEta2() const { return cluster_id_eta2; }
     int getTrackIDEta1() const { return track_id_eta1; }
     int getTrackIDEta2() const { return track_id_eta2; }
 
+    // Getters for raw hit data
     int getClk() const { return clk; }
     int getChannel() const { return channel; }
-    int getLayer() const { return layer; }
-    int getStrip() const { return strip; }
-    int getTimeEta1() const { return time_eta1; }
-    int getTimeEta2() const { return time_eta2; }
-    int getBCID() const { return bcid; }
     int getRawBCID() const { return raw_bcid; }
     int getRawTimeEta1() const { return raw_time_eta1; }
     int getRawTimeEta2() const { return raw_time_eta2; }
     int getRise() const { return rise; }
 
+    // Getters for processed hit data
+    int getLayer() const { return layer; }
+    int getStrip() const { return strip; }
+    int getBCID() const { return bcid; }
+    int getTimeEta1() const { return time_eta1; }
+    int getTimeEta2() const { return time_eta2; }
     int getToT1() const { return tot1; }
     int getToT2() const { return tot2; }
 
@@ -60,9 +62,8 @@ public:
     void setTrackIDEta2(int track_id) { this->track_id_eta2 = track_id; }
 
     // Processing methods
-    void decodeDCTWord(int word);
-    void applyBCWrapAround(int BC0);
-    void geometryMapping();       // Maps channel to a layer and strip
+    void geometryMapping();
+    void applyBCIDCorrection(int BC0);
 
     // Predicates for clustering and track reconstruction
     bool inClusterEta1() const { return cluster_id_eta1 != -1; }
