@@ -13,37 +13,36 @@
 class Event {
 private:
     // Event metadata
-    int event_number;
+    int _event_number;
 
     // Trigger information
-    int trigger_time;
-    int trigger_channel;
+    int _trigger_time = -1;  // Trigger time initialized to invalid
+    int _trigger_channel = TRIGGER_CHANNEL;  // Default trigger channel from constants
 
     // Raw and processed hits
-    std::vector<Hit> hits;
+    std::vector<Hit> _hits;
 
     // Cluster vectors
-    std::vector<Cluster> clusters_eta1;
-    std::vector<Cluster> clusters_eta2;
+    std::vector<Cluster> _clusters_eta1;
+    std::vector<Cluster> _clusters_eta2;
 
     // Track vectors
-    std::vector<Track> tracks_eta1;
-    std::vector<Track> tracks_eta2;
+    std::vector<Track> _tracks_eta1;
+    std::vector<Track> _tracks_eta2;
 
     // Efficiency flags and counters
-    EfficiencyFlags efficiency_flags;
+    EfficiencyFlags _efficiency_flags;  // Automatically initialized to false for all layers and track flags
 
     // Reference to shared efficiency counters (for updating throughout event lifetime)
-    EfficiencyCounters& efficiency_counters;
-    EfficiencyCountersTracks& efficiency_counters_tracks;
+    EfficiencyCounters& _efficiency_counters;
+    EfficiencyCountersTracks& _efficiency_counters_tracks;
 
-    bool use_external_trigger;
+    bool _use_external_trigger;
 
 public:
-    // Constructor
-    Event(int event_number, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool use_external_trigger);
-    Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool use_external_trigger);  // Move constructor for hits
-    ~Event();  // Destructor
+    // Constructor and destructor
+    Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool use_external_trigger);
+    ~Event();
 
     // Extract trigger information
     void extractTriggerTime();
@@ -59,20 +58,20 @@ public:
     void updateEfficiencyCounters();      // Update efficiency counters based on reconstructed tracks
 
     // Accessors
-    int getEventNumber() const { return event_number; }
-    int getTriggerChannel() const { return trigger_channel; }
-    int getTriggerTime() const { return trigger_time; }
-    int getHitCount() const { return hits.size(); }
+    int getEventNumber() const { return _event_number; }
+    int getTriggerChannel() const { return _trigger_channel; }
+    int getTriggerTime() const { return _trigger_time; }
+    int getHitCount() const { return _hits.size(); }
 
-    const std::vector<Hit>& getHits() const { return hits; }
-    const std::vector<Cluster>& getClustersEta1() const { return clusters_eta1; }
-    const std::vector<Cluster>& getClustersEta2() const { return clusters_eta2; }
-    const std::vector<Track>& getTracksEta1() const { return tracks_eta1; }
-    const std::vector<Track>& getTracksEta2() const { return tracks_eta2; }
+    const std::vector<Hit>& getHits() const { return _hits; }
+    const std::vector<Cluster>& getClustersEta1() const { return _clusters_eta1; }
+    const std::vector<Cluster>& getClustersEta2() const { return _clusters_eta2; }
+    const std::vector<Track>& getTracksEta1() const { return _tracks_eta1; }
+    const std::vector<Track>& getTracksEta2() const { return _tracks_eta2; }
 
     // Query methods for efficiency
-    int getClusterCountEta1() const { return clusters_eta1.size(); }
-    int getClusterCountEta2() const { return clusters_eta2.size(); }
-    int getTrackCountEta1() const { return tracks_eta1.size(); }
-    int getTrackCountEta2() const { return tracks_eta2.size(); }
+    int getClusterCountEta1() const { return _clusters_eta1.size(); }
+    int getClusterCountEta2() const { return _clusters_eta2.size(); }
+    int getTrackCountEta1() const { return _tracks_eta1.size(); }
+    int getTrackCountEta2() const { return _tracks_eta2.size(); }
 };
