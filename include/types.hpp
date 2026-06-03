@@ -40,10 +40,10 @@ struct SelectionMask {
 // ==========================================================================================
 // Efficiency calculation related structures
 struct EfficiencyFlags {
-    bool eta1_layer[3];          // Layer 0, 1, 2 for η1 side
-    bool eta2_layer[3];          // Layer 0, 1, 2 for η2 side
-    bool eta1_layer_track[3];    // Whether layer has a hit in a valid track for η1
-    bool eta2_layer_track[3];    // Whether layer has a hit in a valid track for η2
+    bool eta1_layer[3] = {false, false, false};         // Layer 0, 1, 2 for η1 side
+    bool eta2_layer[3] = {false, false, false};         // Layer 0, 1, 2 for η2 side
+    bool eta1_layer_track[3] = {false, false, false};   // Whether layer has a hit in a valid track for η1
+    bool eta2_layer_track[3] = {false, false, false};   // Whether layer has a hit in a valid track for η2
 };
 
 struct EfficiencyCounters {
