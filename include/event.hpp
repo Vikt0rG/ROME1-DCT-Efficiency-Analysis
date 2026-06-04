@@ -57,6 +57,9 @@ public:
         const int dt_min);                // Update efficiency flags based on time window
     void updateEfficiencyCounters();      // Update efficiency counters based on reconstructed tracks
 
+    // Utility methods
+    std::pair<int, int> countEdges() const;  // Count edges in the event for efficiency calculations
+
     // Accessors
     int getEventNumber() const { return _event_number; }
     int getTriggerChannel() const { return _trigger_channel; }

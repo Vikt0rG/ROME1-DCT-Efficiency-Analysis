@@ -50,8 +50,10 @@ private:
     std::vector<int> proc_tot1, proc_tot2;
 
     // Cluster and track vectors
-    std::vector<int> cluster_size_eta1, cluster_size_eta2, cluster_tot1, cluster_tot2;
-    std::array<std::vector<int>, 3> cluster_size_eta1_layers, cluster_size_eta2_layers, cluster_tot1_layers, cluster_tot2_layers;  // Layer-specific cluster data
+    std::vector<int> cluster_size_eta1, cluster_size_eta2;
+    std::vector<int> cluster_tot1_from_eta1, cluster_tot2_from_eta1, cluster_tot1_from_eta2, cluster_tot2_from_eta2;    // Cluster center ToT from eta1 and eta2 clusterings
+    std::array<std::vector<int>, 3> cluster_size_eta1_layers, cluster_size_eta2_layers;
+    std::array<std::vector<int>, 3> cluster_tot1_from_eta1_layers, cluster_tot2_from_eta1_layers, cluster_tot1_from_eta2_layers, cluster_tot2_from_eta2_layers;  // Layer-specific cluster data
     std::vector<int> track_length_eta1, track_length_eta2, track_width_eta1, track_width_eta2, track_size_eta1, track_size_eta2;
 
     // Event state management
@@ -106,8 +108,10 @@ public:
 
     std::vector<int>& getClusterSizeEta1() { return cluster_size_eta1; }
     std::vector<int>& getClusterSizeEta2() { return cluster_size_eta2; }
-    std::vector<int>& getClusterTot1() { return cluster_tot1; }
-    std::vector<int>& getClusterTot2() { return cluster_tot2; }
+    std::vector<int>& getClusterTot1FromEta1() { return cluster_tot1_from_eta1; }
+    std::vector<int>& getClusterTot2FromEta1() { return cluster_tot2_from_eta1; }
+    std::vector<int>& getClusterTot1FromEta2() { return cluster_tot1_from_eta2; }
+    std::vector<int>& getClusterTot2FromEta2() { return cluster_tot2_from_eta2; }
 
     std::vector<int>& getTrackLengthEta1() { return track_length_eta1; }
     std::vector<int>& getTrackLengthEta2() { return track_length_eta2; }

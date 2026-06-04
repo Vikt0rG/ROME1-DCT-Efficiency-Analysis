@@ -67,20 +67,28 @@ void DataProcesser::setupBranches() {
     // Branch definitions for clusterization tree
     clusterization_tree->Branch("cluster_size_eta1", &cluster_size_eta1);
     clusterization_tree->Branch("cluster_size_eta2", &cluster_size_eta2);
-    clusterization_tree->Branch("cluster_tot1", &cluster_tot1);
-    clusterization_tree->Branch("cluster_tot2", &cluster_tot2);
+    clusterization_tree->Branch("cluster_tot1_from_eta1", &cluster_tot1_from_eta1);
+    clusterization_tree->Branch("cluster_tot2_from_eta1", &cluster_tot2_from_eta1);
+    clusterization_tree->Branch("cluster_tot1_from_eta2", &cluster_tot1_from_eta2);
+    clusterization_tree->Branch("cluster_tot2_from_eta2", &cluster_tot2_from_eta2);
     clusterization_tree->Branch("cluster_size_eta1_layer0", &cluster_size_eta1_layers[0]);
     clusterization_tree->Branch("cluster_size_eta1_layer1", &cluster_size_eta1_layers[1]);
     clusterization_tree->Branch("cluster_size_eta1_layer2", &cluster_size_eta1_layers[2]);
     clusterization_tree->Branch("cluster_size_eta2_layer0", &cluster_size_eta2_layers[0]);
     clusterization_tree->Branch("cluster_size_eta2_layer1", &cluster_size_eta2_layers[1]);
     clusterization_tree->Branch("cluster_size_eta2_layer2", &cluster_size_eta2_layers[2]);
-    clusterization_tree->Branch("cluster_tot1_layer0", &cluster_tot1_layers[0]);
-    clusterization_tree->Branch("cluster_tot1_layer1", &cluster_tot1_layers[1]);
-    clusterization_tree->Branch("cluster_tot1_layer2", &cluster_tot1_layers[2]);
-    clusterization_tree->Branch("cluster_tot2_layer0", &cluster_tot2_layers[0]);
-    clusterization_tree->Branch("cluster_tot2_layer1", &cluster_tot2_layers[1]);
-    clusterization_tree->Branch("cluster_tot2_layer2", &cluster_tot2_layers[2]);
+    clusterization_tree->Branch("cluster_tot1_from_eta1_layer0", &cluster_tot1_from_eta1_layers[0]);
+    clusterization_tree->Branch("cluster_tot1_from_eta1_layer1", &cluster_tot1_from_eta1_layers[1]);
+    clusterization_tree->Branch("cluster_tot1_from_eta1_layer2", &cluster_tot1_from_eta1_layers[2]);
+    clusterization_tree->Branch("cluster_tot2_from_eta1_layer0", &cluster_tot2_from_eta1_layers[0]);
+    clusterization_tree->Branch("cluster_tot2_from_eta1_layer1", &cluster_tot2_from_eta1_layers[1]);
+    clusterization_tree->Branch("cluster_tot2_from_eta1_layer2", &cluster_tot2_from_eta1_layers[2]);
+    clusterization_tree->Branch("cluster_tot1_from_eta2_layer0", &cluster_tot1_from_eta2_layers[0]);
+    clusterization_tree->Branch("cluster_tot1_from_eta2_layer1", &cluster_tot1_from_eta2_layers[1]);
+    clusterization_tree->Branch("cluster_tot1_from_eta2_layer2", &cluster_tot1_from_eta2_layers[2]);
+    clusterization_tree->Branch("cluster_tot2_from_eta2_layer0", &cluster_tot2_from_eta2_layers[0]);
+    clusterization_tree->Branch("cluster_tot2_from_eta2_layer1", &cluster_tot2_from_eta2_layers[1]);
+    clusterization_tree->Branch("cluster_tot2_from_eta2_layer2", &cluster_tot2_from_eta2_layers[2]);
 
     // Branch definitions for track reconstruction tree
     track_reconstruction_tree->Branch("track_length_eta1", &track_length_eta1);
@@ -302,13 +310,17 @@ void DataProcesser::clearEventVectors() {
 
     cluster_size_eta1.clear();
     cluster_size_eta2.clear();
-    cluster_tot1.clear();
-    cluster_tot2.clear();
+    cluster_tot1_from_eta1.clear();
+    cluster_tot2_from_eta1.clear();
+    cluster_tot1_from_eta2.clear();
+    cluster_tot2_from_eta2.clear();
     for (int layer = 0; layer < 3; layer++) {
         cluster_size_eta1_layers[layer].clear();
         cluster_size_eta2_layers[layer].clear();
-        cluster_tot1_layers[layer].clear();
-        cluster_tot2_layers[layer].clear();
+        cluster_tot1_from_eta1_layers[layer].clear();
+        cluster_tot2_from_eta1_layers[layer].clear();
+        cluster_tot1_from_eta2_layers[layer].clear();
+        cluster_tot2_from_eta2_layers[layer].clear();
     }
 
     track_length_eta1.clear();
@@ -386,15 +398,23 @@ void DataProcesser::pushBackClusterData(const Cluster& cluster) {
 
         // ToT information
         if (cluster.getTot1() > 0) {
-            cluster_tot1.push_back(cluster.getTot1());
-            cluster_tot1_layers[cluster.getLayer()].push_back(cluster.getTot1());
+            cluster_tot1_from_eta1.push_back(cluster.getTot1());
+            cluster_tot1_from_eta1_layers[cluster.getLayer()].push_back(cluster.getTot1());
+        }
+        if (cluster.getTot2() > 0) {
+            cluster_tot2_from_eta1.push_back(cluster.getTot2());
+            cluster_tot2_from_eta1_layers[cluster.getLayer()].push_back(cluster.getTot2());
         }
     } else if (cluster.getSide() == Cluster::ETA2) { // ETA2 side, same structure but different vectors
         cluster_size_eta2.push_back(cluster.getSize());
         cluster_size_eta2_layers[cluster.getLayer()].push_back(cluster.getSize());
+        if (cluster.getTot1() > 0) {
+            cluster_tot1_from_eta2.push_back(cluster.getTot1());
+            cluster_tot1_from_eta2_layers[cluster.getLayer()].push_back(cluster.getTot1());
+        }
         if (cluster.getTot2() > 0) {
-            cluster_tot2.push_back(cluster.getTot2());
-            cluster_tot2_layers[cluster.getLayer()].push_back(cluster.getTot2());
+            cluster_tot2_from_eta2.push_back(cluster.getTot2());
+            cluster_tot2_from_eta2_layers[cluster.getLayer()].push_back(cluster.getTot2());
         }
     }
 }

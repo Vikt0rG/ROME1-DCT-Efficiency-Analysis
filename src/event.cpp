@@ -6,11 +6,11 @@
 // ============================================================
 /// Constructor and destructor for Event class
 Event::Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool use_external_trigger) 
-    :   _event_number(event_number),
-        _hits(std::move(hits_in)),
-        _efficiency_counters(counters),
-        _efficiency_counters_tracks(counters_tracks),
-        _use_external_trigger(use_external_trigger) {
+    : _event_number(event_number)
+    , _hits(std::move(hits_in))
+    , _efficiency_counters(counters)
+    , _efficiency_counters_tracks(counters_tracks)
+    , _use_external_trigger(use_external_trigger) {
 }
 
 /// Destructor for the event class
@@ -32,15 +32,15 @@ void Event::extractTriggerTime() {
     }
 }
 
-/// Utility function to estimate whether there are more rising or falling edges in the event for ToT calculation
-bool hasMoreRisingEdges(const std::vector<Hit>& hits) {
+/// Utility function to calculate the number of rising and falling edges in the event
+std::pair<int, int> Event::countEdges() const {
     int rising_count = 0;
     int falling_count = 0;
-    for (const auto& hit : hits) {
+    for (const auto& hit : _hits) {
         if (hit.getRise() == 1) rising_count++;
         else if (hit.getRise() == 0) falling_count++;
     }
-    return rising_count > falling_count;
+    return {rising_count, falling_count};
 }
 
 /// Time Over Threshold calculation before clusterization
@@ -50,7 +50,8 @@ void Event::calculateTOT() {
     std::vector<bool> paired(_hits.size(), false);
 
     // Determine if we have more rising edges than falling edges in the event, which can indicate potential data issues (?)
-    bool more_rising_edges = hasMoreRisingEdges(_hits);
+    auto [rising_count, falling_count] = countEdges();
+    bool more_rising_edges = rising_count > falling_count;
     bool more_falling_edges = !more_rising_edges;
 
     for (size_t i = 0; i < _hits.size(); i++) {
@@ -72,21 +73,21 @@ void Event::calculateTOT() {
 
         for (size_t j = 0; j < _hits.size(); j++) {
             Hit& potential_partner = _hits[j];
-            if (&potential_partner == &hit || paired[j]) continue;  // Skip the same hit or already paired hits
+            if (&potential_partner == &hit || paired[j]) continue;              // Skip the same hit or already paired hits
             if (potential_partner.getChannel() != hit.getChannel()) continue;   // Skip hits from different channels
-            if (potential_partner.getRise() != target_rise) continue;   // Skip hits with the same edge type
+            if (potential_partner.getRise() != target_rise) continue;           // Skip hits with the same edge type
 
             // Use eta1 for matching if available, otherwise fallback to eta2
             int dt = -1;
             if (hit.hasEta1Time() && potential_partner.hasEta1Time()) {
-                dt = std::abs(potential_partner.getTimeEta1() - hit.getTimeEta1());
+                dt = potential_partner.getTimeEta1() - hit.getTimeEta1();
             } else if (hit.hasEta2Time() && potential_partner.hasEta2Time()) {
-                dt = std::abs(potential_partner.getTimeEta2() - hit.getTimeEta2());
+                dt = potential_partner.getTimeEta2() - hit.getTimeEta2();
             } else {
                 continue; // Skip if neither hit has valid time information
             }
 
-            if (dt < min_dt) {
+            if (dt > 0 && dt < min_dt) {
                 min_dt = dt;
                 best_j = static_cast<int>(j);
             }
@@ -100,7 +101,7 @@ void Event::calculateTOT() {
 
             // Calculate tot1 if both have eta1 times
             if (hit.hasEta1Time() && partner.hasEta1Time()) {
-                int tot1 = partner.getTimeEta1() - hit.getTimeEta1();
+                tot1 = partner.getTimeEta1() - hit.getTimeEta1();
                 if (tot1 > 0) {
                     hit.setTot1(tot1);
                     partner.setTot1(tot1);
@@ -109,7 +110,7 @@ void Event::calculateTOT() {
 
             // Calculate tot2 if both have eta2 times
             if (hit.hasEta2Time() && partner.hasEta2Time()) {
-                int tot2 = partner.getTimeEta2() - hit.getTimeEta2();
+                tot2 = partner.getTimeEta2() - hit.getTimeEta2();
                 if (tot2 > 0) {
                     hit.setTot2(tot2);
                     partner.setTot2(tot2);
@@ -209,52 +210,149 @@ void Event::clusterize() {
 
 /// Time-over-threshold calculation for cluster centers (after clusterization)
 void Event::calculateTOTCluster() {
-    // Calculate TOT for eta1 cluster centers
-    for (Cluster& cluster : _clusters_eta1) {
-        Hit* center_hit = cluster.getCenterHit();
-        int tot1 = -1;
-        
-        // Find closest falling edge partner on the same channel (after the rising edge)
-        Hit* best_partner = nullptr;
-        int min_dt = INT_MAX;
-        
-        for (Hit& potential_partner : _hits) {
-            if (potential_partner.getChannel() != center_hit->getChannel()) continue;
-            if (potential_partner.getRise() != 0) continue;  // Must be falling edge
-            
-            int dt = potential_partner.getTimeEta1() - center_hit->getTimeEta1();
-            if (dt > 0 && dt < min_dt) {
-                min_dt = dt;
-                best_partner = &potential_partner;
+
+    // Vectors to keep track which hits have been paired for ToT calculation to avoid double counting
+    // Note: For pairing rely on eta1 side unless it doesn't have time information, then use eta2 side.
+    std::vector<bool> paired_eta1(_hits.size(), false);
+    std::vector<bool> paired_eta2(_hits.size(), false);
+
+    // Check if there are more cluster centers for eta1/eta2 than falling edges
+    auto [_, falling_count] = countEdges();
+    bool more_eta1_centers = _clusters_eta1.size() > falling_count;
+    bool more_eta2_centers = _clusters_eta2.size() > falling_count;
+
+    /// Calculate ToT for cluster centers from eta1 clustering first
+    for (size_t i = 0; i < _hits.size(); i++) {
+        Hit& hit = _hits[i];
+
+        if (hit.getChannel() == _trigger_channel) continue; // Skip hits on trigger channel
+
+        if (paired_eta1[i]) continue; // Skip already paired hits
+
+        // Greedy approach: Skip hits with edges that are more common, to match those to the less common ones
+        if ((hit.getRise() == 0 && !more_eta1_centers) ||   // Edge is falling and those are more common, so skip it
+            (hit.getRise() == 1 && more_eta1_centers)       // Edge is rising and those are more common, so skip it
+        ) continue;
+
+        // Find the closest in-time partner edge on the same channel with a different edge type for eta1 ToT calculation
+        int best_j_eta1 = -1;
+        int min_dt_eta1 = INT_MAX;
+        const int target_rise = (hit.getRise() == 1) ? 0 : 1;
+
+        for (size_t j = 0; j < _hits.size(); j++) {
+            Hit& potential_partner = _hits[j];
+            if (&potential_partner == &hit || paired_eta1[j]) continue;         // Skip the same hit or already paired hits
+            if (potential_partner.getChannel() != hit.getChannel()) continue;   // Skip hits from different channels
+            if (potential_partner.getRise() != target_rise) continue;           // Skip hits with the same edge type
+            if (!hit.isClusterCenterEta1() && 
+                !potential_partner.isClusterCenterEta1()
+            ) continue; // Only consider pairs where at least one hit is a cluster center on eta1 side
+
+            // Use eta1 for matching if available, otherwise fallback to eta2
+            int dt = -1;
+            if (hit.hasEta1Time() && potential_partner.hasEta1Time()) {
+                dt = potential_partner.getTimeEta1() - hit.getTimeEta1();
+            } else if (hit.hasEta2Time() && potential_partner.hasEta2Time()) {
+                dt = potential_partner.getTimeEta2() - hit.getTimeEta2();
+            } else {
+                continue; // Skip if neither hit has valid time information
+            }
+            if (dt > 0 && dt < min_dt_eta1) {
+                min_dt_eta1 = dt;
+                best_j_eta1 = static_cast<int>(j);
             }
         }
-        
-        if (best_partner && min_dt > 0) tot1 = min_dt;
-        cluster.setTot1(tot1);
+
+        // Now calculate ToT for eta1 clustering if a partner is found
+        if (best_j_eta1 != -1) {
+            Hit& partner = _hits[best_j_eta1];
+            paired_eta1[i] = true;
+            paired_eta1[best_j_eta1] = true;
+
+            // Calculate ToT1 if both have eta1 times
+            if (hit.hasEta1Time() && partner.hasEta1Time()) {
+                int tot1_from_eta1 = partner.getTimeEta1() - hit.getTimeEta1();
+                // Get cluster ID from one of two hits
+                int cluster_id = hit.isClusterCenterEta1() ? hit.getClusterIDEta1() : partner.getClusterIDEta1();
+                Cluster& cluster = _clusters_eta1[cluster_id];
+                cluster.setTot1(tot1_from_eta1);
+            }
+
+            // Calculate ToT2 if both have eta2 times
+            if (hit.hasEta2Time() && partner.hasEta2Time()) {
+                int tot2_from_eta1 = partner.getTimeEta2() - hit.getTimeEta2();
+                // Get cluster ID from one of two hits
+                int cluster_id = hit.isClusterCenterEta1() ? hit.getClusterIDEta1() : partner.getClusterIDEta1();
+                Cluster& cluster = _clusters_eta1[cluster_id];
+                cluster.setTot2(tot2_from_eta1);
+            }
+        }
     }
-    
-    // Calculate TOT for eta2 cluster centers
-    for (Cluster& cluster : _clusters_eta2) {
-        Hit* center_hit = cluster.getCenterHit();
-        int tot2 = -1;
-        
-        // Find closest falling edge partner on the same channel (after the rising edge)
-        Hit* best_partner = nullptr;
-        int min_dt = INT_MAX;
-        
-        for (Hit& potential_partner : _hits) {
-            if (potential_partner.getChannel() != center_hit->getChannel()) continue;
-            if (potential_partner.getRise() != 0) continue;  // Must be falling edge
-            
-            int dt = potential_partner.getTimeEta2() - center_hit->getTimeEta2();
-            if (dt > 0 && dt < min_dt) {
-                min_dt = dt;
-                best_partner = &potential_partner;
+
+    // Second pass to calculate ToT for cluster centers from eta2 clustering
+    for (size_t i = 0; i < _hits.size(); i++) {
+        Hit& hit = _hits[i];
+
+        if (hit.getChannel() == _trigger_channel) continue; // Skip hits on trigger channel
+
+        if (paired_eta2[i]) continue; // Skip already paired hits
+
+        // Greedy approach: Skip hits with edges that are more common, to match those to the less common ones
+        if ((hit.getRise() == 0 && !more_eta2_centers) ||   // Edge is falling and those are more common, so skip it
+            (hit.getRise() == 1 && more_eta2_centers)       // Edge is rising and those are more common, so skip it
+        ) continue;
+
+        // Find the closest in-time partner edge on the same channel with a different edge type for eta2 ToT calculation
+        int best_j_eta2 = -1;
+        int min_dt_eta2 = INT_MAX;
+        const int target_rise = (hit.getRise() == 1) ? 0 : 1;
+
+        for (size_t j = 0; j < _hits.size(); j++) {
+            Hit& potential_partner = _hits[j];
+            if (&potential_partner == &hit || paired_eta2[j]) continue;         // Skip the same hit or already paired hits
+            if (potential_partner.getChannel() != hit.getChannel()) continue;   // Skip hits from different channels
+            if (potential_partner.getRise() != target_rise) continue;           // Skip hits with the same edge type
+            if (!hit.isClusterCenterEta2() && 
+                !potential_partner.isClusterCenterEta2()
+            ) continue; // Only consider pairs where at least one hit is a cluster center on eta2 side
+
+            int dt = -1;
+            if (hit.hasEta2Time() && potential_partner.hasEta2Time()) {
+                dt = potential_partner.getTimeEta2() - hit.getTimeEta2();
+            } else if (hit.hasEta1Time() && potential_partner.hasEta1Time()) {
+                dt = potential_partner.getTimeEta1() - hit.getTimeEta1();
+            } else {
+                continue; // Skip if neither hit has valid time information
+            }
+            if (dt > 0 && dt < min_dt_eta2) {
+                min_dt_eta2 = dt;
+                best_j_eta2 = static_cast<int>(j);
             }
         }
-        
-        if (best_partner && min_dt > 0) tot2 = min_dt;
-        cluster.setTot2(tot2);
+
+        if (best_j_eta2 != -1) {
+            Hit& partner = _hits[best_j_eta2];
+            paired_eta2[i] = true;
+            paired_eta2[best_j_eta2] = true;
+
+            // Calculate ToT1 if both have eta1 times
+            if (hit.hasEta1Time() && partner.hasEta1Time()) {
+                int tot1_from_eta2 = partner.getTimeEta1() - hit.getTimeEta1();
+                // Get cluster ID from one of two hits
+                int cluster_id = hit.isClusterCenterEta2() ? hit.getClusterIDEta2() : partner.getClusterIDEta2();
+                Cluster& cluster = _clusters_eta2[cluster_id];
+                cluster.setTot1(tot1_from_eta2);
+            }
+
+            // Calculate ToT2 if both have eta2 times
+            if (hit.hasEta2Time() && partner.hasEta2Time()) {
+                int tot2_from_eta2 = partner.getTimeEta2() - hit.getTimeEta2();
+                // Get cluster ID from one of two hits
+                int cluster_id = hit.isClusterCenterEta2() ? hit.getClusterIDEta2() : partner.getClusterIDEta2();
+                Cluster& cluster = _clusters_eta2[cluster_id];
+                cluster.setTot2(tot2_from_eta2);
+            }
+        }
     }
 }
 
