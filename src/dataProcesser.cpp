@@ -65,6 +65,8 @@ void DataProcesser::setupBranches() {
     processed_data_tree->Branch("proc_tot2", &proc_tot2);
 
     // Branch definitions for clusterization tree
+    clusterization_tree->Branch("cluster_id_from_eta1", &_cluster_id_from_eta1);
+    clusterization_tree->Branch("cluster_id_from_eta2", &_cluster_id_from_eta2);
     clusterization_tree->Branch("cluster_size_eta1", &cluster_size_eta1);
     clusterization_tree->Branch("cluster_size_eta2", &cluster_size_eta2);
     clusterization_tree->Branch("cluster_tot1_from_eta1", &cluster_tot1_from_eta1);
@@ -91,6 +93,7 @@ void DataProcesser::setupBranches() {
     clusterization_tree->Branch("cluster_tot2_from_eta2_layer2", &cluster_tot2_from_eta2_layers[2]);
 
     // Branch definitions for track reconstruction tree
+    track_reconstruction_tree->Branch("track_id", &_track_id);
     track_reconstruction_tree->Branch("track_length_eta1", &track_length_eta1);
     track_reconstruction_tree->Branch("track_length_eta2", &track_length_eta2);
     track_reconstruction_tree->Branch("track_width_eta1", &track_width_eta1);
@@ -308,6 +311,8 @@ void DataProcesser::clearEventVectors() {
     proc_tot1.clear();
     proc_tot2.clear();
 
+    _cluster_id_from_eta1.clear();
+    _cluster_id_from_eta2.clear();
     cluster_size_eta1.clear();
     cluster_size_eta2.clear();
     cluster_tot1_from_eta1.clear();
@@ -323,6 +328,7 @@ void DataProcesser::clearEventVectors() {
         cluster_tot2_from_eta2_layers[layer].clear();
     }
 
+    _track_id.clear();
     track_length_eta1.clear();
     track_length_eta2.clear();
     track_width_eta1.clear();
@@ -331,7 +337,7 @@ void DataProcesser::clearEventVectors() {
     track_size_eta2.clear();
 }
 
-/// NEW: Utility function to push back raw hit data
+/// Utility function to push back raw hit data
 void DataProcesser::pushBackWordData(const DCTWord& word) {
     hit_clk.push_back(word.clk);
     hit_channel.push_back(word.channel);
@@ -434,11 +440,14 @@ void DataProcesser::pushBackTrackDataEta2(const Track& track) {
     track_size_eta2.push_back(track.getSize(1));         // Eta2 size
 }
 
-/// ------------------------------------------------------------------------------------------
+/// ==========================================================================================
 /// Main processing pipeline functions
+/// ==========================================================================================
 
-/// ENtry point of the processing pipeline: Processing txt file and fill InputData tree with raw hit data
-void DataProcesser::processInputData(const std::string& raw_data_file_path, const int dt_max_arg, const int dt_min_arg, InputFormat format, bool use_external_trigger_arg, bool reject_background_arg) {
+/// ------------------------------------------------------------------------------------------
+/// First stage: Entry point of the processing pipeline: Processing txt file and fill InputData tree with raw hit data
+void DataProcesser::processInputData(const std::string& raw_data_file_path, const int dt_max_arg, const int dt_min_arg,
+    InputFormat format, bool use_external_trigger_arg, bool reject_background_arg) {
 
     // Store CLI parameters & flags for use throughout processing
     _dt_max = dt_max_arg;
@@ -592,14 +601,15 @@ void DataProcesser::decodeDCTWord(int word) {
     }
 }
 
-
+/// ------------------------------------------------------------------------------------------
+/// Second stage (optional): After filling InputData tree, run background rejection and modify the InputData tree accordingly
 /// WIP: After filling InputData tree, run background rejection and modify the InputData tree
 void DataProcesser::applyBackgroundRejection() {
     return; // For now do nothing
 }
 
-
-/// After background rejection is applied, run the second pass to search for BC0 and run event processing
+/// ------------------------------------------------------------------------------------------
+/// Third stage: After background rejection is applied, run the second pass to search for BC0 and run event processing
 void DataProcesser::processDataInputTree(TFile* root_file) {
 
     // Check if the InputData tree is filled and can be accessed
@@ -731,6 +741,9 @@ void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCounter
     // Clusterization
     event.clusterize();
 
+    // Update hit cluster IDs after clusterization
+    updateClusterIDs(event);
+
     // Calculate ToT for cluster centers
     event.calculateTOTCluster();
 
@@ -767,5 +780,19 @@ void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCounter
     // Fill the track reconstruction tree (write if either eta1 or eta2 has tracks)
     if (track_reconstruction_tree && (track_length_eta1.size() > 0 && track_length_eta2.size() > 0)) {
         track_reconstruction_tree->Fill();
+    }
+}
+
+// Utility function to update hit cluster IDs after clusterization
+void DataProcesser::updateClusterIDs(const Event& event) {
+    for (const auto& cluster : event.getClustersEta1()) {
+        for (const auto& hit: cluster.getHits()) {
+            _cluster_id_from_eta1.push_back(hit->getClusterIDEta1());
+        }
+    }
+    for (const auto& cluster : event.getClustersEta2()) {
+        for (const auto& hit: cluster.getHits()) {
+            _cluster_id_from_eta2.push_back(hit->getClusterIDEta2());
+        }
     }
 }
