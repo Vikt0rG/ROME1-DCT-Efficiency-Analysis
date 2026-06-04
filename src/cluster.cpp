@@ -6,8 +6,15 @@
 // ============================================================
 /// Constructor that initializes the cluster with the first hit
 Cluster::Cluster(Hit* first_hit, EtaSide side, int layer)
-    : _eta_side(side) {
+    : _layer(layer)
+    , _center_hit_index(0)
+    , _eta_side(side) {
     cluster_hits.push_back(first_hit);
+    if (_eta_side == ETA1) {
+        first_hit->setIsClusterCenterEta1(true);
+    } else {
+        first_hit->setIsClusterCenterEta2(true);
+    }
 }
 
 /// Core clustering logic: Add a hit to the cluster if it is within the time window and strip distance
@@ -38,13 +45,13 @@ bool Cluster::addHit(Hit* hit) {
         if (_eta_side == ETA1) {
             if (hit->getTimeEta1() < cluster_hits[_center_hit_index]->getTimeEta1()) {
                 cluster_hits[_center_hit_index]->setIsClusterCenterEta1(false); // Unset old center flag
-                _center_hit_index = idx;
+                _center_hit_index = static_cast<int>(cluster_hits.size()) - 1;
                 cluster_hits[_center_hit_index]->setIsClusterCenterEta1(true);  // Set new center flag
             }
         } else {
             if (hit->getTimeEta2() < cluster_hits[_center_hit_index]->getTimeEta2()) {
                 cluster_hits[_center_hit_index]->setIsClusterCenterEta2(false); // Unset old center flag
-                _center_hit_index = idx;
+                _center_hit_index = static_cast<int>(cluster_hits.size()) - 1;
                 cluster_hits[_center_hit_index]->setIsClusterCenterEta2(true);  // Set new center flag
             }
         }
