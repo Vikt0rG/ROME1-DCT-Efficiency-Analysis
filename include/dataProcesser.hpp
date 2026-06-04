@@ -55,6 +55,7 @@ private:
     std::array<std::vector<int>, 3> cluster_size_eta1_layers, cluster_size_eta2_layers;
     std::array<std::vector<int>, 3> cluster_tot1_from_eta1_layers, cluster_tot2_from_eta1_layers, cluster_tot1_from_eta2_layers, cluster_tot2_from_eta2_layers;  // Layer-specific cluster data
     std::vector<int> track_length_eta1, track_length_eta2, track_width_eta1, track_width_eta2, track_size_eta1, track_size_eta2;
+    std::vector<bool> _in_valid_track_eta1, _in_valid_track_eta2;
 
     // ID vectors for hits in clusters and tracks
     std::vector<int> _cluster_id_from_eta1, _cluster_id_from_eta2, _track_id_from_eta1, _track_id_from_eta2;
@@ -136,6 +137,7 @@ public:
     void processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
     void updateClusterIDs(const Event& event);
     void updateTrackIDs(const Event& event);
+    void isHitInValidTrack(const Event& event);
     void pushBackWordData(const DCTWord&);
     void pushBackProcessedData(const Event&);
     void pushBackClusterData(const Cluster&);

@@ -95,6 +95,8 @@ void DataProcesser::setupBranches() {
     // Branch definitions for track reconstruction tree
     track_reconstruction_tree->Branch("track_id_from_eta1", &_track_id_from_eta1);
     track_reconstruction_tree->Branch("track_id_from_eta2", &_track_id_from_eta2);
+    track_reconstruction_tree->Branch("in_valid_track_eta1", &_in_valid_track_eta1);
+    track_reconstruction_tree->Branch("in_valid_track_eta2", &_in_valid_track_eta2);
     track_reconstruction_tree->Branch("track_length_eta1", &track_length_eta1);
     track_reconstruction_tree->Branch("track_length_eta2", &track_length_eta2);
     track_reconstruction_tree->Branch("track_width_eta1", &track_width_eta1);
@@ -331,6 +333,8 @@ void DataProcesser::clearEventVectors() {
 
     _track_id_from_eta1.clear();
     _track_id_from_eta2.clear();
+    _in_valid_track_eta1.clear();
+    _in_valid_track_eta2.clear();
     track_length_eta1.clear();
     track_length_eta2.clear();
     track_width_eta1.clear();
@@ -756,7 +760,7 @@ void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCounter
     }
 
     // Fill the clusterization tree (write if either eta1 or eta2 has clusters)
-    if (clusterization_tree && (cluster_size_eta1.size() > 0 && cluster_size_eta2.size() > 0)) {
+    if (clusterization_tree && (cluster_size_eta1.size() > 0 || cluster_size_eta2.size() > 0)) {
         clusterization_tree->Fill();
     }
 
@@ -765,6 +769,9 @@ void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCounter
 
     // Update track IDs after track reconstruction
     updateTrackIDs(event);
+
+    // Check if hits are in valid tracks
+    isHitInValidTrack(event);
 
     // Push back track-level data for both eta1 and eta2 sides
     for (const auto& track : event.getTracks()) {
@@ -778,7 +785,7 @@ void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCounter
     event.updateEfficiencyCounters();
 
     // Fill the track reconstruction tree (write if either eta1 or eta2 has tracks)
-    if (track_reconstruction_tree && (track_length_eta1.size() > 0 && track_length_eta2.size() > 0)) {
+    if (track_reconstruction_tree && (track_length_eta1.size() > 0 || track_length_eta2.size() > 0)) {
         track_reconstruction_tree->Fill();
     }
 }
@@ -808,5 +815,27 @@ void DataProcesser::updateTrackIDs(const Event& event) {
         for (const auto& hit: track.getHits()) {
             _track_id_from_eta2.push_back(hit->getTrackIDEta2());
         }
+    }
+}
+
+// NOTE: Not really needed as this can be done directly with track ID from the hit together with isValidTrack()
+// Utility function to check if a hit is a part of a valid track based on its track ID
+void DataProcesser::isHitInValidTrack(const Event& event) {
+
+    std::unordered_map<int, bool> valid_eta1, valid_eta2;
+    for (const auto& track : event.getTracksEta1()) {
+        valid_eta1[track.getTrackID()] = track.isValidTrack();
+    }
+    for (const auto& track : event.getTracksEta2()) {
+        valid_eta2[track.getTrackID()] = track.isValidTrack();
+    }
+    
+    // Look up each hit
+    for (const auto& hit : event.getHits()) {
+        int id1 = hit.getTrackIDEta1();
+        _in_valid_track_eta1.push_back(id1 != -1 && valid_eta1[id1]);
+        
+        int id2 = hit.getTrackIDEta2();
+        _in_valid_track_eta2.push_back(id2 != -1 && valid_eta2[id2]);
     }
 }
