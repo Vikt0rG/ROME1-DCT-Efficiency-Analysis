@@ -9,10 +9,9 @@
 #include "configParser.hpp"
 
 /// TODO:
-// - Check ToT calculation
 // - Update root files with file-specific stats (see below)
 // - Add noise rate calculations for each separate strip
-// - Add time resolation calculations for each layer and side 
+// - Add time resolution calculations for each layer and side 
 
 
 // ==========================================================================================

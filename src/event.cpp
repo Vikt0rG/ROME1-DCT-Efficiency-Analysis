@@ -533,6 +533,8 @@ void Event::updateEfficiencyCounters() {
     for (int layer = 0; layer < 3; layer++) {
         const int reference_layer1 = (layer + 1) % 3;
         const int reference_layer2 = (layer + 2) % 3;
+
+        // Check for RPC trigger condition
         const bool rpc_triggered =
             (_efficiency_flags.eta1_layer[reference_layer1] && _efficiency_flags.eta1_layer[reference_layer2]) ||
             (_efficiency_flags.eta2_layer[reference_layer1] && _efficiency_flags.eta2_layer[reference_layer2]);
@@ -540,6 +542,7 @@ void Event::updateEfficiencyCounters() {
             (_efficiency_flags.eta1_layer_track[reference_layer1] && _efficiency_flags.eta1_layer_track[reference_layer2]) ||
             (_efficiency_flags.eta2_layer_track[reference_layer1] && _efficiency_flags.eta2_layer_track[reference_layer2]);
 
+        // Update RPC trigger efficiency counters
         if (rpc_triggered) {
             _efficiency_counters.triggered_events_rpc[layer]++;
             if (_efficiency_flags.eta1_layer[layer]) _efficiency_counters.eta1_efficiency_counter_rpc[layer]++;
@@ -547,7 +550,6 @@ void Event::updateEfficiencyCounters() {
             if (_efficiency_flags.eta1_layer[layer] || _efficiency_flags.eta2_layer[layer]) _efficiency_counters.eta_or_efficiency_counter_rpc[layer]++;
             if (_efficiency_flags.eta1_layer[layer] && _efficiency_flags.eta2_layer[layer]) _efficiency_counters.eta_and_efficiency_counter_rpc[layer]++;
         }
-
         if (rpc_triggered_track) {
             _efficiency_counters_tracks.track_triggered_events_rpc[layer]++;
             if (_efficiency_flags.eta1_layer_track[layer]) _efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]++;
