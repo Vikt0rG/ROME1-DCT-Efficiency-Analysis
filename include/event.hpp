@@ -23,10 +23,12 @@ private:
     std::vector<Hit> _hits;
 
     // Cluster vectors
+    std::vector<Cluster> _clusters;
     std::vector<Cluster> _clusters_eta1;
     std::vector<Cluster> _clusters_eta2;
 
     // Track vectors
+    std::vector<Track> _tracks;
     std::vector<Track> _tracks_eta1;
     std::vector<Track> _tracks_eta2;
 
@@ -67,8 +69,10 @@ public:
     int getHitCount() const { return _hits.size(); }
 
     const std::vector<Hit>& getHits() const { return _hits; }
+    const std::vector<Cluster>& getClusters() const { return _clusters; }
     const std::vector<Cluster>& getClustersEta1() const { return _clusters_eta1; }
     const std::vector<Cluster>& getClustersEta2() const { return _clusters_eta2; }
+    const std::vector<Track>& getTracks() const { return _tracks; }
     const std::vector<Track>& getTracksEta1() const { return _tracks_eta1; }
     const std::vector<Track>& getTracksEta2() const { return _tracks_eta2; }
 

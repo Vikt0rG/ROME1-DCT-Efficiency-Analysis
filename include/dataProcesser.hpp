@@ -57,7 +57,7 @@ private:
     std::vector<int> track_length_eta1, track_length_eta2, track_width_eta1, track_width_eta2, track_size_eta1, track_size_eta2;
 
     // ID vectors for hits in clusters and tracks
-    std::vector<int> _cluster_id_from_eta1, _cluster_id_from_eta2, _track_id;
+    std::vector<int> _cluster_id_from_eta1, _cluster_id_from_eta2, _track_id_from_eta1, _track_id_from_eta2;
 
     // Event state management
     int BC0 = -100;  // BC0 reference for current event: Set to -100 as an invalid default value to detect if it was properly set
@@ -135,12 +135,11 @@ public:
     void processDataInputTree(TFile* root_file);
     void processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
     void updateClusterIDs(const Event& event);
-
+    void updateTrackIDs(const Event& event);
     void pushBackWordData(const DCTWord&);
     void pushBackProcessedData(const Event&);
     void pushBackClusterData(const Cluster&);
-    void pushBackTrackDataEta1(const Track&);
-    void pushBackTrackDataEta2(const Track&);
+    void pushBackTrackData(const Track&);
 
     // Analysis
     void updateEfficiencies();

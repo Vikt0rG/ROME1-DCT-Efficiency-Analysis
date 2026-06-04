@@ -4,7 +4,7 @@
 // ============================================================
 // Event class implementation
 // ============================================================
-/// Constructor and destructor for Event class
+// Constructor and destructor for Event class
 Event::Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool use_external_trigger) 
     : _event_number(event_number)
     , _hits(std::move(hits_in))
@@ -13,12 +13,12 @@ Event::Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& c
     , _use_external_trigger(use_external_trigger) {
 }
 
-/// Destructor for the event class
+// Destructor for the event class
 Event::~Event() {
     // Cleanup code if necessary (currently not needed)
 }
 
-/// Utility function to add a hit to extract trigger time
+// Utility function to add a hit to extract trigger time
 void Event::extractTriggerTime() {
     if (!_use_external_trigger) {
         _trigger_time = -1;
@@ -32,7 +32,7 @@ void Event::extractTriggerTime() {
     }
 }
 
-/// Utility function to calculate the number of rising and falling edges in the event
+// Utility function to calculate the number of rising and falling edges in the event
 std::pair<int, int> Event::countEdges() const {
     int rising_count = 0;
     int falling_count = 0;
@@ -43,7 +43,7 @@ std::pair<int, int> Event::countEdges() const {
     return {rising_count, falling_count};
 }
 
-/// Time Over Threshold calculation before clusterization
+// Time Over Threshold calculation before clusterization
 void Event::calculateTOT() {
     // Vectors to keep track which hits have been paired for ToT calculation to avoid double counting
     // Note: For pairing rely on eta1 side only unless it doesn't have time information, then use eta2 side.
@@ -120,7 +120,7 @@ void Event::calculateTOT() {
     }
 }
 
-/// Clusterization method to form clusters from hits
+// Clusterization method to form clusters from hits
 void Event::clusterize() {
     // Side η1 clusterization
     // Set cluster ID counter
@@ -134,6 +134,7 @@ void Event::clusterize() {
         // std::cout << "------------------------------------------------------------------" << std::endl;
         // std::cout << "Processing side η1: Hit: " << hit.getIdx() << "; Layer " << hit.getLayer() << "; Strip: " << hit.getStrip() << "; Time " << hit.getTimeEta1() << std::endl;
         Cluster cluster(&hit, Cluster::ETA1, hit.getLayer());
+        cluster.setClusterID(cluster_id_counter_eta1);
         hit.setClusterIDEta1(cluster_id_counter_eta1);
 
         // Loop over the remaining hits to find cluster partners for the current hit
@@ -158,6 +159,7 @@ void Event::clusterize() {
         }
 
         // If no more cluster partners are found for the current hit, store cluster information and increment cluster ID counter for the next cluster
+        _clusters.push_back(cluster);
         _clusters_eta1.push_back(cluster);
         cluster_id_counter_eta1++;
 
@@ -179,6 +181,7 @@ void Event::clusterize() {
         // std::cout << "------------------------------------------------------------------" << std::endl;
         // std::cout << "Processing side η2: Hit: " << hit.getIdx() << "; Layer " << hit.getLayer() << "; Strip: " << hit.getStrip() << "; Time " << hit.getTimeEta2() << std::endl;
         Cluster cluster(&hit, Cluster::ETA2, hit.getLayer());
+        cluster.setClusterID(cluster_id_counter_eta2);
         hit.setClusterIDEta2(cluster_id_counter_eta2);
 
         for (Hit& potential_partner : _hits) {
@@ -194,6 +197,7 @@ void Event::clusterize() {
 
             if (cluster.addHit(&potential_partner)) potential_partner.setClusterIDEta2(cluster_id_counter_eta2);
         }
+        _clusters.push_back(cluster);
         _clusters_eta2.push_back(cluster);
         cluster_id_counter_eta2++;
 
@@ -208,7 +212,7 @@ void Event::clusterize() {
     }
 }
 
-/// Time-over-threshold calculation for cluster centers (after clusterization)
+// Time-over-threshold calculation for cluster centers (after clusterization)
 void Event::calculateTOTCluster() {
 
     // Vectors to keep track which hits have been paired for ToT calculation to avoid double counting
@@ -356,20 +360,21 @@ void Event::calculateTOTCluster() {
     }
 }
 
-/// Track reconstruction from clusters
+// Track reconstruction from clusters
 void Event::reconstructTracks() {
     // Side η1 track reconstruction logic
     int track_id_counter_eta1 = 0;
 
     // Loop over η1 cluster centers and form tracks based on time and strip alignment across layers
     for (Cluster& cluster : _clusters_eta1) {
+
         // Initialize a new track object if the cluster center is not already in a track
-        // NOTE: Here we no longer need checks for rising edge, non-trigger channel and valid
-        // time information as these are already ensured for cluster centers at the cluster level
-        if (cluster.getCenterHit()->inTrackEta1()) continue;
+        // NOTE: No checks for rising edge, non-trigger channel, valid time information as these are already ensured for cluster centers at the clusterization level
+        if (cluster.getCenterHit()->inTrackEta1()) continue;    // Skip if the cluster center is already in a track on eta1 side
         // std::cout << "------------------------------------------------------------------" << std::endl;
         // std::cout << "Processing track reconstruction for side η1: " << std::endl;
-        Track track(track_id_counter_eta1, cluster.getCenterHit(), Track::ETA1);
+        Track track(cluster.getCenterHit(), Track::ETA1);
+        track.setTrackID(track_id_counter_eta1);
         cluster.getCenterHit()->setTrackIDEta1(track_id_counter_eta1);
 
         // Loop over the remaining cluster centers to find track partners for the current cluster center
@@ -377,7 +382,7 @@ void Event::reconstructTracks() {
             // Skip the same cluster
             if (&potential_partner_cluster == &cluster) continue;
 
-            // Skip cluster centers from the same layer
+            // Skip cluster centers from the same layer as the first cluster center
             if (potential_partner_cluster.getCenterHit()->getLayer() == cluster.getCenterHit()->getLayer()) continue;
 
             // Skip cluster centers that are already in a track
@@ -388,6 +393,7 @@ void Event::reconstructTracks() {
         }
 
         // If no more track partners are found for the current cluster center, store track information and increment track ID counter for the next track
+        _tracks.push_back(track);
         _tracks_eta1.push_back(track);
         track_id_counter_eta1++;
 
@@ -409,7 +415,8 @@ void Event::reconstructTracks() {
         if (cluster.getCenterHit()->inTrackEta2()) continue;
         // std::cout << "------------------------------------------------------------------" << std::endl;
         // std::cout << "Processing track reconstruction for side η2: " << std::endl;
-        Track track(track_id_counter_eta2, cluster.getCenterHit(), Track::ETA2);
+        Track track(cluster.getCenterHit(), Track::ETA2);
+        track.setTrackID(track_id_counter_eta2);
         cluster.getCenterHit()->setTrackIDEta2(track_id_counter_eta2);
 
         for (Cluster& potential_partner_cluster : _clusters_eta2) {
@@ -421,6 +428,7 @@ void Event::reconstructTracks() {
 
             if (track.addHit(potential_partner_cluster.getCenterHit())) potential_partner_cluster.getCenterHit()->setTrackIDEta2(track_id_counter_eta2);
         }
+        _tracks.push_back(track);
         _tracks_eta2.push_back(track);
         track_id_counter_eta2++;
 
@@ -435,7 +443,7 @@ void Event::reconstructTracks() {
     }
 }
 
-/// Utility function to update efficiency flags
+// Utility function to update efficiency flags
 void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
 
     // Iterate over hits to set efficiency flags
@@ -465,7 +473,7 @@ void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
             // Additionally check if the hit is part of a valid track on the η1 side to set the track efficiency flag for the layer
             int track_id = hit.getTrackIDEta1();
             auto it = std::find_if(_tracks_eta1.begin(), _tracks_eta1.end(), [track_id](const Track& track) {
-                return track.getId() == track_id;
+                return track.getTrackID() == track_id;
             });
 
             if (it != _tracks_eta1.end() && it->isValidTrack()) {
@@ -490,7 +498,7 @@ void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
 
             int track_id = hit.getTrackIDEta2();
             auto it = std::find_if(_tracks_eta2.begin(), _tracks_eta2.end(), [track_id](const Track& track) {
-                return track.getId() == track_id;
+                return track.getTrackID() == track_id;
             });
 
             if (it != _tracks_eta2.end() && it->isValidTrack()) {
@@ -500,7 +508,7 @@ void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
     }
 }
 
-/// Utility function to update efficiency counters based on the efficiency flags set for the event
+// Utility function to update efficiency counters based on the efficiency flags set for the event
 void Event::updateEfficiencyCounters() {
 
     // Skip events with no valid trigger time information
