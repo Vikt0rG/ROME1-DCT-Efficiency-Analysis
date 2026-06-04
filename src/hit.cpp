@@ -12,8 +12,7 @@ Hit::Hit(int clk, int channel, int raw_bcid, int raw_time_eta1, int raw_time_eta
     , _raw_bcid(raw_bcid)
     , _raw_time_eta1(raw_time_eta1)
     , _raw_time_eta2(raw_time_eta2)
-    , _rise(rise)
-{
+    , _rise(rise) {
     geometryMapping();
 }
 

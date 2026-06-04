@@ -12,17 +12,21 @@ private:
     int _raw_time_eta1, _raw_time_eta2, _rise;
 
     // Processed data - initialized to invalid values until calculated
-    int _bcid = -1;                             // After BC wrap-around correction
-    int _layer = -1, _column = -1, _strip = -1; // Geometry info
-    int _time_eta1 = -1, _time_eta2 = -1;       // Converted times
-    int _tot1 = -1, _tot2 = -1;                 // Time-over-threshold
+    int _bcid = -1;                                     // After BC wrap-around correction
+    int _layer = -1, _column = -1, _strip = -1;         // Geometry info
+    int _time_eta1 = -1, _time_eta2 = -1;               // Converted times
+    int _tot1 = -1, _tot2 = -1;                         // Time-over-threshold before clusterization
 
     // IDs - initialized to invalid indices until assigned
-    int _hit_id = -1;                   // Unique identifier for this hit
-    int _cluster_id_eta1 = -1;          // ID of cluster this hit belongs to (if any)
+    int _hit_id = -1;                                   // Unique identifier for this hit
+    int _cluster_id_eta1 = -1;                          // ID of cluster this hit belongs to (if any)
     int _cluster_id_eta2 = -1;
-    int _track_id_eta1 = -1;            // ID of track this hit belongs to (if any)
+    int _track_id_eta1 = -1;                            // ID of track this hit belongs to (if any)
     int _track_id_eta2 = -1;
+
+    // Flags
+    bool _is_cluster_center_eta1 = false;               // Whether this hit is the center of a cluster on eta1 side
+    bool _is_cluster_center_eta2 = false;               // Whether this hit is the center of a cluster on eta2 side
 
 public:
     // Constructor from raw word
@@ -60,6 +64,8 @@ public:
     void setClusterIDEta2(int cluster_id) { this->_cluster_id_eta2 = cluster_id; }
     void setTrackIDEta1(int track_id) { this->_track_id_eta1 = track_id; }
     void setTrackIDEta2(int track_id) { this->_track_id_eta2 = track_id; }
+    void setIsClusterCenterEta1(bool is_center) { this->_is_cluster_center_eta1 = is_center; }
+    void setIsClusterCenterEta2(bool is_center) { this->_is_cluster_center_eta2 = is_center; }
 
     // Processing methods
     void geometryMapping();
@@ -75,4 +81,6 @@ public:
     bool hasEta1Time() const { return _time_eta1 != -1; }
     bool hasEta2Time() const { return _time_eta2 != -1; }
     bool hasTimeInfo() const { return _time_eta1 != -1 || _time_eta2 != -1; }
+    bool isClusterCenterEta1() const { return _is_cluster_center_eta1; }
+    bool isClusterCenterEta2() const { return _is_cluster_center_eta2; }
 };
