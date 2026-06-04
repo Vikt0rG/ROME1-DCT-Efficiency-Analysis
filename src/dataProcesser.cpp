@@ -6,10 +6,10 @@
 /// - Channel inversion for eta2 (?) side (in the same column: channel 1 of swaps with 8, 2 with 7, etc.)
 /// - Lift restrictions on track length/size to have them be of different sizes
 
-/// ==========================================================================================
-/// DataProcesser class implementation for processing raw DCT data
-/// ==========================================================================================
-/// Constructor and destructor for DataProcesser class
+// ==========================================================================================
+// DataProcesser class implementation for processing raw DCT data
+// ==========================================================================================
+// Constructor and destructor for DataProcesser class
 DataProcesser::DataProcesser() = default;
 
 DataProcesser::~DataProcesser() {
@@ -24,10 +24,10 @@ DataProcesser::~DataProcesser() {
     }
 }
 
-/// ------------------------------------------------------------------------------------------
-/// File, tree and branch setup utility functions
+// ------------------------------------------------------------------------------------------
+// File, tree and branch setup utility functions
 
-/// Utility function to setup the output ROOT file and create the necessary trees
+// Utility function to setup the output ROOT file and create the necessary trees
 void DataProcesser::setupOutputFile() {
     _output_file = new TFile("output.root", "RECREATE");
     input_data_tree = new TTree("InputData", "Raw hit data from the DCT", 1, _output_file);
@@ -36,7 +36,7 @@ void DataProcesser::setupOutputFile() {
     track_reconstruction_tree = new TTree("TrackReconstruction", "Track-level data", 1, _output_file);
 }
 
-/// Utility function to setup branches for all trees in the output file
+// Utility function to setup branches for all trees in the output file
 void DataProcesser::setupBranches() {
     // Branch definitions for raw data tree
     input_data_tree->Branch("hit_clk", &hit_clk);
@@ -93,7 +93,8 @@ void DataProcesser::setupBranches() {
     clusterization_tree->Branch("cluster_tot2_from_eta2_layer2", &cluster_tot2_from_eta2_layers[2]);
 
     // Branch definitions for track reconstruction tree
-    track_reconstruction_tree->Branch("track_id", &_track_id);
+    track_reconstruction_tree->Branch("track_id_from_eta1", &_track_id_from_eta1);
+    track_reconstruction_tree->Branch("track_id_from_eta2", &_track_id_from_eta2);
     track_reconstruction_tree->Branch("track_length_eta1", &track_length_eta1);
     track_reconstruction_tree->Branch("track_length_eta2", &track_length_eta2);
     track_reconstruction_tree->Branch("track_width_eta1", &track_width_eta1);
@@ -102,10 +103,10 @@ void DataProcesser::setupBranches() {
     track_reconstruction_tree->Branch("track_size_eta2", &track_size_eta2);
 }
 
-/// ------------------------------------------------------------------------------------------
-/// Efficiency calculation helper functions
+// ------------------------------------------------------------------------------------------
+// Efficiency calculation helper functions
 
-/// Efficiency live calculation based on reconstructed tracks
+// Efficiency live calculation based on reconstructed tracks
 void DataProcesser::updateEfficiencies() {
     // External trigger only efficiency results
     if (efficiency_counters.triggered_events_external > 0) {
@@ -161,10 +162,10 @@ void DataProcesser::updateEfficiencies() {
     }
 }
 
-/// ------------------------------------------------------------------------------------------
-/// Histogram creation utility function
+// ------------------------------------------------------------------------------------------
+// Histogram creation utility function
 
-/// Utility function to create efficiency histograms in nested directories
+// Utility function to create efficiency histograms in nested directories
 void DataProcesser::createHistograms() {
     if (!_output_file) return;
 
@@ -283,10 +284,10 @@ void DataProcesser::createHistograms() {
     _output_file->cd();
 }
 
-/// ------------------------------------------------------------------------------------------
-/// Clearing and pushing back data utility functions
+// ------------------------------------------------------------------------------------------
+// Clearing and pushing back data utility functions
 
-/// NEW: Utility function to clear raw data vectors
+// Utility function to clear raw data vectors
 void DataProcesser::clearRawDataVectors() {
     hit_clk.clear();
     hit_channel.clear();
@@ -296,7 +297,7 @@ void DataProcesser::clearRawDataVectors() {
     hit_rise.clear();
 }
 
-/// Utility function to clear all vectors for the next event processing
+// Utility function to clear all vectors for the next event processing
 void DataProcesser::clearEventVectors() {
     proc_layer.clear();
     proc_strip.clear();
@@ -328,7 +329,8 @@ void DataProcesser::clearEventVectors() {
         cluster_tot2_from_eta2_layers[layer].clear();
     }
 
-    _track_id.clear();
+    _track_id_from_eta1.clear();
+    _track_id_from_eta2.clear();
     track_length_eta1.clear();
     track_length_eta2.clear();
     track_width_eta1.clear();
@@ -337,7 +339,7 @@ void DataProcesser::clearEventVectors() {
     track_size_eta2.clear();
 }
 
-/// Utility function to push back raw hit data
+// Utility function to push back raw hit data
 void DataProcesser::pushBackWordData(const DCTWord& word) {
     hit_clk.push_back(word.clk);
     hit_channel.push_back(word.channel);
@@ -347,7 +349,7 @@ void DataProcesser::pushBackWordData(const DCTWord& word) {
     hit_rise.push_back(word.rise);
 }
 
-/// Utility function to push processed hit data into the corresponding vectors for tree filling
+// Utility function to push processed hit data into the corresponding vectors for tree filling
 void DataProcesser::pushBackProcessedData(const Event& event) {
     proc_trigger_time.push_back(event.getTriggerTime());
     proc_bc0.push_back(BC0);
@@ -395,7 +397,7 @@ void DataProcesser::pushBackProcessedData(const Event& event) {
     */
 }
 
-/// Utility functions to push cluster-level data into the corresponding vectors for tree filling
+// Utility functions to push cluster-level data into the corresponding vectors for tree filling
 void DataProcesser::pushBackClusterData(const Cluster& cluster) {
     if (cluster.getSide() == Cluster::ETA1) {
         // Cluster size information
@@ -425,27 +427,25 @@ void DataProcesser::pushBackClusterData(const Cluster& cluster) {
     }
 }
 
-
-/// TODO: Merge into a single pushBackTrackData function with side as an argument (similar to cluster data)
-/// Utility functions to push track-level data into the corresponding vectors for tree filling
-void DataProcesser::pushBackTrackDataEta1(const Track& track) {
-    track_length_eta1.push_back(track.getLayerCount(0)); // Eta1 layer count
-    track_width_eta1.push_back(track.getWidth(0));       // Eta1 width
-    track_size_eta1.push_back(track.getSize(0));         // Eta1 size
+// Utility functions to push track-level data into the corresponding vectors for tree filling
+void DataProcesser::pushBackTrackData(const Track& track) {
+    if (track.getSide() == Track::ETA1) {
+        track_length_eta1.push_back(track.getLayerCount());
+        track_width_eta1.push_back(track.getWidth());
+        track_size_eta1.push_back(track.getSize());
+    } else if (track.getSide() == Track::ETA2) {
+        track_length_eta2.push_back(track.getLayerCount());
+        track_width_eta2.push_back(track.getWidth());
+        track_size_eta2.push_back(track.getSize());
+    }
 }
 
-void DataProcesser::pushBackTrackDataEta2(const Track& track) {
-    track_length_eta2.push_back(track.getLayerCount(1)); // Eta2 layer count
-    track_width_eta2.push_back(track.getWidth(1));       // Eta2 width
-    track_size_eta2.push_back(track.getSize(1));         // Eta2 size
-}
+// ==========================================================================================
+// Main processing pipeline functions
+// ==========================================================================================
 
-/// ==========================================================================================
-/// Main processing pipeline functions
-/// ==========================================================================================
-
-/// ------------------------------------------------------------------------------------------
-/// First stage: Entry point of the processing pipeline: Processing txt file and fill InputData tree with raw hit data
+// ------------------------------------------------------------------------------------------
+// First stage: Entry point of the processing pipeline: Processing txt file and fill InputData tree with raw hit data
 void DataProcesser::processInputData(const std::string& raw_data_file_path, const int dt_max_arg, const int dt_min_arg,
     InputFormat format, bool use_external_trigger_arg, bool reject_background_arg) {
 
@@ -476,7 +476,7 @@ void DataProcesser::processInputData(const std::string& raw_data_file_path, cons
     }
 }
 
-/// Function to handle raw hit extraction (for filling InputData tree).
+// Function to handle raw hit extraction (for filling InputData tree).
 void DataProcesser::processDataFiledump(const std::string& file_path) {
     // Open the file and read line by line, extracting raw hit data in word format and filling the InputData tree
     std::ifstream infile(file_path);
@@ -572,7 +572,7 @@ void DataProcesser::processDataFiledump(const std::string& file_path) {
     infile.close();
 }
 
-/// Process a single word and accumulate its data into the current event's hit vector
+// Process a single word and accumulate its data into the current event's hit vector
 void DataProcesser::processSingleWord(int clk, int word) {
     if (word == EMPTY_WORD) return;
 
@@ -584,7 +584,7 @@ void DataProcesser::processSingleWord(int clk, int word) {
     pushBackWordData(_dct_word);
 }
 
-/// Utility function for extracting information from the raw DCT word
+// Utility function for extracting information from the raw DCT word
 void DataProcesser::decodeDCTWord(int word) {
     _dct_word.channel = (word >> 20) & 0xFF;          // Bits 20-27
     _dct_word.rise = word & 0x01;                     // Bit 0
@@ -601,15 +601,15 @@ void DataProcesser::decodeDCTWord(int word) {
     }
 }
 
-/// ------------------------------------------------------------------------------------------
-/// Second stage (optional): After filling InputData tree, run background rejection and modify the InputData tree accordingly
+// ------------------------------------------------------------------------------------------
+// Second stage (optional): After filling InputData tree, run background rejection and modify the InputData tree accordingly
 /// WIP: After filling InputData tree, run background rejection and modify the InputData tree
 void DataProcesser::applyBackgroundRejection() {
     return; // For now do nothing
 }
 
-/// ------------------------------------------------------------------------------------------
-/// Third stage: After background rejection is applied, run the second pass to search for BC0 and run event processing
+// ------------------------------------------------------------------------------------------
+// Third stage: After background rejection is applied, run the second pass to search for BC0 and run event processing
 void DataProcesser::processDataInputTree(TFile* root_file) {
 
     // Check if the InputData tree is filled and can be accessed
@@ -714,7 +714,7 @@ void DataProcesser::processFileDecoded(const std::string& file_path) {
 }
 */
 
-/// Process a complete event that has been accumulated
+// Process a complete event that has been accumulated
 void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks) {
     n_hits = current_event_hits.size();
     // std::cout << "\n" << std::endl;
@@ -763,12 +763,12 @@ void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCounter
     // Track reconstruction
     event.reconstructTracks();
 
+    // Update track IDs after track reconstruction
+    updateTrackIDs(event);
+
     // Push back track-level data for both eta1 and eta2 sides
-    for (const auto& track : event.getTracksEta1()) {
-        pushBackTrackDataEta1(track);
-    }
-    for (const auto& track : event.getTracksEta2()) {
-        pushBackTrackDataEta2(track);
+    for (const auto& track : event.getTracks()) {
+        pushBackTrackData(track);
     }
 
     // Reset and update efficiency flags for each new event
@@ -793,6 +793,20 @@ void DataProcesser::updateClusterIDs(const Event& event) {
     for (const auto& cluster : event.getClustersEta2()) {
         for (const auto& hit: cluster.getHits()) {
             _cluster_id_from_eta2.push_back(hit->getClusterIDEta2());
+        }
+    }
+}
+
+// Utility function to update hit track IDs after track reconstruction
+void DataProcesser::updateTrackIDs(const Event& event) {
+    for (const auto& track : event.getTracksEta1()) {
+        for (const auto& hit: track.getHits()) {
+            _track_id_from_eta1.push_back(hit->getTrackIDEta1());
+        }
+    }
+    for (const auto& track : event.getTracksEta2()) {
+        for (const auto& hit: track.getHits()) {
+            _track_id_from_eta2.push_back(hit->getTrackIDEta2());
         }
     }
 }

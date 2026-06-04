@@ -16,8 +16,8 @@ constexpr int MAX_STRIP_DISTANCE = 1;               // Maximum strip separation 
 
 // Track reconstruction constants
 constexpr int MIN_TRACK_LENGTH = 2;                 // Minimum number of hits required for a valid track
-constexpr int MAX_STRIP_WINDOW = 5;                 // Maximum strip separation for track alignment
-constexpr int MAX_TIME_WINDOW = 2;                  // Maximum time difference (ticks) for track alignment
+constexpr int MAX_STRIP_WINDOW = 3;                 // Maximum strip separation for track alignment
+constexpr int MAX_TIME_WINDOW = 1;                  // Maximum time difference (ticks) for track alignment
 
 // Time window constants (time difference between hit and trigger signals) for efficiency calculation
 constexpr int DEFAULT_DT_MAX = -100;                // Maximum of the time window (ticks)
