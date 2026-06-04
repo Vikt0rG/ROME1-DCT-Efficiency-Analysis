@@ -13,35 +13,34 @@ class Cluster {
 public:
     enum EtaSide { ETA1 = 0, ETA2 = 1 };
 
-private:
-    int _cluster_id = -1;                  // Unique identifier for the cluster (set to -1 as invalid amd later updated during clusterization)
-    int _layer = -1;                       // Layer which the cluster belongs to (0, 1, or 2) (set to -1 as invalid default)
-    std::vector<Hit*> cluster_hits;        // Hits in this cluster (NOT copied, referenced)
-    int _center_hit_index = -1;            // Index of first-in-time hit (cluster center) (initialized to -1 as invalid default and updated during clustering)
-    int _tot1 = -1, _tot2 = -1;            // Time-over-threshold for each eta side (initialized to -1 as invalid default and updated during ToT calculation)
-    EtaSide _eta_side;                     // Track which eta side this cluster belongs to (ETA1 or ETA2)
-
-public:
     // Constructor
     Cluster(Hit* first_hit, EtaSide side, int layer);
 
     // Core clustering logic
     bool addHit(Hit* hit);
 
-    // ToT calculation for cluster centers
-    void calculateToTCluster();
-
     // Accessors
-    Hit* getCenterHit() const { return cluster_hits[_center_hit_index]; }
+    int getClusterID() const { return _cluster_id; }
     EtaSide getSide() const { return _eta_side; }
-    int getSize() const { return cluster_hits.size(); }
-    int getStrip() const { return getCenterHit()->getStrip(); }
+    Hit* getCenterHit() const { return _center_hit; }
+    int getCenterStrip() const { return _center_hit ? _center_hit->getStrip() : -1; }
+    int getSize() const { return static_cast<int>(cluster_hits.size()); }
     int getLayer() const { return _layer; }
-    int getCenterTime() const { return getCenterHit()->getTimeEta1(); }
+    int getCenterTime() const { 
+        if (!_center_hit) return -1;
+        return (_eta_side == ETA1) ? _center_hit->getTimeEta1() : _center_hit->getTimeEta2();
+    }
     int getTot1() const { return _tot1; }
     int getTot2() const { return _tot2; }
     void setTot1(int value) { _tot1 = value; }
     void setTot2(int value) { _tot2 = value; }
-
     const std::vector<Hit*>& getHits() const { return cluster_hits; }
+
+private:
+    int _cluster_id = -1;                  // Unique identifier for the cluster (set to -1 as invalid amd later updated during clusterization)
+    int _layer = -1;                       // Layer which the cluster belongs to (0, 1, or 2) (set to -1 as invalid default)
+    Hit* _center_hit = nullptr;            // Direct pointer to the first-in-time hit in the cluster (cluster center)
+    std::vector<Hit*> cluster_hits;        // Hits in this cluster (NOT copied, referenced)
+    int _tot1 = -1, _tot2 = -1;            // Time-over-threshold for each eta side (initialized to -1 as invalid default and updated during ToT calculation)
+    EtaSide _eta_side;                     // Track which eta side this cluster belongs to (ETA1 or ETA2)
 };

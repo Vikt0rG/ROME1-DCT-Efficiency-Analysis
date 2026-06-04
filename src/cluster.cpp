@@ -7,9 +7,9 @@
 /// Constructor that initializes the cluster with the first hit
 Cluster::Cluster(Hit* first_hit, EtaSide side, int layer)
     : _layer(layer)
-    , _center_hit_index(0)
     , _eta_side(side) {
     cluster_hits.push_back(first_hit);
+    _center_hit = first_hit;
     if (_eta_side == ETA1) {
         first_hit->setIsClusterCenterEta1(true);
     } else {
@@ -43,16 +43,16 @@ bool Cluster::addHit(Hit* hit) {
 
         // Update cluster center if new hit has smaller rising time (use correct eta side)
         if (_eta_side == ETA1) {
-            if (hit->getTimeEta1() < cluster_hits[_center_hit_index]->getTimeEta1()) {
-                cluster_hits[_center_hit_index]->setIsClusterCenterEta1(false); // Unset old center flag
-                _center_hit_index = static_cast<int>(cluster_hits.size()) - 1;
-                cluster_hits[_center_hit_index]->setIsClusterCenterEta1(true);  // Set new center flag
+            if (hit->getTimeEta1() < _center_hit->getTimeEta1()) {
+                _center_hit->setIsClusterCenterEta1(false); // Unset old center flag
+                _center_hit = hit;
+                _center_hit->setIsClusterCenterEta1(true);  // Set new center flag
             }
         } else {
-            if (hit->getTimeEta2() < cluster_hits[_center_hit_index]->getTimeEta2()) {
-                cluster_hits[_center_hit_index]->setIsClusterCenterEta2(false); // Unset old center flag
-                _center_hit_index = static_cast<int>(cluster_hits.size()) - 1;
-                cluster_hits[_center_hit_index]->setIsClusterCenterEta2(true);  // Set new center flag
+            if (hit->getTimeEta2() < _center_hit->getTimeEta2()) {
+                _center_hit->setIsClusterCenterEta2(false); // Unset old center flag
+                _center_hit = hit;
+                _center_hit->setIsClusterCenterEta2(true);  // Set new center flag
             }
         }
 
