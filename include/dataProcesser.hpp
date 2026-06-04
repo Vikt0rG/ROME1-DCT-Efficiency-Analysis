@@ -56,6 +56,9 @@ private:
     std::array<std::vector<int>, 3> cluster_tot1_from_eta1_layers, cluster_tot2_from_eta1_layers, cluster_tot1_from_eta2_layers, cluster_tot2_from_eta2_layers;  // Layer-specific cluster data
     std::vector<int> track_length_eta1, track_length_eta2, track_width_eta1, track_width_eta2, track_size_eta1, track_size_eta2;
 
+    // ID vectors for hits in clusters and tracks
+    std::vector<int> _cluster_id_from_eta1, _cluster_id_from_eta2, _track_id;
+
     // Event state management
     int BC0 = -100;  // BC0 reference for current event: Set to -100 as an invalid default value to detect if it was properly set
     int current_event_number = 0;
@@ -128,19 +131,12 @@ public:
     void processDataFiledump(const std::string& file_path);
     void processSingleWord(int clk, int word);
     void decodeDCTWord(int word);
-    void processSingleHit(DCTWord& word);
     void applyBackgroundRejection();
     void processDataInputTree(TFile* root_file);
-
-    void processFileFiledump(const std::string& file_path);
-    void processFileDecoded(const std::string& file_path);
     void processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
-    void processSingleWord(int clk, int word, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool end_on_clk = true);
-
-    int extractRawBCID(int word);
+    void updateClusterIDs(const Event& event);
 
     void pushBackWordData(const DCTWord&);
-    void pushBackHitData(const Hit&);
     void pushBackProcessedData(const Event&);
     void pushBackClusterData(const Cluster&);
     void pushBackTrackDataEta1(const Track&);
