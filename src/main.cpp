@@ -60,12 +60,12 @@ int main(int argc, char** argv) {
         // Suppress unused variable warnings (TODO: integrate these parameters into analysis)
         (void)self_trigger;
 
-        DataProcesser processor;
+        DataProcesser processor(input, dt_max, dt_min, input_format, use_external_trigger, reject_background);
         processor.setupOutputFile();
         processor.setupBranches();
 
         try {
-            processor.processInputData(input, dt_max, dt_min, input_format, use_external_trigger, reject_background);
+            processor.processInputData();
         } catch (const std::exception& e) {
             std::cerr << "Error processing input data: " << e.what() << std::endl;
             return 1;

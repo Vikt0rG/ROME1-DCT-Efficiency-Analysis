@@ -10,15 +10,25 @@
 // DataProcesser class implementation for processing raw DCT data
 // ==========================================================================================
 // Constructor and destructor for DataProcesser class
-DataProcesser::DataProcesser() = default;
+DataProcesser::DataProcesser(const std::string& input_path, const int dt_max, const int dt_min, InputFormat format, bool use_external_trigger_arg, bool reject_background_arg) 
+    : _input_path(input_path)
+    , _dt_max(dt_max)
+    , _dt_min(dt_min)
+    , _format(format)
+    , _use_external_trigger(use_external_trigger_arg)
+    , _reject_background(reject_background_arg) {
+    setupOutputFile();
+    setupBranches();
+}
 
 DataProcesser::~DataProcesser() {
     if (_output_file) { 
         // Write all trees to file before closing
-        if (input_data_tree) input_data_tree->Write();
-        if (processed_data_tree) processed_data_tree->Write();
-        if (clusterization_tree) clusterization_tree->Write();
-        if (track_reconstruction_tree) track_reconstruction_tree->Write();
+        if (_input_data_tree) _input_data_tree->Write();
+        if (_background_rejection_tree) _background_rejection_tree->Write();
+        if (_processed_data_tree) _processed_data_tree->Write();
+        if (_clusterization_tree) _clusterization_tree->Write();
+        if (_track_reconstruction_tree) _track_reconstruction_tree->Write();
         _output_file->Close(); 
         delete _output_file; 
     }
@@ -30,79 +40,80 @@ DataProcesser::~DataProcesser() {
 // Utility function to setup the output ROOT file and create the necessary trees
 void DataProcesser::setupOutputFile() {
     _output_file = new TFile("output.root", "RECREATE");
-    input_data_tree = new TTree("InputData", "Raw hit data from the DCT", 1, _output_file);
-    processed_data_tree = new TTree("ProcessedData", "Processed hit and event-level data", 1, _output_file);
-    clusterization_tree = new TTree("Clusterization", "Cluster-level data", 1, _output_file);
-    track_reconstruction_tree = new TTree("TrackReconstruction", "Track-level data", 1, _output_file);
+    _input_data_tree = new TTree("InputData", "Raw hit data from the DCT", 1, _output_file);
+    if (_reject_background) _background_rejection_tree = new TTree("BackgroundRejection", "Data for background rejection studies", 1, _output_file);
+    _processed_data_tree = new TTree("ProcessedData", "Processed hit and event-level data", 1, _output_file);
+    _clusterization_tree = new TTree("Clusterization", "Cluster-level data", 1, _output_file);
+    _track_reconstruction_tree = new TTree("TrackReconstruction", "Track-level data", 1, _output_file);
 }
 
 // Utility function to setup branches for all trees in the output file
 void DataProcesser::setupBranches() {
     // Branch definitions for raw data tree
-    input_data_tree->Branch("hit_clk", &hit_clk);
-    input_data_tree->Branch("hit_channel", &hit_channel);
-    input_data_tree->Branch("hit_raw_bcid", &hit_raw_bcid);
-    input_data_tree->Branch("hit_raw_time1", &hit_raw_time1);
-    input_data_tree->Branch("hit_raw_time2", &hit_raw_time2);
-    input_data_tree->Branch("hit_rise", &hit_rise);
+    _input_data_tree->Branch("hit_clk", &hit_clk);
+    _input_data_tree->Branch("hit_channel", &hit_channel);
+    _input_data_tree->Branch("hit_raw_bcid", &hit_raw_bcid);
+    _input_data_tree->Branch("hit_raw_time1", &hit_raw_time1);
+    _input_data_tree->Branch("hit_raw_time2", &hit_raw_time2);
+    _input_data_tree->Branch("hit_rise", &hit_rise);
 
-    if (_reject_background) input_data_tree->Branch("is_signal", &is_signal);
+    if (_reject_background) _background_rejection_tree->Branch("is_signal", &_is_signal);
 
     // Branch definitions for processed data tree
-    processed_data_tree->Branch("n_events", &current_event_number);
-    processed_data_tree->Branch("n_hits", &n_hits);
-    processed_data_tree->Branch("proc_layer", &proc_layer);
-    processed_data_tree->Branch("proc_strip", &proc_strip);
-    processed_data_tree->Branch("proc_bc0", &proc_bc0);
-    processed_data_tree->Branch("proc_bcid", &proc_bcid);
-    processed_data_tree->Branch("proc_time1", &proc_time1);
-    processed_data_tree->Branch("proc_time2", &proc_time2);
-    processed_data_tree->Branch("proc_dt_time1_time2", &proc_dt_time1_time2);
-    processed_data_tree->Branch("proc_trigger_time", &proc_trigger_time);
-    processed_data_tree->Branch("proc_dt_time1_trigger", &proc_dt_time1_trigger);
-    processed_data_tree->Branch("proc_dt_time2_trigger", &proc_dt_time2_trigger);
-    processed_data_tree->Branch("proc_tot1", &proc_tot1);
-    processed_data_tree->Branch("proc_tot2", &proc_tot2);
+    _processed_data_tree->Branch("n_events", &current_event_number);
+    _processed_data_tree->Branch("n_hits", &n_hits);
+    _processed_data_tree->Branch("proc_layer", &proc_layer);
+    _processed_data_tree->Branch("proc_strip", &proc_strip);
+    _processed_data_tree->Branch("proc_bc0", &proc_bc0);
+    _processed_data_tree->Branch("proc_bcid", &proc_bcid);
+    _processed_data_tree->Branch("proc_time1", &proc_time1);
+    _processed_data_tree->Branch("proc_time2", &proc_time2);
+    _processed_data_tree->Branch("proc_dt_time1_time2", &proc_dt_time1_time2);
+    _processed_data_tree->Branch("proc_trigger_time", &proc_trigger_time);
+    _processed_data_tree->Branch("proc_dt_time1_trigger", &proc_dt_time1_trigger);
+    _processed_data_tree->Branch("proc_dt_time2_trigger", &proc_dt_time2_trigger);
+    _processed_data_tree->Branch("proc_tot1", &proc_tot1);
+    _processed_data_tree->Branch("proc_tot2", &proc_tot2);
 
     // Branch definitions for clusterization tree
-    clusterization_tree->Branch("cluster_id_from_eta1", &_cluster_id_from_eta1);
-    clusterization_tree->Branch("cluster_id_from_eta2", &_cluster_id_from_eta2);
-    clusterization_tree->Branch("cluster_size_eta1", &cluster_size_eta1);
-    clusterization_tree->Branch("cluster_size_eta2", &cluster_size_eta2);
-    clusterization_tree->Branch("cluster_tot1_from_eta1", &cluster_tot1_from_eta1);
-    clusterization_tree->Branch("cluster_tot2_from_eta1", &cluster_tot2_from_eta1);
-    clusterization_tree->Branch("cluster_tot1_from_eta2", &cluster_tot1_from_eta2);
-    clusterization_tree->Branch("cluster_tot2_from_eta2", &cluster_tot2_from_eta2);
-    clusterization_tree->Branch("cluster_size_eta1_layer0", &cluster_size_eta1_layers[0]);
-    clusterization_tree->Branch("cluster_size_eta1_layer1", &cluster_size_eta1_layers[1]);
-    clusterization_tree->Branch("cluster_size_eta1_layer2", &cluster_size_eta1_layers[2]);
-    clusterization_tree->Branch("cluster_size_eta2_layer0", &cluster_size_eta2_layers[0]);
-    clusterization_tree->Branch("cluster_size_eta2_layer1", &cluster_size_eta2_layers[1]);
-    clusterization_tree->Branch("cluster_size_eta2_layer2", &cluster_size_eta2_layers[2]);
-    clusterization_tree->Branch("cluster_tot1_from_eta1_layer0", &cluster_tot1_from_eta1_layers[0]);
-    clusterization_tree->Branch("cluster_tot1_from_eta1_layer1", &cluster_tot1_from_eta1_layers[1]);
-    clusterization_tree->Branch("cluster_tot1_from_eta1_layer2", &cluster_tot1_from_eta1_layers[2]);
-    clusterization_tree->Branch("cluster_tot2_from_eta1_layer0", &cluster_tot2_from_eta1_layers[0]);
-    clusterization_tree->Branch("cluster_tot2_from_eta1_layer1", &cluster_tot2_from_eta1_layers[1]);
-    clusterization_tree->Branch("cluster_tot2_from_eta1_layer2", &cluster_tot2_from_eta1_layers[2]);
-    clusterization_tree->Branch("cluster_tot1_from_eta2_layer0", &cluster_tot1_from_eta2_layers[0]);
-    clusterization_tree->Branch("cluster_tot1_from_eta2_layer1", &cluster_tot1_from_eta2_layers[1]);
-    clusterization_tree->Branch("cluster_tot1_from_eta2_layer2", &cluster_tot1_from_eta2_layers[2]);
-    clusterization_tree->Branch("cluster_tot2_from_eta2_layer0", &cluster_tot2_from_eta2_layers[0]);
-    clusterization_tree->Branch("cluster_tot2_from_eta2_layer1", &cluster_tot2_from_eta2_layers[1]);
-    clusterization_tree->Branch("cluster_tot2_from_eta2_layer2", &cluster_tot2_from_eta2_layers[2]);
+    _clusterization_tree->Branch("cluster_id_from_eta1", &_cluster_id_from_eta1);
+    _clusterization_tree->Branch("cluster_id_from_eta2", &_cluster_id_from_eta2);
+    _clusterization_tree->Branch("cluster_size_eta1", &cluster_size_eta1);
+    _clusterization_tree->Branch("cluster_size_eta2", &cluster_size_eta2);
+    _clusterization_tree->Branch("cluster_tot1_from_eta1", &cluster_tot1_from_eta1);
+    _clusterization_tree->Branch("cluster_tot2_from_eta1", &cluster_tot2_from_eta1);
+    _clusterization_tree->Branch("cluster_tot1_from_eta2", &cluster_tot1_from_eta2);
+    _clusterization_tree->Branch("cluster_tot2_from_eta2", &cluster_tot2_from_eta2);
+    _clusterization_tree->Branch("cluster_size_eta1_layer0", &cluster_size_eta1_layers[0]);
+    _clusterization_tree->Branch("cluster_size_eta1_layer1", &cluster_size_eta1_layers[1]);
+    _clusterization_tree->Branch("cluster_size_eta1_layer2", &cluster_size_eta1_layers[2]);
+    _clusterization_tree->Branch("cluster_size_eta2_layer0", &cluster_size_eta2_layers[0]);
+    _clusterization_tree->Branch("cluster_size_eta2_layer1", &cluster_size_eta2_layers[1]);
+    _clusterization_tree->Branch("cluster_size_eta2_layer2", &cluster_size_eta2_layers[2]);
+    _clusterization_tree->Branch("cluster_tot1_from_eta1_layer0", &cluster_tot1_from_eta1_layers[0]);
+    _clusterization_tree->Branch("cluster_tot1_from_eta1_layer1", &cluster_tot1_from_eta1_layers[1]);
+    _clusterization_tree->Branch("cluster_tot1_from_eta1_layer2", &cluster_tot1_from_eta1_layers[2]);
+    _clusterization_tree->Branch("cluster_tot2_from_eta1_layer0", &cluster_tot2_from_eta1_layers[0]);
+    _clusterization_tree->Branch("cluster_tot2_from_eta1_layer1", &cluster_tot2_from_eta1_layers[1]);
+    _clusterization_tree->Branch("cluster_tot2_from_eta1_layer2", &cluster_tot2_from_eta1_layers[2]);
+    _clusterization_tree->Branch("cluster_tot1_from_eta2_layer0", &cluster_tot1_from_eta2_layers[0]);
+    _clusterization_tree->Branch("cluster_tot1_from_eta2_layer1", &cluster_tot1_from_eta2_layers[1]);
+    _clusterization_tree->Branch("cluster_tot1_from_eta2_layer2", &cluster_tot1_from_eta2_layers[2]);
+    _clusterization_tree->Branch("cluster_tot2_from_eta2_layer0", &cluster_tot2_from_eta2_layers[0]);
+    _clusterization_tree->Branch("cluster_tot2_from_eta2_layer1", &cluster_tot2_from_eta2_layers[1]);
+    _clusterization_tree->Branch("cluster_tot2_from_eta2_layer2", &cluster_tot2_from_eta2_layers[2]);
 
     // Branch definitions for track reconstruction tree
-    track_reconstruction_tree->Branch("track_id_from_eta1", &_track_id_from_eta1);
-    track_reconstruction_tree->Branch("track_id_from_eta2", &_track_id_from_eta2);
-    track_reconstruction_tree->Branch("in_valid_track_eta1", &_in_valid_track_eta1);
-    track_reconstruction_tree->Branch("in_valid_track_eta2", &_in_valid_track_eta2);
-    track_reconstruction_tree->Branch("track_length_eta1", &track_length_eta1);
-    track_reconstruction_tree->Branch("track_length_eta2", &track_length_eta2);
-    track_reconstruction_tree->Branch("track_width_eta1", &track_width_eta1);
-    track_reconstruction_tree->Branch("track_width_eta2", &track_width_eta2);
-    track_reconstruction_tree->Branch("track_size_eta1", &track_size_eta1);
-    track_reconstruction_tree->Branch("track_size_eta2", &track_size_eta2);
+    _track_reconstruction_tree->Branch("track_id_from_eta1", &_track_id_from_eta1);
+    _track_reconstruction_tree->Branch("track_id_from_eta2", &_track_id_from_eta2);
+    _track_reconstruction_tree->Branch("in_valid_track_eta1", &_in_valid_track_eta1);
+    _track_reconstruction_tree->Branch("in_valid_track_eta2", &_in_valid_track_eta2);
+    _track_reconstruction_tree->Branch("track_length_eta1", &track_length_eta1);
+    _track_reconstruction_tree->Branch("track_length_eta2", &track_length_eta2);
+    _track_reconstruction_tree->Branch("track_width_eta1", &track_width_eta1);
+    _track_reconstruction_tree->Branch("track_width_eta2", &track_width_eta2);
+    _track_reconstruction_tree->Branch("track_size_eta1", &track_size_eta1);
+    _track_reconstruction_tree->Branch("track_size_eta2", &track_size_eta2);
 }
 
 // ------------------------------------------------------------------------------------------
@@ -370,35 +381,6 @@ void DataProcesser::pushBackProcessedData(const Event& event) {
         proc_tot1.push_back(hit.getToT1());
         proc_tot2.push_back(hit.getToT2());
     }
-
-    /*
-    /// WIP: Decide whether to do filtering first: 
-    /// FILTERING: Only push information of the non-trigger channel rising hits with valid time information (to match with ToT calculation which only processes rising edges)
-    for (const auto& hit : event.getHits()) {
-        // Only process non-trigger channel and rising edges for consistency with ToT calculation
-        if (hit.getChannel() == event.getTriggerChannel() || hit.getRise() != 1) continue;
-        
-        if (hit.hasEta1Time() || hit.hasEta2Time()) {
-            proc_layer.push_back(hit.getLayer());
-            proc_strip.push_back(hit.getStrip());
-        }
-        if (hit.hasEta1Time()) {
-            if (hit.getTimeEta1() < -1) {
-                // std::cout << "FATAL: Hit number " << hit.getIdx() << " with negative BCID after BC0 correction: " << hit.getBCID() << " (raw BCID: " << hit.getRawBCID() << ", BC0: " << BC0 << ")" << std::endl;
-                // std::exit(1);
-            }
-            proc_time1.push_back(hit.getTimeEta1());
-            proc_dt_time1_trigger.push_back(hit.getTimeEta1() - event.getTriggerTime());
-        }
-        if (hit.hasEta2Time()) {
-            proc_time2.push_back(hit.getTimeEta2());
-            proc_dt_time2_trigger.push_back(hit.getTimeEta2() - event.getTriggerTime());
-        }
-        if (hit.hasEta1Time() && hit.hasEta2Time()) proc_dt_time1_time2.push_back(hit.getTimeEta1() - hit.getTimeEta2());
-        if (hit.getToT1() > 0) proc_tot1.push_back(hit.getToT1());
-        if (hit.getToT2() > 0) proc_tot2.push_back(hit.getToT2());
-    }
-    */
 }
 
 // Utility functions to push cluster-level data into the corresponding vectors for tree filling
@@ -450,28 +432,21 @@ void DataProcesser::pushBackTrackData(const Track& track) {
 
 // ------------------------------------------------------------------------------------------
 // First stage: Entry point of the processing pipeline: Processing txt file and fill InputData tree with raw hit data
-void DataProcesser::processInputData(const std::string& raw_data_file_path, const int dt_max_arg, const int dt_min_arg,
-    InputFormat format, bool use_external_trigger_arg, bool reject_background_arg) {
-
-    // Store CLI parameters & flags for use throughout processing
-    _dt_max = dt_max_arg;
-    _dt_min = dt_min_arg;
-    _use_external_trigger = use_external_trigger_arg;
-    _reject_background = reject_background_arg;
+void DataProcesser::processInputData() {
 
     namespace fs = std::filesystem;
 
-    if (!fs::exists(raw_data_file_path)) {
-        std::cerr << "ERROR: Input path does not exist: " << raw_data_file_path << std::endl;
+    if (!fs::exists(_input_path)) {
+        std::cerr << "ERROR: Input path does not exist: " << _input_path << std::endl;
         return;
     }
 
-    std::cout << "Processing file: " << raw_data_file_path << std::endl;
-    if (format == InputFormat::DecodedWords) {
+    std::cout << "Processing file: " << _input_path << std::endl;
+    if (_format == InputFormat::DecodedWords) {
         // For now do nothing since all the files are in the new filedump format
     } else {
         // Firts pass to fill InputData tree with raw hit information
-        processDataFiledump(raw_data_file_path);
+        processDataFiledump(_input_path);
 
         if (_reject_background) applyBackgroundRejection();
 
@@ -512,7 +487,7 @@ void DataProcesser::processDataFiledump(const std::string& file_path) {
 
                 // After processing all words for this event, fill the InputData tree with the accumulated raw hit data
                 if (event_words.size() > 0) {
-                    input_data_tree->Fill();    // Fill the tree with raw hit data for this event after processing all words
+                    _input_data_tree->Fill();    // Fill the tree with raw hit data for this event after processing all words
                 }
             }
 
@@ -569,7 +544,7 @@ void DataProcesser::processDataFiledump(const std::string& file_path) {
             processSingleWord(event_clks[i], event_words[i]);
         }
         if (event_words.size() > 0) {
-            input_data_tree->Fill();
+            _input_data_tree->Fill();
         }
     }
 
@@ -606,10 +581,95 @@ void DataProcesser::decodeDCTWord(int word) {
 }
 
 // ------------------------------------------------------------------------------------------
-// Second stage (optional): After filling InputData tree, run background rejection and modify the InputData tree accordingly
-/// WIP: After filling InputData tree, run background rejection and modify the InputData tree
+// Second stage (optional): After filling InputData tree, run background rejection based on clock cycle and fill the _is_signal branch
+// Doesn't work -> Do background rejection based on reconstructed tracks
 void DataProcesser::applyBackgroundRejection() {
-    return; // For now do nothing
+
+    // First read InputData tree as a TH1 histogram to access the raw hit data as arrays
+    if (!_input_data_tree) {
+        std::cerr << "ERROR: InputData tree not found for background rejection." << std::endl;
+        return;
+    }
+    TBranch* hit_clk_branch = _input_data_tree->GetBranch("hit_clk");
+    if (!hit_clk_branch) {
+        std::cerr << "ERROR: hit_clk branch not found." << std::endl;
+        return;
+    }
+
+    TH1* hit_clk_hist = readDataAsHist(_input_data_tree, hit_clk_branch);
+    if (!hit_clk_hist) {
+        std::cerr << "ERROR: Failed to create hit_clk histogram." << std::endl;
+        return;
+    }
+    _input_data_tree->ResetBranchAddresses();
+
+    // Only the hit clock is needed for the second pass; disable the other branches so ROOT does not try to deserialize them after their addresses were reset.
+    _input_data_tree->SetBranchStatus("*", 0);
+    _input_data_tree->SetBranchStatus("hit_clk", 1);
+
+    std::vector<int>* hit_clk_ptr = nullptr;
+    _input_data_tree->SetBranchAddress("hit_clk", &hit_clk_ptr);
+
+    // Fit a Gaussing with a non-zero baseline to the hit_clk distribution
+    TF1* fit_func = flatPlusGaussian();
+
+    // Set sensible initial parameters based on histogram shape
+    double hist_max = hit_clk_hist->GetMaximum();
+    double hist_mean = hit_clk_hist->GetMean();
+    double hist_rms = hit_clk_hist->GetRMS();
+
+    // Initial guesses:
+    // A_flat: ~10% of max (flat background)
+    // A_sig:  100% of max (signal peak)
+    // mu:     histogram mean
+    // sigma:  half of RMS
+    std::vector<double> initialParams = {
+        0.1 * hist_max,    // A_flat
+        hist_max,          // A_sig
+        hist_mean,         // mu
+        0.5 * hist_rms     // sigma
+    };
+
+    std::vector<double> fittedParams = fitBackground(hit_clk_hist, fit_func, initialParams);
+    if (fittedParams.empty()) {
+        std::cerr << "ERROR: Background fitting failed." << std::endl;
+        delete hit_clk_hist;
+        return;
+    }
+
+    // Define signal range as mean +- 3*sigma
+    std::pair<int, int> signalRange = setSignalRange(fit_func);
+    std::cout << "  Signal range: [" << signalRange.first << ", " << signalRange.second << "]" << std::endl;
+
+    // Now iterate over the hits in the InputData tree again and mark hits as signal or background based on whether their hit_clk falls within the signal range
+    int n_entries = _input_data_tree->GetEntries();
+    for (int i = 0; i < n_entries; ++i) {
+        _input_data_tree->GetEntry(i);
+
+        _is_signal.clear();
+
+        for (size_t j = 0; j < hit_clk_ptr->size(); ++j) {
+            if ((*hit_clk_ptr)[j] >= signalRange.first && (*hit_clk_ptr)[j] <= signalRange.second) {
+                _is_signal.push_back(true);
+            } else {
+                _is_signal.push_back(false);
+            }
+        }
+
+        if (_background_rejection_tree) {
+            _background_rejection_tree->Fill();
+        } else {
+            std::cerr << "WARNING: Background rejection tree not initialized, cannot fill _is_signal information." << std::endl;
+        }
+        _is_signal.clear();
+    }
+
+    delete hit_clk_hist;
+    std::cout << "  Background rejection complete." << std::endl;
+
+    // Enable all branches again for the second pass to access the full hit information
+    _input_data_tree->SetBranchStatus("*", 1);
+    _input_data_tree->ResetBranchAddresses();
 }
 
 // ------------------------------------------------------------------------------------------
@@ -640,7 +700,7 @@ void DataProcesser::processDataInputTree(TFile* root_file) {
         // Accumulate hits for the current event
         for (size_t j = 0; j < hit_clk.size(); ++j) {
             // Skip background hits
-            if (!is_signal.empty() && !is_signal[j]) {
+            if (!_is_signal.empty() && j < _is_signal.size() && !_is_signal[j]) {
                 continue;
             }
 
@@ -738,8 +798,8 @@ void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCounter
     pushBackProcessedData(event);
 
     // Fill the processed data tree
-    if (processed_data_tree && proc_layer.size() > 0) {
-        processed_data_tree->Fill();
+    if (_processed_data_tree && proc_layer.size() > 0) {
+        _processed_data_tree->Fill();
     }
 
     // Clusterization
@@ -760,8 +820,8 @@ void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCounter
     }
 
     // Fill the clusterization tree (write if either eta1 or eta2 has clusters)
-    if (clusterization_tree && (cluster_size_eta1.size() > 0 || cluster_size_eta2.size() > 0)) {
-        clusterization_tree->Fill();
+    if (_clusterization_tree && (cluster_size_eta1.size() > 0 || cluster_size_eta2.size() > 0)) {
+        _clusterization_tree->Fill();
     }
 
     // Track reconstruction
@@ -785,8 +845,8 @@ void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCounter
     event.updateEfficiencyCounters();
 
     // Fill the track reconstruction tree (write if either eta1 or eta2 has tracks)
-    if (track_reconstruction_tree && (track_length_eta1.size() > 0 || track_length_eta2.size() > 0)) {
-        track_reconstruction_tree->Fill();
+    if (_track_reconstruction_tree && (track_length_eta1.size() > 0 || track_length_eta2.size() > 0)) {
+        _track_reconstruction_tree->Fill();
     }
 }
 
