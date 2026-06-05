@@ -32,7 +32,6 @@ public:
     /// @param dt_min Minimum of the time window (ticks) for efficiency calculation
     /// @param format Format of the input data (filedump packets or decoded words)
     /// @param use_external_trigger_arg Whether to use external trigger signals for efficiency calculation
-    /// @param reject_background_arg Whether to apply background rejection based on hit timing information
     DataProcesser(const std::string& input_path, const int dt_max, const int dt_min, InputFormat format, bool use_external_trigger_arg, bool reject_background_arg);
     ~DataProcesser();
     
@@ -83,9 +82,6 @@ public:
     /// @brief Process a single data file and InputData ROOT tree
     /// @param file_path Path to the input txt data file
     void processDataFiledump(const std::string& file_path);
-
-    /// @brief Apply first background rejection based on hit timing information and fill the is_signal vector
-    void applyBackgroundRejection();
     /// @brief Process raw signal hit data
     void processDataInputTree(TFile* root_file);
 
@@ -153,9 +149,6 @@ private:
     DCTWord _dct_word;
     std::vector<int> hit_clk, hit_channel, hit_raw_bcid;
     std::vector<int> hit_raw_time1, hit_raw_time2, hit_rise;
-
-    // Flag vector after background rejection
-    std::vector<bool> _is_signal;
 
     // Processed data vectors
     std::vector<int> proc_layer, proc_strip, proc_bc0, proc_bcid, proc_time1, proc_time2;
