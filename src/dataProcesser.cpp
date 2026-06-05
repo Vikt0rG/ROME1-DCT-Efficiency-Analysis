@@ -41,7 +41,6 @@ DataProcesser::~DataProcesser() {
 void DataProcesser::setupOutputFile() {
     _output_file = new TFile("output.root", "RECREATE");
     _input_data_tree = new TTree("InputData", "Raw hit data from the DCT", 1, _output_file);
-    if (_reject_background) _background_rejection_tree = new TTree("BackgroundRejection", "Data for background rejection studies", 1, _output_file);
     _processed_data_tree = new TTree("ProcessedData", "Processed hit and event-level data", 1, _output_file);
     _clusterization_tree = new TTree("Clusterization", "Cluster-level data", 1, _output_file);
     _track_reconstruction_tree = new TTree("TrackReconstruction", "Track-level data", 1, _output_file);
@@ -56,8 +55,6 @@ void DataProcesser::setupBranches() {
     _input_data_tree->Branch("hit_raw_time1", &hit_raw_time1);
     _input_data_tree->Branch("hit_raw_time2", &hit_raw_time2);
     _input_data_tree->Branch("hit_rise", &hit_rise);
-
-    if (_reject_background) _background_rejection_tree->Branch("is_signal", &_is_signal);
 
     // Branch definitions for processed data tree
     _processed_data_tree->Branch("n_events", &current_event_number);
@@ -448,8 +445,6 @@ void DataProcesser::processInputData() {
         // Firts pass to fill InputData tree with raw hit information
         processDataFiledump(_input_path);
 
-        if (_reject_background) applyBackgroundRejection();
-
         // Second pass after InputData tree is filled and background rejection is applied
         processDataInputTree(_output_file);
     }
@@ -581,99 +576,7 @@ void DataProcesser::decodeDCTWord(int word) {
 }
 
 // ------------------------------------------------------------------------------------------
-// Second stage (optional): After filling InputData tree, run background rejection based on clock cycle and fill the _is_signal branch
-// Doesn't work -> Do background rejection based on reconstructed tracks
-void DataProcesser::applyBackgroundRejection() {
-
-    // First read InputData tree as a TH1 histogram to access the raw hit data as arrays
-    if (!_input_data_tree) {
-        std::cerr << "ERROR: InputData tree not found for background rejection." << std::endl;
-        return;
-    }
-    TBranch* hit_clk_branch = _input_data_tree->GetBranch("hit_clk");
-    if (!hit_clk_branch) {
-        std::cerr << "ERROR: hit_clk branch not found." << std::endl;
-        return;
-    }
-
-    TH1* hit_clk_hist = readDataAsHist(_input_data_tree, hit_clk_branch);
-    if (!hit_clk_hist) {
-        std::cerr << "ERROR: Failed to create hit_clk histogram." << std::endl;
-        return;
-    }
-    _input_data_tree->ResetBranchAddresses();
-
-    // Only the hit clock is needed for the second pass; disable the other branches so ROOT does not try to deserialize them after their addresses were reset.
-    _input_data_tree->SetBranchStatus("*", 0);
-    _input_data_tree->SetBranchStatus("hit_clk", 1);
-
-    std::vector<int>* hit_clk_ptr = nullptr;
-    _input_data_tree->SetBranchAddress("hit_clk", &hit_clk_ptr);
-
-    // Fit a Gaussing with a non-zero baseline to the hit_clk distribution
-    TF1* fit_func = flatPlusGaussian();
-
-    // Set sensible initial parameters based on histogram shape
-    double hist_max = hit_clk_hist->GetMaximum();
-    double hist_mean = hit_clk_hist->GetMean();
-    double hist_rms = hit_clk_hist->GetRMS();
-
-    // Initial guesses:
-    // A_flat: ~10% of max (flat background)
-    // A_sig:  100% of max (signal peak)
-    // mu:     histogram mean
-    // sigma:  half of RMS
-    std::vector<double> initialParams = {
-        0.1 * hist_max,    // A_flat
-        hist_max,          // A_sig
-        hist_mean,         // mu
-        0.5 * hist_rms     // sigma
-    };
-
-    std::vector<double> fittedParams = fitBackground(hit_clk_hist, fit_func, initialParams);
-    if (fittedParams.empty()) {
-        std::cerr << "ERROR: Background fitting failed." << std::endl;
-        delete hit_clk_hist;
-        return;
-    }
-
-    // Define signal range as mean +- 3*sigma
-    std::pair<int, int> signalRange = setSignalRange(fit_func);
-    std::cout << "  Signal range: [" << signalRange.first << ", " << signalRange.second << "]" << std::endl;
-
-    // Now iterate over the hits in the InputData tree again and mark hits as signal or background based on whether their hit_clk falls within the signal range
-    int n_entries = _input_data_tree->GetEntries();
-    for (int i = 0; i < n_entries; ++i) {
-        _input_data_tree->GetEntry(i);
-
-        _is_signal.clear();
-
-        for (size_t j = 0; j < hit_clk_ptr->size(); ++j) {
-            if ((*hit_clk_ptr)[j] >= signalRange.first && (*hit_clk_ptr)[j] <= signalRange.second) {
-                _is_signal.push_back(true);
-            } else {
-                _is_signal.push_back(false);
-            }
-        }
-
-        if (_background_rejection_tree) {
-            _background_rejection_tree->Fill();
-        } else {
-            std::cerr << "WARNING: Background rejection tree not initialized, cannot fill _is_signal information." << std::endl;
-        }
-        _is_signal.clear();
-    }
-
-    delete hit_clk_hist;
-    std::cout << "  Background rejection complete." << std::endl;
-
-    // Enable all branches again for the second pass to access the full hit information
-    _input_data_tree->SetBranchStatus("*", 1);
-    _input_data_tree->ResetBranchAddresses();
-}
-
-// ------------------------------------------------------------------------------------------
-// Third stage: After background rejection is applied, run the second pass to search for BC0 and run event processing
+// Run the main processing loop over the InputData tree, recreate Hit objects and process events
 void DataProcesser::processDataInputTree(TFile* root_file) {
 
     // Check if the InputData tree is filled and can be accessed
@@ -699,10 +602,6 @@ void DataProcesser::processDataInputTree(TFile* root_file) {
 
         // Accumulate hits for the current event
         for (size_t j = 0; j < hit_clk.size(); ++j) {
-            // Skip background hits
-            if (!_is_signal.empty() && j < _is_signal.size() && !_is_signal[j]) {
-                continue;
-            }
 
             // Recreate a Hit object from the raw hit data
             Hit hit(hit_clk[j], hit_channel[j], hit_raw_bcid[j], hit_raw_time1[j], hit_raw_time2[j], hit_rise[j]);
