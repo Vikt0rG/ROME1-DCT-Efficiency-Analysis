@@ -1,38 +1,145 @@
-#include <algorithm>
-#include <array>
-#include <unordered_set>
-
-#include <TTreeReader.h>
-#include <TTreeReaderValue.h>
-
 #include "dataAnalyzer.hpp"
 #include "configParser.hpp"
 
 /// TODO:
 // - Update root files with file-specific stats (see below)
 // - Add noise rate calculations for each separate strip
-// - Add time resolution calculations for each layer and side 
+// - Add time resolution calculations for each layer and side
 
+// ==========================================================================================
+// Analysis utility & Helper functions for calculating and plotting statistics
+// ==========================================================================================
+namespace Utilities {
+
+    TDirectory* ensureDirectory(TDirectory* parent, const char* name) {
+        TDirectory* dir = parent->GetDirectory(name);
+        if (!dir) {
+            dir = parent->mkdir(name);
+        }
+        return dir;
+    }
+
+    void setupDirectory(TFile* input_file) {
+        if (!input_file || input_file->IsZombie()) {
+            std::cerr << "Error: Invalid input file for analysis." << std::endl;
+            return;
+        }
+
+        input_file->cd();
+        
+        TDirectory* analysis_dir = ensureDirectory(input_file, "analysis");
+        if (!analysis_dir) {
+            std::cerr << "Error: Failed to create analysis directory." << std::endl;
+            return;
+        }
+        
+        TDirectory* plots_dir = ensureDirectory(analysis_dir, "plots");
+        if (!plots_dir) {
+            std::cerr << "Error: Failed to create plots directory." << std::endl;
+            return;
+        }
+    }
+
+    int remapStrip(int rawStrip) {
+        for (const auto& col : columnShifts)
+            if (rawStrip >= col.start && rawStrip <= col.end)
+                return rawStrip + col.shift;
+        return rawStrip;
+    }
+}
+
+namespace perFileHelpers {
+
+    void plotDtVsStrip(TFile* input_file) {
+        TDirectory* analysis_dir = input_file->GetDirectory("analysis");
+        if (!analysis_dir) {
+            std::cerr << "Error: analysis directory not found." << std::endl;
+            return;
+        }
+        analysis_dir->cd();
+
+        TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
+        TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
+        if (!proc_tree || proc_tree->IsZombie()) {
+            std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
+            return;
+        }
+        if (!track_tree || track_tree->IsZombie()) {
+            std::cerr << "Error: Invalid track reconstruction tree for analysis." << std::endl;
+            return;
+        }
+
+        // Read processed data into vectors and create 2D histograms for dt vs strip for each layer and valid track category
+        TTreeReader readerProcData(proc_tree);
+        TTreeReader readerTrackData(track_tree);
+        TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
+        TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
+        TTreeReaderValue<std::vector<int>> dts(readerProcData, "proc_dt_time1_time2");
+        TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
+        TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
+
+        std::map<int, TH2F*> h2d_all;
+        std::map<int, TH2D*> h2d_valid;
+        
+        for (int layer : {0, 1, 2}) {
+            h2d_all[layer] = new TH2F(Form("h2d_layer%d", layer), Form("Layer %d;Strip;dt", layer), 
+                                    24, 0, 24,  // 24 bins for remapped strips 0-23
+                                    40, -20, 20 // 40 bins for dt from -20 to 20
+                                    );
+            h2d_valid[layer] = new TH2D(Form("h2d_layer%d_valid", layer),
+                                        Form("Layer %d Valid;Strip;dt", layer),
+                                        24, 0, 24, 40, -20, 20);
+        }
+
+        while (readerProcData.Next() && readerTrackData.Next()) {
+            for (size_t i = 0; i < strips->size(); ++i) {
+                int layer = (*layers)[i];
+                if (!h2d_all.count(layer)) continue;
+                
+                int strip = Utilities::remapStrip((*strips)[i]);
+                int dt = (*dts)[i];
+                
+                h2d_all[layer]->Fill(strip, dt);
+                if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
+                    h2d_valid[layer]->Fill(strip, dt);
+                }
+            }
+        }
+
+        // Write histograms to file and clean up
+        for (int layer : {0, 1, 2}) {
+            h2d_all[layer]->Write();
+            h2d_valid[layer]->Write();
+            delete h2d_all[layer];
+            delete h2d_valid[layer];
+        }
+    }
+}
 
 // ==========================================================================================
 // DataAnalyzer class implementation for analyzing processed DCT data and plotting results
 // ==========================================================================================
 DataAnalyzer::DataAnalyzer(const std::string& config_file_path)
-    : config_path({config_file_path}) {
+    : _config_path({config_file_path}) {
 }
 
 DataAnalyzer::~DataAnalyzer() {
 }
 
-void DataAnalyzer::producePerFileStats() {
-    // Function for producing per-file relevant statistics for each measurement entry such as:
+void DataAnalyzer::producePerFileStats(TFile* input_file) {
+
     // proc_tot vs proc_strip for all three layers, both sides
-    // proc_dt vs proc_strip for all three layers, both sides
-    // heatmap of proc_strip vs proc_dt for all three layers, both sides
     // heatmap of hit_multiplicity vs proc_strip for all three layers, both sides
     // heatmap of proc_dt of consecutive hits vs proc_strip for all three layers, both sides
     // time resolution distributions for each layer and side
 
+    // Setup directory structure for storing plots and statistics in the input ROOT file
+    Utilities::setupDirectory(input_file);
+
+    // Plot dt vs strip for all hits and valid tracks if it doesn't already exist in the file
+    if (!input_file->Get("analysis/plots/h2d_layer0") || !input_file->Get("analysis/plots/h2d_layer0_valid")) {
+        perFileHelpers::plotDtVsStrip(input_file);
+    }
 }
 
 void DataAnalyzer::produceSummaryStats() {
@@ -42,19 +149,19 @@ void DataAnalyzer::produceSummaryStats() {
     summaries.clear();
 
     // Process each config file and build the list of measurement entries and summaries
-    std::filesystem::create_directories(output_directory);
+    std::filesystem::create_directories(_output_directory);
 
     // Prepare a summary object/root file for this config
     SummaryStats summary;
-    summary.config_path = config_path;
-    summary.entries = ConfigUtils::parseMeasurementEntries(config_path);
+    summary.config_path = _config_path;
+    summary.entries = ConfigUtils::parseMeasurementEntries(_config_path);
     if (!summary.entries.empty()) {
         summary.measurement_type = summary.entries.front().measurement_type;
     }
 
     parsed_entries.insert(parsed_entries.end(), summary.entries.begin(), summary.entries.end());
-    std::filesystem::path config_stem = std::filesystem::path(config_path).stem();
-    std::filesystem::path summary_root_path = output_directory / (config_stem.string() + "_summary.root");
+    std::filesystem::path config_stem = std::filesystem::path(_config_path).stem();
+    std::filesystem::path summary_root_path = _output_directory / (config_stem.string() + "_summary.root");
 
     // Create a ROOT file and tree to store summary statistics for this config
     TFile summary_root(summary_root_path.string().c_str(), "RECREATE");
@@ -126,7 +233,7 @@ void DataAnalyzer::produceSummaryStats() {
     summary_tree->Branch("avg_cluster_size_eta1_layers", avg_cluster_size_eta1_layers, "avg_cluster_size_eta1_layers[3]/D");
     summary_tree->Branch("avg_cluster_size_eta2_layers", avg_cluster_size_eta2_layers, "avg_cluster_size_eta2_layers[3]/D");
 
-    // Save efficiencies as graphs??
+    // Save efficiencies as graphs
     summary_tree->Branch("eff_eta1_external", eta1_efficiency_external_summary, "eff_eta1_external[3]/D");
     summary_tree->Branch("eff_eta2_external", eta2_efficiency_external_summary, "eff_eta2_external[3]/D");
     summary_tree->Branch("eff_or_external", eta_or_efficiency_external_summary, "eff_or_external[3]/D");
@@ -170,19 +277,23 @@ void DataAnalyzer::produceSummaryStats() {
     // Process each measurement entry in this config file
     for (const auto& entry : summary.entries) {
         if (entry.root_file.empty()) {
+            std::cout << "Warning: Skipping entry '" << entry.name << "' due to missing ROOT file path." << std::endl;
             continue;
         }
 
-        TFile* input_file = TFile::Open(entry.root_file.c_str(), "READ");
+        TFile* input_file = TFile::Open(entry.root_file.c_str(), "UPDATE");
         if (!input_file || input_file->IsZombie()) {
+            std::cout << "Error: Failed to open ROOT file '" << entry.root_file << "' for entry '" << entry.name << "'. Skipping this entry." << std::endl;
             if (input_file) {
+                std::cout << "Closing and deleting invalid ROOT file object for entry '" << entry.name << "'." << std::endl;
                 input_file->Close();
                 delete input_file;
             }
             continue;
         }
 
-        // TODO: makeAnalysisTree(&input_file)
+        // Calculate and fill per-file relevant statistics for this measurement entry and save into the input ROOT file
+        producePerFileStats(input_file);
 
         // Extract relevant statistics from the input ROOT file for this measurement entry
         PerFileStats stats;
@@ -390,11 +501,13 @@ void DataAnalyzer::produceSummaryStats() {
 
         // Calculate split noise rates using raw hit times from InputData
         TTree* input_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
-        if (input_tree) {
-            TTreeReader reader(input_tree);
-            TTreeReaderValue<std::vector<int>> channels(reader, "hit_channel");
-            TTreeReaderValue<std::vector<int>> time1(reader, "hit_time1");
-            TTreeReaderValue<std::vector<int>> time2(reader, "hit_time2");
+        TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
+        if (input_tree && proc_tree) {
+            TTreeReader readerInputData(input_tree);
+            TTreeReader readerProcData(proc_tree);
+            TTreeReaderValue<std::vector<int>> channels(readerInputData, "hit_channel");
+            TTreeReaderValue<std::vector<int>> time1(readerProcData, "proc_time1");
+            TTreeReaderValue<std::vector<int>> time2(readerProcData, "proc_time2");
 
             std::array<long long, 3> total_hits_eta1 = {0, 0, 0};
             std::array<long long, 3> total_hits_eta2 = {0, 0, 0};
@@ -409,7 +522,7 @@ void DataAnalyzer::produceSummaryStats() {
                 out_strip = strip;
             };
 
-            while (reader.Next()) {
+            while (readerInputData.Next() && readerProcData.Next()) {
                 if (channels.GetSetupStatus() != 0 || time1.GetSetupStatus() != 0 || time2.GetSetupStatus() != 0) {
                     continue;
                 }
