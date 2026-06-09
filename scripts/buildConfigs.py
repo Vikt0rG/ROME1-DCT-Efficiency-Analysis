@@ -27,7 +27,15 @@ def formatFilterToken(value: Optional[float]) -> str:
 
 def parseLayer(name: str) -> str:
     match = re.search(r"layer(\d+)", name, re.IGNORECASE)
-    if match: return f"layer{match.group(1)}"
+    if match:
+        # Swap layer 1 and layer 2 in the name (connector issue) 
+        layer_num = int(match.group(1))
+        if layer_num == 1:
+            return "layer2"
+        elif layer_num == 2:
+            return "layer1"
+        else:
+            return f"layer{layer_num}"
     return "layer_unknown"
 
 
