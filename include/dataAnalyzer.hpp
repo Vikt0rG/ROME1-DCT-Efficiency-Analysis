@@ -49,7 +49,8 @@ namespace Utilities {
 
     /// @brief Utility function to setup the directory structure in the input ROOT file
     /// @param input_file Pointer to the input ROOT file where the directory structure will be created
-    void setupDirectory(TFile* input_file);
+    /// @param overwrite Boolean flag to indicate whether to overwrite existing analysis directory
+    void setupDirectory(TFile* input_file, bool overwrite = true);
 
     /// @brief Utility function to remap raw strip numbers to a continuous range for plotting
     /// @param rawStrip The raw strip number to be remapped
