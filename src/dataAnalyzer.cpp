@@ -19,7 +19,7 @@ namespace Utilities {
         return dir;
     }
 
-    void setupDirectory(TFile* input_file) {
+    void setupDirectories(TFile* input_file, bool overwrite = true) {
         if (!input_file || input_file->IsZombie()) {
             std::cerr << "Error: Invalid input file for analysis." << std::endl;
             return;
@@ -27,17 +27,26 @@ namespace Utilities {
 
         input_file->cd();
         
-        TDirectory* analysis_dir = ensureDirectory(input_file, "analysis");
-        if (!analysis_dir) {
-            std::cerr << "Error: Failed to create analysis directory." << std::endl;
-            return;
+        // Delete analysis if requested
+        if (overwrite) {
+            input_file->Delete("analysis;*");
         }
         
-        TDirectory* plots_dir = ensureDirectory(analysis_dir, "plots");
-        if (!plots_dir) {
-            std::cerr << "Error: Failed to create plots directory." << std::endl;
-            return;
-        }
+        // Your existing code continues to work
+        TDirectory* analysis_dir = ensureDirectory(input_file, "analysis");
+        if (!analysis_dir) return;
+        
+        TDirectory* dt_strip_dir = ensureDirectory(analysis_dir, "dt_strip");
+        if (!dt_strip_dir) return;
+
+        TDirectory* tot_strip_dir = ensureDirectory(analysis_dir, "tot_strip");
+        if (!tot_strip_dir) return;
+
+        TDirectory* mult_strip_dir = ensureDirectory(analysis_dir, "multiplicity_strip");
+        if (!mult_strip_dir) return;
+
+        TDirectory* delay_strip_dir = ensureDirectory(analysis_dir, "delay_strip");
+        if (!delay_strip_dir) return;
     }
 
     int remapStrip(int rawStrip) {
@@ -52,11 +61,8 @@ namespace perFileHelpers {
 
     void plotDtVsStrip(TFile* input_file) {
         TDirectory* analysis_dir = input_file->GetDirectory("analysis");
-        if (!analysis_dir) {
-            std::cerr << "Error: analysis directory not found." << std::endl;
-            return;
-        }
-        analysis_dir->cd();
+        TDirectory* dt_strip_dir = analysis_dir->GetDirectory("dt_strip");
+        dt_strip_dir->cd();
 
         TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
         TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
@@ -78,42 +84,247 @@ namespace perFileHelpers {
         TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
         TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
-        std::map<int, TH2F*> h2d_all;
-        std::map<int, TH2D*> h2d_valid;
-        
-        for (int layer : {0, 1, 2}) {
-            h2d_all[layer] = new TH2F(Form("h2d_layer%d", layer), Form("Layer %d;Strip;dt", layer), 
-                                    24, 0, 24,  // 24 bins for remapped strips 0-23
-                                    40, -20, 20 // 40 bins for dt from -20 to 20
-                                    );
-            h2d_valid[layer] = new TH2D(Form("h2d_layer%d_valid", layer),
-                                        Form("Layer %d Valid;Strip;dt", layer),
-                                        24, 0, 24, 40, -20, 20);
+        // Create histograms using arrays
+        const int nConfigs = 3;
+        const char* suffixes[nConfigs] = {"dt_strip_all", "dt_strip_valid1", "dt_strip_valid2"};
+
+        std::map<std::string, std::map<int, TH2*>> dt_strip_histograms;
+        for (int c = 0; c < nConfigs; ++c) {
+            for (int layer : {0, 1, 2}) {
+                auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
+                                Form("Layer %d;Strip;dt [ticks]", layer),
+                                24, 0, 24, 40, -20, 20);
+                dt_strip_histograms[suffixes[c]][layer] = hist;
+            }
         }
 
         while (readerProcData.Next() && readerTrackData.Next()) {
             for (size_t i = 0; i < strips->size(); ++i) {
                 int layer = (*layers)[i];
-                if (!h2d_all.count(layer)) continue;
-                
                 int strip = Utilities::remapStrip((*strips)[i]);
                 int dt = (*dts)[i];
                 
-                h2d_all[layer]->Fill(strip, dt);
-                if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
-                    h2d_valid[layer]->Fill(strip, dt);
+                dt_strip_histograms["dt_strip_all"][layer]->Fill(strip, dt);
+                if ((*in_valid_track_eta1)[i]) {
+                    dt_strip_histograms["dt_strip_valid1"][layer]->Fill(strip, dt);
+                }
+                if ((*in_valid_track_eta2)[i]) {
+                    dt_strip_histograms["dt_strip_valid2"][layer]->Fill(strip, dt);
                 }
             }
         }
 
         // Write histograms to file and clean up
         for (int layer : {0, 1, 2}) {
-            h2d_all[layer]->Write();
-            h2d_valid[layer]->Write();
-            delete h2d_all[layer];
-            delete h2d_valid[layer];
+            for (int c = 0; c < nConfigs; ++c) {
+                dt_strip_histograms[suffixes[c]][layer]->Write();
+                delete dt_strip_histograms[suffixes[c]][layer];
+            }
         }
     }
+
+    void plotToTVsStrip(TFile* input_file) {
+        TDirectory* analysis_dir = input_file->GetDirectory("analysis");
+        TDirectory* tot_strip_dir = analysis_dir->GetDirectory("tot_strip");
+        tot_strip_dir->cd();
+
+        TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
+        TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
+        if (!proc_tree || proc_tree->IsZombie()) {
+            std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
+            return;
+        }
+        if (!track_tree || track_tree->IsZombie()) {
+            std::cerr << "Error: Invalid track reconstruction tree for analysis." << std::endl;
+            return;
+        }
+
+        // Read processed data into vectors and create 2D histograms for dt vs strip for each layer and valid track category
+        TTreeReader readerProcData(proc_tree);
+        TTreeReader readerTrackData(track_tree);
+        TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
+        TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
+        TTreeReaderValue<std::vector<int>> proc_tot1(readerProcData, "proc_tot1");
+        TTreeReaderValue<std::vector<int>> proc_tot2(readerProcData, "proc_tot2");
+        TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
+        TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
+
+        // Create histograms using arrays
+        const int nConfigs = 6;
+        const char* suffixes[nConfigs] = {"tot1_strip_all", "tot2_strip_all",
+            "tot1_strip_valid1", "tot2_strip_valid1", "tot1_strip_valid2", "tot2_strip_valid2"};
+
+        std::map<std::string, std::map<int, TH2*>> tot_strip_histograms;
+        for (int c = 0; c < nConfigs; ++c) {
+            for (int layer : {0, 1, 2}) {
+                auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
+                                Form("Layer %d;Strip;ToT [ticks]", layer),
+                                24, 0, 24, 100, 0, 100);
+                tot_strip_histograms[suffixes[c]][layer] = hist;
+            }
+        }
+
+        while (readerProcData.Next() && readerTrackData.Next()) {
+            for (size_t i = 0; i < strips->size(); ++i) {
+                int layer = (*layers)[i];
+                
+                int strip = Utilities::remapStrip((*strips)[i]);
+                int tot1 = (*proc_tot1)[i];
+                int tot2 = (*proc_tot2)[i];
+
+                
+                tot_strip_histograms["tot1_strip_all"][layer]->Fill(strip, tot1);
+                tot_strip_histograms["tot2_strip_all"][layer]->Fill(strip, tot2);
+                if ((*in_valid_track_eta1)[i]) {
+                    tot_strip_histograms["tot1_strip_valid1"][layer]->Fill(strip, tot1);
+                    tot_strip_histograms["tot2_strip_valid1"][layer]->Fill(strip, tot2);
+                } else if ((*in_valid_track_eta2)[i]) {
+                    tot_strip_histograms["tot1_strip_valid2"][layer]->Fill(strip, tot1);
+                    tot_strip_histograms["tot2_strip_valid2"][layer]->Fill(strip, tot2);
+                }
+            }
+        }
+
+        // Write histograms to file and clean up
+        for (int layer : {0, 1, 2}) {
+            for (int c = 0; c < nConfigs; ++c) {
+                tot_strip_histograms[suffixes[c]][layer]->Write();
+                delete tot_strip_histograms[suffixes[c]][layer];
+            }
+        }
+
+    }
+
+    void plotMultiplicityVsStrip(TFile* input_file) {
+        TDirectory* analysis_dir = input_file->GetDirectory("analysis");
+        TDirectory* mult_strip_dir = analysis_dir->GetDirectory("multiplicity_strip");
+        TDirectory* delay_strip_dir = analysis_dir->GetDirectory("delay_strip");
+
+        TTree* input_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
+        TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
+        TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
+        if (!proc_tree || proc_tree->IsZombie()) {
+            std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
+            return;
+        }
+        if (!track_tree || track_tree->IsZombie()) {
+            std::cerr << "Error: Invalid track reconstruction tree for analysis." << std::endl;
+            return;
+        }
+
+        // Read processed data into vectors and create 2D histograms for dt vs strip for each layer and valid track category
+        TTreeReader readerInputData(input_tree);
+        TTreeReader readerProcData(proc_tree);
+        TTreeReader readerTrackData(track_tree);
+        TTreeReaderValue<std::vector<int>> raw_time1(readerInputData, "hit_raw_time1");
+        TTreeReaderValue<std::vector<int>> raw_time2(readerInputData, "hit_raw_time2");
+        TTreeReaderValue<std::vector<int>> rise(readerInputData, "hit_rise");
+        TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
+        TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
+        TTreeReaderValue<std::vector<int>> time1(readerProcData, "proc_time1");
+        TTreeReaderValue<std::vector<int>> time2(readerProcData, "proc_time2");
+        TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
+        TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
+
+        // Create histograms using arrays
+        const int nConfigs = 6;
+        const char* suffixes[nConfigs] = {"mult1_all", "mult2_all",
+            "mult1_valid1", "mult2_valid1", "mult1_valid2", "mult2_valid2"};
+
+        std::map<std::string, std::map<int, TH2*>> multiplicity_histograms;
+        for (int c = 0; c < nConfigs; ++c) {
+            for (int layer : {0, 1, 2}) {
+                auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
+                                Form("Layer %d;Strip;Multiplicity", layer),
+                                24, 0, 24, 10, 0, 10);
+                multiplicity_histograms[suffixes[c]][layer] = hist;
+            }
+        }
+        std::map<std::string, std::map<int, TH2*>> delay_histograms;
+        for (int c = 0; c < nConfigs; ++c) {
+            for (int layer : {0, 1, 2}) {
+                auto* hist = new TH2F(Form("h2d_delay_%s_layer%d", suffixes[c], layer),
+                                Form("Layer %d;Strip;Delay from First Hit [ticks]", layer),
+                                24, 0, 24, 100, 0, 100);
+                delay_histograms[suffixes[c]][layer] = hist;
+            }
+        }
+
+        while (readerInputData.Next() && readerProcData.Next() && readerTrackData.Next()) {
+
+            // Create lookup tables for each entry
+            std::map<int, std::map<int, int>> counts[6];    // layer -> strip -> count (for each of the 6 categories: 
+                                                            // time1 valid, time2 valid, time1 valid & valid track eta1, 
+                                                            // time2 valid & valid track eta1, time1 valid & valid track eta2, time2 valid & valid track eta2)
+            std::map<int, std::map<int, std::vector<int>>> delays[6];
+
+            for (size_t i = 0; i < strips->size(); ++i) {
+
+                if ((*rise)[i] == 0) continue; // Skip falling edge hits
+
+                int layer = (*layers)[i];
+                int strip = Utilities::remapStrip((*strips)[i]);
+
+                if ((*raw_time1)[i] != 0) {
+                    counts[0][layer][strip]++;
+                    delays[0][layer][strip].push_back((*time1)[i]);
+                    if ((*in_valid_track_eta1)[i]) {
+                        counts[2][layer][strip]++;
+                        delays[2][layer][strip].push_back((*time1)[i]);
+                    }
+                    if ((*in_valid_track_eta2)[i]) {
+                        counts[4][layer][strip]++;
+                        delays[4][layer][strip].push_back((*time1)[i]);
+                    }
+                }
+                if ((*raw_time2)[i] != 0) {
+                    counts[1][layer][strip]++;
+                    delays[1][layer][strip].push_back((*time2)[i]);
+                    if ((*in_valid_track_eta1)[i]) {
+                        counts[3][layer][strip]++;
+                        delays[3][layer][strip].push_back((*time2)[i]);
+                    }
+                    if ((*in_valid_track_eta2)[i]) {
+                        counts[5][layer][strip]++;
+                        delays[5][layer][strip].push_back((*time2)[i]);
+                    }
+                }
+            }
+
+            // Fill histograms for this entry based on the counts and delays in the lookup tables
+            for (int c = 0; c < nConfigs; ++c) {
+                for (int layer : {0, 1, 2}) {
+                    for (const auto& [strip, count] : counts[c][layer]) {
+                        multiplicity_histograms[suffixes[c]][layer]->Fill(strip, count);
+                    }
+
+                    for (const auto& [strip, delay_vec] : delays[c][layer]) {
+                        if (!delay_vec.empty()) {
+                            auto min_delay = std::min_element(delay_vec.begin(), delay_vec.end());
+                            size_t min_index = std::distance(delay_vec.begin(), min_delay);
+                            for (size_t i = 0; i < delay_vec.size(); ++i) {
+                                if (i == min_index) continue; // Skip the first hit (minimum delay)
+                                delay_histograms[suffixes[c]][layer]->Fill(strip, delay_vec[i] - *min_delay);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Write histograms to file and clean up
+        for (int layer : {0, 1, 2}) {
+            for (int c = 0; c < nConfigs; ++c) {
+                mult_strip_dir->cd();
+                multiplicity_histograms[suffixes[c]][layer]->Write();
+                delete multiplicity_histograms[suffixes[c]][layer];
+                delay_strip_dir->cd();
+                delay_histograms[suffixes[c]][layer]->Write();
+                delete delay_histograms[suffixes[c]][layer];
+            }
+        }
+    }
+
 }
 
 // ==========================================================================================
@@ -128,17 +339,26 @@ DataAnalyzer::~DataAnalyzer() {
 
 void DataAnalyzer::producePerFileStats(TFile* input_file) {
 
-    // proc_tot vs proc_strip for all three layers, both sides
     // heatmap of hit_multiplicity vs proc_strip for all three layers, both sides
     // heatmap of proc_dt of consecutive hits vs proc_strip for all three layers, both sides
     // time resolution distributions for each layer and side
 
-    // Setup directory structure for storing plots and statistics in the input ROOT file
-    Utilities::setupDirectory(input_file);
+    // Setup directories structure for storing plots and statistics in the input ROOT file
+    Utilities::setupDirectories(input_file);
 
     // Plot dt vs strip for all hits and valid tracks if it doesn't already exist in the file
-    if (!input_file->Get("analysis/plots/h2d_layer0") || !input_file->Get("analysis/plots/h2d_layer0_valid")) {
+    if (!input_file->Get("analysis/plots/h2d_layer0")) {
         perFileHelpers::plotDtVsStrip(input_file);
+    }
+
+    // Plot tot vs strip for all hits and valid tracks if it doesn't already exist in the file
+    if (!input_file->Get("analysis/plots/h2d_tot1_strip_layer0")) {
+        perFileHelpers::plotToTVsStrip(input_file);
+    }
+
+    // Plot multiplicity vs strip for all hits and valid tracks if it doesn't already exist in the file
+    if (!input_file->Get("analysis/plots/h2d_mult1_strip_layer0")) {
+        perFileHelpers::plotMultiplicityVsStrip(input_file);
     }
 }
 
