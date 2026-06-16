@@ -3,13 +3,19 @@
 
 /// TODO:
 /// - Channel inversion for eta2 (?) side (in the same column: channel 1 of swaps with 8, 2 with 7, etc.)
-/// - Lift restrictions on track length/size to have them be of different sizes
 
 // ==========================================================================================
 // DataProcesser class implementation for processing raw DCT data
 // ==========================================================================================
 // Constructor and destructor for DataProcesser class
-DataProcesser::DataProcesser(const std::string& input_path, const int dt_max, const int dt_min, InputFormat format, bool use_external_trigger_arg, bool reject_background_arg) 
+DataProcesser::DataProcesser(
+    const std::string& input_path,
+    const int dt_max,
+    const int dt_min,
+    InputFormat format,
+    bool use_external_trigger_arg,
+    bool reject_background_arg
+) 
     : _input_path(input_path)
     , _dt_max(dt_max)
     , _dt_min(dt_min)
@@ -28,7 +34,7 @@ DataProcesser::~DataProcesser() {
         if (_processed_data_tree) _processed_data_tree->Write();
         if (_clusterization_tree) _clusterization_tree->Write();
         if (_track_reconstruction_tree) _track_reconstruction_tree->Write();
-        _output_file->Close(); 
+        _output_file->Close();
         delete _output_file; 
     }
 }
@@ -104,12 +110,14 @@ void DataProcesser::setupBranches() {
     _track_reconstruction_tree->Branch("track_id_from_eta2", &_track_id_from_eta2);
     _track_reconstruction_tree->Branch("in_valid_track_eta1", &_in_valid_track_eta1);
     _track_reconstruction_tree->Branch("in_valid_track_eta2", &_in_valid_track_eta2);
-    _track_reconstruction_tree->Branch("track_length_eta1", &track_length_eta1);
-    _track_reconstruction_tree->Branch("track_length_eta2", &track_length_eta2);
-    _track_reconstruction_tree->Branch("track_width_eta1", &track_width_eta1);
-    _track_reconstruction_tree->Branch("track_width_eta2", &track_width_eta2);
-    _track_reconstruction_tree->Branch("track_size_eta1", &track_size_eta1);
-    _track_reconstruction_tree->Branch("track_size_eta2", &track_size_eta2);
+    _track_reconstruction_tree->Branch("track_length_eta1", &_track_length_eta1);
+    _track_reconstruction_tree->Branch("track_length_eta2", &_track_length_eta2);
+    _track_reconstruction_tree->Branch("track_width_eta1", &_track_width_eta1);
+    _track_reconstruction_tree->Branch("track_width_eta2", &_track_width_eta2);
+    _track_reconstruction_tree->Branch("track_size_eta1", &_track_size_eta1);
+    _track_reconstruction_tree->Branch("track_size_eta2", &_track_size_eta2);
+    _track_reconstruction_tree->Branch("track_dt_eta1", &_track_dt_eta1);
+    _track_reconstruction_tree->Branch("track_dt_eta2", &_track_dt_eta2);
 }
 
 // ------------------------------------------------------------------------------------------
@@ -342,12 +350,14 @@ void DataProcesser::clearEventVectors() {
     _track_id_from_eta2.clear();
     _in_valid_track_eta1.clear();
     _in_valid_track_eta2.clear();
-    track_length_eta1.clear();
-    track_length_eta2.clear();
-    track_width_eta1.clear();
-    track_width_eta2.clear();
-    track_size_eta1.clear();
-    track_size_eta2.clear();
+    _track_length_eta1.clear();
+    _track_length_eta2.clear();
+    _track_width_eta1.clear();
+    _track_width_eta2.clear();
+    _track_size_eta1.clear();
+    _track_size_eta2.clear();
+    _track_dt_eta1.clear();
+    _track_dt_eta2.clear();
 }
 
 // Utility function to push back raw hit data
@@ -412,13 +422,15 @@ void DataProcesser::pushBackClusterData(const Cluster& cluster) {
 // Utility functions to push track-level data into the corresponding vectors for tree filling
 void DataProcesser::pushBackTrackData(const Track& track) {
     if (track.getSide() == Track::ETA1) {
-        track_length_eta1.push_back(track.getLayerCount());
-        track_width_eta1.push_back(track.getWidth());
-        track_size_eta1.push_back(track.getSize());
+        _track_length_eta1.push_back(track.getLayerCount());
+        _track_width_eta1.push_back(track.getWidth());
+        _track_size_eta1.push_back(track.getSize());
+        _track_dt_eta1.push_back(track.getDt());
     } else if (track.getSide() == Track::ETA2) {
-        track_length_eta2.push_back(track.getLayerCount());
-        track_width_eta2.push_back(track.getWidth());
-        track_size_eta2.push_back(track.getSize());
+        _track_length_eta2.push_back(track.getLayerCount());
+        _track_width_eta2.push_back(track.getWidth());
+        _track_size_eta2.push_back(track.getSize());
+        _track_dt_eta2.push_back(track.getDt());
     }
 }
 
@@ -677,7 +689,10 @@ void DataProcesser::processFileDecoded(const std::string& file_path) {
 */
 
 // Process a complete event that has been accumulated
-void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks) {
+void DataProcesser::processEvent(
+    EfficiencyCounters& counters,
+    EfficiencyCountersTracks& counters_tracks
+) {
     n_hits = current_event_hits.size();
     // std::cout << "\n" << std::endl;
     // std::cout << "╔═════════════════════════════════════════════════════════════════╗" << std::endl;
@@ -729,7 +744,7 @@ void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCounter
     updateTrackIDs(event);
 
     // Check if hits are in valid tracks
-    isHitInValidTrack(event);
+    hitsInValidTrack(event);
 
     // Push back track-level data for both eta1 and eta2 sides
     for (const auto& track : event.getTracks()) {
@@ -743,7 +758,7 @@ void DataProcesser::processEvent(EfficiencyCounters& counters, EfficiencyCounter
     event.updateEfficiencyCounters();
 
     // Fill the track reconstruction tree (write if either eta1 or eta2 has tracks)
-    if (_track_reconstruction_tree && (track_length_eta1.size() > 0 || track_length_eta2.size() > 0)) {
+    if (_track_reconstruction_tree && (_track_length_eta1.size() > 0 || _track_length_eta2.size() > 0)) {
         _track_reconstruction_tree->Fill();
     }
 }
@@ -776,9 +791,8 @@ void DataProcesser::updateTrackIDs(const Event& event) {
     }
 }
 
-// NOTE: Not really needed as this can be done directly with track ID from the hit together with isValidTrack()
 // Utility function to check if a hit is a part of a valid track based on its track ID
-void DataProcesser::isHitInValidTrack(const Event& event) {
+void DataProcesser::hitsInValidTrack(const Event& event) {
 
     std::unordered_map<int, bool> valid_eta1, valid_eta2;
     for (const auto& track : event.getTracksEta1()) {
@@ -787,7 +801,7 @@ void DataProcesser::isHitInValidTrack(const Event& event) {
     for (const auto& track : event.getTracksEta2()) {
         valid_eta2[track.getTrackID()] = track.isValidTrack();
     }
-    
+
     // Look up each hit
     for (const auto& hit : event.getHits()) {
         int id1 = hit.getTrackIDEta1();
