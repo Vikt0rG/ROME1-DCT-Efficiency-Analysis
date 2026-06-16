@@ -44,15 +44,26 @@ namespace Utilities {
     /// @brief Constant array defining the column shifts for remapping raw strip numbers
     /// to a continuous range for plotting
     constexpr std::array<ColumnsShift, 1> columnShifts = {{
-        {16, 31, -8}    // Shifting strips 16-31 down by 8 to create a continuous range of 0-23 for plotting
+        {16, 31, -8} // Shifting strips 16-31 down by 8 to create a continuous range of 0-23
     }};
 
-    /// @brief Utility function to setup the directory structure in the input ROOT file
-    /// @param input_file Pointer to the input ROOT file where the directory structure will be created
-    /// @param overwrite Boolean flag to indicate whether to overwrite existing analysis directory
-    void setupDirectory(TFile* input_file, bool overwrite = true);
+    /// @brief Utility function to ensure a directory exists in the ROOT file and return a
+    /// pointer to it
+    /// @param parent Pointer to the parent directory where the new directory should be
+    /// created
+    /// @param name Pointer to the name of the directory to be created
+    /// @return Pointer to the created or existing directory, or nullptr if there was an
+    /// error
+    TDirectory* ensureDirectory(TDirectory* parent, const char* name);
 
-    /// @brief Utility function to remap raw strip numbers to a continuous range for plotting
+    /// @brief Utility function to setup the directory structure in the input ROOT file
+    /// @param input_file Pointer to the input ROOT file where the directory structure will
+    /// be created
+    /// @param overwrite Boolean flag to indicate whether to overwrite existing analysis
+    /// directory
+    void setupDirectories(TFile* input_file, bool overwrite);
+
+    /// @brief Utility function to remap raw strip numbers to a continuous range
     /// @param rawStrip The raw strip number to be remapped
     /// @return The remapped strip number for plotting
     int remapStrip(int rawStrip);
@@ -62,7 +73,33 @@ namespace Utilities {
 /// @brief Namespace for helper plotting functions producing per-filerelevant statistics
 /// for each measurement entry
 namespace perFileHelpers {
-    void plotDtVsStrip(TFile* input_file, std::string entry_name);
+
+    /// @brief Helper function to plot strip 1D distributions for all hits and valid tracks
+    /// @param input_file Pointer to the input ROOT file containing processed DCT data for
+    /// a specific measurement entry
+    void plotStrip(TFile* input_file);
+
+    /// @brief Helper function to plot dt vs strip 2D distributions for all hits and valid
+    /// tracks
+    /// @param input_file Pointer to the input ROOT file containing processed DCT data for
+    /// a specific measurement entry
+    void plotDtVsStrip(TFile* input_file);
+
+    /// @brief Helper function to plot ToT vs strip 2D distributions for all hits and valid
+    /// tracks
+    /// @param input_file Pointer to the input ROOT file containing processed DCT data for
+    /// a specific measurement entry
+    void plotToTVsStrip(TFile* input_file);
+
+    /// @brief Helper function to plot multiplicity/delay vs strip 2D distributions for all
+    /// hits and valid tracks
+    ///
+    /// Multiplicity is defined as the number of hits in the same event and in the same strip
+    ///
+    /// Delay is defined as the time difference w.r.t. the first hit of the event in a strip
+    /// @param input_file Pointer to the input ROOT file containing processed DCT data for
+    /// a specific measurement entry
+    void plotMultiplicityAndDelayVsStrip(TFile* input_file);
 }
 
 
@@ -88,31 +125,6 @@ public:
     // Getters
     const std::vector<MeasurementEntry>& getEntries() const { return parsed_entries; }
     const std::vector<SummaryStats>& getSummaries() const { return summaries; }
-
-    // Utility funtions
-    void applyCut();
-
-    /* WIP: Move all this into a plotter class
-    void plotEfficiencies();
-    void plotRawDataDistributions();
-    void plotStripDistributions();
-    void plotDtDistributions();
-    void plotDtvsStripDistributions();
-    void plotToTDistributions();
-    void plotToTvsStripDistributions();
-
-    void plotClusterSizeDistributions();
-
-    void plotTrackSizeDistributions();
-    void plotTrackLengthDistributions();
-    void plotTrackWidthDistributions();
-
-    // Utility plotting functions
-    void addATLASLogo(TCanvas* canvas);
-
-    // Canvas plotting functions
-    void makeCanvas(TGraph* graph, const std::string& title, const std::string& x_label, const std::string& y_label, const std::string& output_filename);
-    */
 
 private:
     std::string _config_path;
