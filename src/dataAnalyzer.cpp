@@ -31,11 +31,13 @@ namespace Utilities {
         if (overwrite) {
             input_file->Delete("analysis;*");
         }
-        
-        // Your existing code continues to work
+
         TDirectory* analysis_dir = ensureDirectory(input_file, "analysis");
         if (!analysis_dir) return;
-        
+
+        TDirectory* strip_dir = ensureDirectory(analysis_dir, "strip");
+        if (!strip_dir) return;
+
         TDirectory* dt_strip_dir = ensureDirectory(analysis_dir, "dt_strip");
         if (!dt_strip_dir) return;
 
@@ -58,6 +60,65 @@ namespace Utilities {
 }
 
 namespace perFileHelpers {
+
+    void plotStrip(TFile* input_file) {
+        TDirectory* analysis_dir = input_file->GetDirectory("analysis");
+        TDirectory* strip_dir = analysis_dir->GetDirectory("strip");
+        strip_dir->cd();
+
+        TTree* input_data_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
+        if (!input_data_tree || input_data_tree->IsZombie()) {
+            std::cerr << "Error: Invalid input data tree for analysis." << std::endl;
+            return;
+        }
+        TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
+        if (!proc_tree || proc_tree->IsZombie()) {
+            std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
+            return;
+        }
+
+        // Read processed data into vectors and create strip distributions for each layer and side
+        TTreeReader readerInputData(input_data_tree);
+        TTreeReader readerProcData(proc_tree);
+        TTreeReaderValue<std::vector<int>> raw_time1(readerInputData, "hit_raw_time1");
+        TTreeReaderValue<std::vector<int>> raw_time2(readerInputData, "hit_raw_time2");
+        TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
+        TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
+
+        // Create histograms using arrays
+        const int nConfigs = 2;
+        const char* categories[nConfigs] = {
+            "strip_eta1", "strip_eta2"
+        };
+
+        std::map<std::string, std::map<int, TH1*>> strip_histograms;
+        for (int c = 0; c < nConfigs; ++c) {
+            for (int layer : {0, 1, 2}) {
+                auto* hist = new TH1F(Form("h1d_%s_layer%d", categories[c], layer),
+                                Form("Layer %d;Strip;Hits", layer),
+                                24, 0, 24);
+                strip_histograms[categories[c]][layer] = hist;
+            }
+        }
+
+        while (readerInputData.Next() && readerProcData.Next()) {
+            for (size_t i = 0; i < strips->size(); ++i) {
+                int layer = (*layers)[i];
+                int strip = Utilities::remapStrip((*strips)[i]);
+                
+                if ((*raw_time1)[i] != 0) strip_histograms["strip_eta1"][layer]->Fill(strip);
+                if ((*raw_time2)[i] != 0) strip_histograms["strip_eta2"][layer]->Fill(strip);
+            }
+        }
+
+        // Write histograms to file and clean up
+        for (int c = 0; c < nConfigs; ++c) {
+            for (int layer : {0, 1, 2}) {
+                strip_histograms[categories[c]][layer]->Write("", TObject::kOverwrite);
+                delete strip_histograms[categories[c]][layer];
+            }
+        }
+    }
 
     void plotDtVsStrip(TFile* input_file) {
         TDirectory* analysis_dir = input_file->GetDirectory("analysis");
@@ -115,8 +176,8 @@ namespace perFileHelpers {
         }
 
         // Write histograms to file and clean up
-        for (int layer : {0, 1, 2}) {
-            for (int c = 0; c < nConfigs; ++c) {
+        for (int c = 0; c < nConfigs; ++c) {
+            for (int layer : {0, 1, 2}) {
                 dt_strip_histograms[suffixes[c]][layer]->Write();
                 delete dt_strip_histograms[suffixes[c]][layer];
             }
@@ -186,8 +247,8 @@ namespace perFileHelpers {
         }
 
         // Write histograms to file and clean up
-        for (int layer : {0, 1, 2}) {
-            for (int c = 0; c < nConfigs; ++c) {
+        for (int c = 0; c < nConfigs; ++c) {
+            for (int layer : {0, 1, 2}) {   
                 tot_strip_histograms[suffixes[c]][layer]->Write();
                 delete tot_strip_histograms[suffixes[c]][layer];
             }
@@ -195,7 +256,7 @@ namespace perFileHelpers {
 
     }
 
-    void plotMultiplicityVsStrip(TFile* input_file) {
+    void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
         TDirectory* analysis_dir = input_file->GetDirectory("analysis");
         TDirectory* mult_strip_dir = analysis_dir->GetDirectory("multiplicity_strip");
         TDirectory* delay_strip_dir = analysis_dir->GetDirectory("delay_strip");
@@ -228,34 +289,35 @@ namespace perFileHelpers {
 
         // Create histograms using arrays
         const int nConfigs = 6;
-        const char* suffixes[nConfigs] = {"mult1_all", "mult2_all",
-            "mult1_valid1", "mult2_valid1", "mult1_valid2", "mult2_valid2"};
+        const char* categories[nConfigs] = {
+            "mult1_all", "mult2_all",           // Multiplicity for all hits based on time1 and time2
+            "mult1_valid1", "mult2_valid1",     // Multiplicity for hits in valid tracks on eta1 side based on time1 and time2
+            "mult1_valid2", "mult2_valid2"      // Multiplicity for hits in valid tracks on eta2 side based on time1 and time2
+        };
 
         std::map<std::string, std::map<int, TH2*>> multiplicity_histograms;
         for (int c = 0; c < nConfigs; ++c) {
             for (int layer : {0, 1, 2}) {
-                auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
+                auto* hist = new TH2F(Form("h2d_%s_layer%d", categories[c], layer),
                                 Form("Layer %d;Strip;Multiplicity", layer),
                                 24, 0, 24, 10, 0, 10);
-                multiplicity_histograms[suffixes[c]][layer] = hist;
+                multiplicity_histograms[categories[c]][layer] = hist;
             }
         }
         std::map<std::string, std::map<int, TH2*>> delay_histograms;
         for (int c = 0; c < nConfigs; ++c) {
             for (int layer : {0, 1, 2}) {
-                auto* hist = new TH2F(Form("h2d_delay_%s_layer%d", suffixes[c], layer),
+                auto* hist = new TH2F(Form("h2d_delay_%s_layer%d", categories[c], layer),
                                 Form("Layer %d;Strip;Delay from First Hit [ticks]", layer),
                                 24, 0, 24, 100, 0, 100);
-                delay_histograms[suffixes[c]][layer] = hist;
+                delay_histograms[categories[c]][layer] = hist;
             }
         }
 
         while (readerInputData.Next() && readerProcData.Next() && readerTrackData.Next()) {
 
             // Create lookup tables for each entry
-            std::map<int, std::map<int, int>> counts[6];    // layer -> strip -> count (for each of the 6 categories: 
-                                                            // time1 valid, time2 valid, time1 valid & valid track eta1, 
-                                                            // time2 valid & valid track eta1, time1 valid & valid track eta2, time2 valid & valid track eta2)
+            std::map<int, std::map<int, int>> counts[6];    // layer -> strip -> count (for each of the 6 categories)
             std::map<int, std::map<int, std::vector<int>>> delays[6];
 
             for (size_t i = 0; i < strips->size(); ++i) {
@@ -295,7 +357,7 @@ namespace perFileHelpers {
             for (int c = 0; c < nConfigs; ++c) {
                 for (int layer : {0, 1, 2}) {
                     for (const auto& [strip, count] : counts[c][layer]) {
-                        multiplicity_histograms[suffixes[c]][layer]->Fill(strip, count);
+                        multiplicity_histograms[categories[c]][layer]->Fill(strip, count);
                     }
 
                     for (const auto& [strip, delay_vec] : delays[c][layer]) {
@@ -304,7 +366,7 @@ namespace perFileHelpers {
                             size_t min_index = std::distance(delay_vec.begin(), min_delay);
                             for (size_t i = 0; i < delay_vec.size(); ++i) {
                                 if (i == min_index) continue; // Skip the first hit (minimum delay)
-                                delay_histograms[suffixes[c]][layer]->Fill(strip, delay_vec[i] - *min_delay);
+                                delay_histograms[categories[c]][layer]->Fill(strip, delay_vec[i] - *min_delay);
                             }
                         }
                     }
@@ -313,14 +375,14 @@ namespace perFileHelpers {
         }
 
         // Write histograms to file and clean up
-        for (int layer : {0, 1, 2}) {
-            for (int c = 0; c < nConfigs; ++c) {
+        for (int c = 0; c < nConfigs; ++c) {
+            for (int layer : {0, 1, 2}) {
                 mult_strip_dir->cd();
-                multiplicity_histograms[suffixes[c]][layer]->Write();
-                delete multiplicity_histograms[suffixes[c]][layer];
+                multiplicity_histograms[categories[c]][layer]->Write();
+                delete multiplicity_histograms[categories[c]][layer];
                 delay_strip_dir->cd();
-                delay_histograms[suffixes[c]][layer]->Write();
-                delete delay_histograms[suffixes[c]][layer];
+                delay_histograms[categories[c]][layer]->Write();
+                delete delay_histograms[categories[c]][layer];
             }
         }
     }
@@ -339,27 +401,15 @@ DataAnalyzer::~DataAnalyzer() {
 
 void DataAnalyzer::producePerFileStats(TFile* input_file) {
 
-    // heatmap of hit_multiplicity vs proc_strip for all three layers, both sides
-    // heatmap of proc_dt of consecutive hits vs proc_strip for all three layers, both sides
-    // time resolution distributions for each layer and side
-
-    // Setup directories structure for storing plots and statistics in the input ROOT file
     Utilities::setupDirectories(input_file);
 
-    // Plot dt vs strip for all hits and valid tracks if it doesn't already exist in the file
-    if (!input_file->Get("analysis/plots/h2d_layer0")) {
-        perFileHelpers::plotDtVsStrip(input_file);
-    }
+    perFileHelpers::plotStrip(input_file);
 
-    // Plot tot vs strip for all hits and valid tracks if it doesn't already exist in the file
-    if (!input_file->Get("analysis/plots/h2d_tot1_strip_layer0")) {
-        perFileHelpers::plotToTVsStrip(input_file);
-    }
+    perFileHelpers::plotDtVsStrip(input_file);
 
-    // Plot multiplicity vs strip for all hits and valid tracks if it doesn't already exist in the file
-    if (!input_file->Get("analysis/plots/h2d_mult1_strip_layer0")) {
-        perFileHelpers::plotMultiplicityVsStrip(input_file);
-    }
+    perFileHelpers::plotToTVsStrip(input_file);
+
+    perFileHelpers::plotMultiplicityAndDelayVsStrip(input_file);
 }
 
 void DataAnalyzer::produceSummaryStats() {

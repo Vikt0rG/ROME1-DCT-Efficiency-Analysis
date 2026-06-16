@@ -181,21 +181,13 @@ int Track::getLayerCount() const {
 // Get track timing information
 int Track::getDt() const {
     int earliest_time = INT_MAX;
-    int earliest_layer = INT_MAX;
     int latest_time = INT_MIN;
-    int latest_layer = INT_MIN;
 
     for (const Hit* hit : _track_hits) {
         int hit_time = (_eta_side == ETA1) ? hit->getTimeEta1() : hit->getTimeEta2();
         if (hit_time != -1) {
-            if (hit_time < earliest_time) {
-                earliest_time = hit_time;
-                earliest_layer = hit->getLayer();
-            }
-            if (hit_time > latest_time) {
-                latest_time = hit_time;
-                latest_layer = hit->getLayer();
-            }
+            if (hit_time < earliest_time) earliest_time = hit_time;
+            if (hit_time > latest_time) latest_time = hit_time;
         } else {
             // This should not happen since getDt should only be called on tracks (hits with valid times only), check just in case
             std::cerr << "Warning: Hit in track has invalid time for eta side " << _eta_side << std::endl;
@@ -208,9 +200,6 @@ int Track::getDt() const {
         std::cerr << "Warning: No valid hit times found for track on eta side " << _eta_side << std::endl;
         return -1;
     }
-
-    // If hits not from consecutive layers, skip timing calculation(?)
-    // if (latest_layer - earliest_layer != 1) return -1;
 
     return latest_time - earliest_time;
 }
