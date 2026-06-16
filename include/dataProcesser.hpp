@@ -67,12 +67,14 @@ public:
     std::vector<int>& getClusterTot1FromEta2() { return cluster_tot1_from_eta2; }
     std::vector<int>& getClusterTot2FromEta2() { return cluster_tot2_from_eta2; }
 
-    std::vector<int>& getTrackLengthEta1() { return track_length_eta1; }
-    std::vector<int>& getTrackLengthEta2() { return track_length_eta2; }
-    std::vector<int>& getTrackWidthEta1() { return track_width_eta1; }
-    std::vector<int>& getTrackWidthEta2() { return track_width_eta2; }
-    std::vector<int>& getTrackSizeEta1() { return track_size_eta1; }
-    std::vector<int>& getTrackSizeEta2() { return track_size_eta2; }
+    std::vector<int>& getTrackLengthEta1() { return _track_length_eta1; }
+    std::vector<int>& getTrackLengthEta2() { return _track_length_eta2; }
+    std::vector<int>& getTrackWidthEta1() { return _track_width_eta1; }
+    std::vector<int>& getTrackWidthEta2() { return _track_width_eta2; }
+    std::vector<int>& getTrackSizeEta1() { return _track_size_eta1; }
+    std::vector<int>& getTrackSizeEta2() { return _track_size_eta2; }
+    std::vector<int>& getTrackDtEta1() { return _track_dt_eta1; }
+    std::vector<int>& getTrackDtEta2() { return _track_dt_eta2; }
 
     /// @brief Main entry point function for txt to ROOT data processing
     void processInputData();
@@ -106,7 +108,7 @@ public:
     void updateTrackIDs(const Event& event);
     /// @brief Utility function to determine if a hit is in a valid track and fill the corresponding branch
     /// @param event Reference to the current event being processed
-    void isHitInValidTrack(const Event& event);
+    void hitsInValidTrack(const Event& event);
 
     void pushBackWordData(const DCTWord&);
     void pushBackProcessedData(const Event&);
@@ -161,7 +163,8 @@ private:
     std::vector<int> cluster_tot1_from_eta1, cluster_tot2_from_eta1, cluster_tot1_from_eta2, cluster_tot2_from_eta2;    // Cluster center ToT from eta1 and eta2 clusterings
     std::array<std::vector<int>, 3> cluster_size_eta1_layers, cluster_size_eta2_layers;
     std::array<std::vector<int>, 3> cluster_tot1_from_eta1_layers, cluster_tot2_from_eta1_layers, cluster_tot1_from_eta2_layers, cluster_tot2_from_eta2_layers;  // Layer-specific cluster data
-    std::vector<int> track_length_eta1, track_length_eta2, track_width_eta1, track_width_eta2, track_size_eta1, track_size_eta2;
+    std::vector<int> _track_length_eta1, _track_length_eta2, _track_width_eta1, _track_width_eta2, _track_size_eta1, _track_size_eta2;
+    std::vector<int> _track_dt_eta1, _track_dt_eta2;
     std::vector<bool> _in_valid_track_eta1, _in_valid_track_eta2;
 
     // ID vectors for hits in clusters and tracks
