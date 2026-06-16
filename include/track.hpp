@@ -8,9 +8,9 @@
 #include "constants.hpp"
 
 
-// ============================================================
+// ==========================================================================================
 // Track Class: Hits aligned across detector layers
-// ============================================================
+// ==========================================================================================
 class Track {
 public:
     enum EtaSide { ETA1 = 0, ETA2 = 1 };
@@ -43,6 +43,9 @@ public:
     int getSize() const;
     int getWidth() const;
     int getLayerCount() const;
+
+    // Track timing information
+    int getDt() const;  // Time difference between earliest and latest hit in track for the track's eta side
 
 private:
     int _track_id;                  // Unique identifier for the track
