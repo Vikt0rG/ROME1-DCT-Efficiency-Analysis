@@ -3,9 +3,9 @@
 #include <climits>
 
 
-// ============================================================
+// ==========================================================================================
 // Track class implementation
-// ============================================================
+// ==========================================================================================
 // Constructor for Track
 Track::Track(Hit* first_hit, EtaSide side)
     : _eta_side(side) {
@@ -32,7 +32,6 @@ bool Track::addHit(Hit* hit) {
 
     // Get the hit properties
     int hit_layer = hit->getLayer();
-    int hit_strip = hit->getStrip();
     int hit_time = (_eta_side == ETA1) ? hit->getTimeEta1() : hit->getTimeEta2();
 
     // Check if hit has valid time information for this track's eta side
@@ -177,4 +176,41 @@ int Track::getLayerCount() const {
         }
     }
     return count;
+}
+
+// Get track timing information
+int Track::getDt() const {
+    int earliest_time = INT_MAX;
+    int earliest_layer = INT_MAX;
+    int latest_time = INT_MIN;
+    int latest_layer = INT_MIN;
+
+    for (const Hit* hit : _track_hits) {
+        int hit_time = (_eta_side == ETA1) ? hit->getTimeEta1() : hit->getTimeEta2();
+        if (hit_time != -1) {
+            if (hit_time < earliest_time) {
+                earliest_time = hit_time;
+                earliest_layer = hit->getLayer();
+            }
+            if (hit_time > latest_time) {
+                latest_time = hit_time;
+                latest_layer = hit->getLayer();
+            }
+        } else {
+            // This should not happen since getDt should only be called on tracks (hits with valid times only), check just in case
+            std::cerr << "Warning: Hit in track has invalid time for eta side " << _eta_side << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    }
+
+    // If no valid times found, return -1: This should not happen for any tracks, but check to be safe
+    if (earliest_time == INT_MAX || latest_time == INT_MIN) {
+        std::cerr << "Warning: No valid hit times found for track on eta side " << _eta_side << std::endl;
+        return -1;
+    }
+
+    // If hits not from consecutive layers, skip timing calculation(?)
+    // if (latest_layer - earliest_layer != 1) return -1;
+
+    return latest_time - earliest_time;
 }
