@@ -17,16 +17,18 @@
 #include <TTreeReader.h>
 #include <TTreeReaderValue.h>
 
+#include "utils.hpp"
 #include "types.hpp"
-#include "hit.hpp"
+#include "constants.hpp"
+
 #include "event.hpp"
+#include "hit.hpp"
 #include "cluster.hpp"
 #include "track.hpp"
-#include "constants.hpp"
 
 
 // ==========================================================================================
-// Analysis utility functions for plotting and calculating statistics from processed DCT data
+// Analysis utility/helper namespaces for plotting and calculating statistics
 // ==========================================================================================
 /// @namespace Utilities
 /// @brief Namespace for utility functions used in the DataAnalyzer class
