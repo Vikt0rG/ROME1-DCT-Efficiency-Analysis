@@ -122,25 +122,47 @@ struct EfficiencyResultsTracks {
 
 // ==========================================================================================
 // Measurement configuration and summary structures for the measurement analysis part
-struct MeasurementEntry {
+
+/// @struct MeasurementMetadata
+/// @brief Metadata for a single measurement entry, parsed from the configuration file
+/// @param name Name of the measurement entry/file
+/// @param measurement_type Type of the measurement (e.g. "efficiency_scan")
+/// @param root_file Path to the ROOT file containing the measurement data
+/// @param mixture Gas mixture used in the measurement
+/// @param source Whether the source was on during the measurement
+/// @param filter Filter setting used during the measurement
+/// @param lv_setting Low voltage setting used during the measurement
+/// @param scanned_layer Layer number that was scanned in the measurement
+/// @param scanned_hv High voltage setting for the scanned layer
+/// @param other_hv High voltage setting for the other layers
+struct MeasurementMetadata {
     std::string name;
     std::string measurement_type;
     std::string root_file;
+
     std::string mixture;
-    std::string source;
+    bool source;
     double filter = 0.0;
     int lv_setting = 0;
-    double hv = 0.0;
-    double other_hv = 0.0;
+    
+    int scanned_layer = 0;
     double scanned_hv = 0.0;
-    int layer = 0;
+    double other_hv = 0.0;
 };
 
-struct PerFileStats {
-    std::string name;
-    int layer = 0;
-    double hv = 0.0;
-
+/// @struct MeasurementData
+/// @brief Struct to hold calculated statistics for a single ROOT file/measurement entry
+/// @param efficiency_results Calculated efficiency results for the measurement entry
+/// @param efficiency_results_tracks Calculated track-based efficiency results for the
+/// measurement entry
+/// @param avg_cluster_size_eta1 Average cluster size for η1 side
+/// @param avg_cluster_size_eta2 Average cluster size for η2 side
+/// @param avg_cluster_size_eta1_layers Average cluster size for η1 side, broken down by layer
+/// @param avg_cluster_size_eta2_layers Average cluster size for η2 side, broken down by layer
+/// @param noise_rate Overall noise rate for the measurement entry
+/// @param noise_rate_eta1 Noise rate for η1 side, broken down by layer
+/// @param noise_rate_eta2 Noise rate for η2 side, broken down by layer
+struct MeasurementData {
     EfficiencyResults efficiency_results;
     EfficiencyResultsTracks efficiency_results_tracks;
 
@@ -153,9 +175,27 @@ struct PerFileStats {
     double noise_rate_eta2[3] = {0.0, 0.0, 0.0};
 };
 
-struct SummaryStats {
+
+/// @struct ScanData
+/// @brief Struct to hold parsed metadata and calculated statistics of each individual
+/// measurement as a vector for a complete scan
+/// @param config_path The configuration file path for the scan
+/// @param metadata Vector of MeasurementMetadata structs for each measurement
+/// entry in the scan
+/// @param data Vector of MeasurementData structs for each measurement entry
+/// in the scan, corresponding to the metadata vector
+struct ScanData {
     std::string config_path;
-    std::string measurement_type;
-    std::vector<MeasurementEntry> entries;
-    std::vector<PerFileStats> per_file_stats;
+    std::vector<MeasurementMetadata> metadata;
+    std::vector<MeasurementData> data;
+};
+
+/// @struct ConfigData
+/// @brief Struct to hold parsed measurement entries and summary root file path for a scan
+/// @param metadata The vector of parsed measurement metadata for each individual 
+/// measurement in the scan
+/// @param summary_root_file String path to the summary ROOT file for the scan
+struct ConfigData {
+    std::vector<MeasurementMetadata> metadata;
+    std::string summary_root_file;
 };
