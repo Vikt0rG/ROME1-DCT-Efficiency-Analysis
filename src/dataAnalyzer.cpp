@@ -1,25 +1,23 @@
 #include "dataAnalyzer.hpp"
-#include "configParser.hpp"
 
 /// TODO:
-// - Update root files with file-specific stats (see below)
 // - Add noise rate calculations for each separate strip
-// - Add time resolution calculations for each layer and side
 
 // ==========================================================================================
-// Analysis utility & Helper functions for calculating and plotting statistics
+// Analysis utility/helper namespaces for plotting and calculating statistics
 // ==========================================================================================
-namespace Utilities {
-int remapStrip(int rawStrip) {
-    for (const auto& col : columnShifts)
-        if (rawStrip >= col.start && rawStrip <= col.end)
-            return rawStrip + col.shift;
-    return rawStrip;
-}
-
-}
-
 namespace perFileHelpers {
+
+// Anonymous namespace for internal helper functions for per-file plotting
+namespace {
+    int remapStrip(int rawStrip) {
+        for (const auto& col : columnShifts)
+            if (rawStrip >= col.start && rawStrip <= col.end)
+                return rawStrip + col.shift;
+        return rawStrip;
+    }
+}
+
 void plotStrip(TFile* input_file) {
     TDirectory* analysis_dir = input_file->GetDirectory("analysis");
     TDirectory* strip_dir = analysis_dir->GetDirectory("strip");
@@ -63,7 +61,7 @@ void plotStrip(TFile* input_file) {
     while (readerInputData.Next() && readerProcData.Next()) {
         for (size_t i = 0; i < strips->size(); ++i) {
             int layer = (*layers)[i];
-            int strip = Utilities::remapStrip((*strips)[i]);
+            int strip = remapStrip((*strips)[i]);
             
             if ((*raw_time1)[i] != 0) strip_histograms["strip_eta1"][layer]->Fill(strip);
             if ((*raw_time2)[i] != 0) strip_histograms["strip_eta2"][layer]->Fill(strip);
@@ -121,7 +119,7 @@ void plotDtVsStrip(TFile* input_file) {
     while (readerProcData.Next() && readerTrackData.Next()) {
         for (size_t i = 0; i < strips->size(); ++i) {
             int layer = (*layers)[i];
-            int strip = Utilities::remapStrip((*strips)[i]);
+            int strip = remapStrip((*strips)[i]);
             int dt = (*dts)[i];
             
             dt_strip_histograms["dt_strip_all"][layer]->Fill(strip, dt);
@@ -188,7 +186,7 @@ void plotToTVsStrip(TFile* input_file) {
         for (size_t i = 0; i < strips->size(); ++i) {
             int layer = (*layers)[i];
             
-            int strip = Utilities::remapStrip((*strips)[i]);
+            int strip = remapStrip((*strips)[i]);
             int tot1 = (*proc_tot1)[i];
             int tot2 = (*proc_tot2)[i];
 
@@ -284,7 +282,7 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
             if ((*rise)[i] == 0) continue; // Skip falling edge hits
 
             int layer = (*layers)[i];
-            int strip = Utilities::remapStrip((*strips)[i]);
+            int strip = remapStrip((*strips)[i]);
 
             if ((*raw_time1)[i] != 0) {
                 counts[0][layer][strip]++;
@@ -360,6 +358,7 @@ DataAnalyzer::~DataAnalyzer() {
 
 void DataAnalyzer::producePerFileStats(TFile* input_file) {
 
+    // Set up output directories for per-file statistics and plots
     std::vector<std::string> dir_names = {
         "analysis/strip",
         "analysis/dt_strip",
@@ -367,47 +366,50 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
         "analysis/multiplicity_strip",
         "analysis/delay_strip"
     };
-
     PathUtils::setupDirectories(input_file, dir_names);
 
+    // Produce relevant plots for this file using helper functions
     perFileHelpers::plotStrip(input_file);
-
     perFileHelpers::plotDtVsStrip(input_file);
-
     perFileHelpers::plotToTVsStrip(input_file);
-
     perFileHelpers::plotMultiplicityAndDelayVsStrip(input_file);
+
+    // Export per-file plots to PDF
+    std::string root_file_path = input_file->GetName();
+    std::string target_plots_dir = (_output_directory / "plots").string();
+    PlotterHelpers::autoExportToATLASPDF(root_file_path, target_plots_dir);
 }
 
 void DataAnalyzer::produceSummaryStats() {
 
-    // Clear any existing entries and summaries before processing new config files
-    parsed_entries.clear();
-    summaries.clear();
-
     // Process each config file and build the list of measurement entries and summaries
     std::filesystem::create_directories(_output_directory);
 
-    // Prepare a summary object/root file for this config
-    SummaryStats summary;
-    summary.config_path = _config_path;
-    summary.entries = ConfigUtils::parseMeasurementEntries(_config_path);
-    if (!summary.entries.empty()) {
-        summary.measurement_type = summary.entries.front().measurement_type;
-    }
+    // Prepare a measurement structure (measurement's metadata + data/statistics) and a root
+    // file for this config
+    ScanData scan;
+    scan.config_path = _config_path;
+    scan.metadata = ConfigUtils::parseMeasurementMetadata(_config_path);
 
-    parsed_entries.insert(parsed_entries.end(), summary.entries.begin(), summary.entries.end());
     std::filesystem::path config_stem = std::filesystem::path(_config_path).stem();
     std::filesystem::path summary_root_path = _output_directory / (config_stem.string() + "_summary.root");
 
     // Create a ROOT file and tree to store summary statistics for this config
-    TFile summary_root(summary_root_path.string().c_str(), "RECREATE");
+    TFile summary_root_file(summary_root_path.string().c_str(), "RECREATE");
     TTree* summary_tree = new TTree("summary", "summary");
 
     // Metadata variables to be stored in the summary tree
     std::string entry_name;
-    int layer;
-    double hv = 0.0;
+    std::string measurement_type;
+
+    std::string mixture;
+    bool source;
+    double filter;
+    int lv_setting;
+
+    int scanned_layer;
+    double scanned_hv = 0.0;
+    double other_hv = 0.0;
 
     // Efficiency scan relevant statistics
     double eta1_efficiency_external_summary[3] = {0.0, 0.0, 0.0};
@@ -463,14 +465,15 @@ void DataAnalyzer::produceSummaryStats() {
 
     // Set up branches for the summary tree
     summary_tree->Branch("name", &entry_name);
-    summary_tree->Branch("layer", &layer);
-    summary_tree->Branch("hv", &hv);
-    summary_tree->Branch("avg_cluster_size_eta1", &avg_cluster_size_eta1);
-    summary_tree->Branch("avg_cluster_size_eta2", &avg_cluster_size_eta2);
-    summary_tree->Branch("avg_cluster_size_eta1_layers", avg_cluster_size_eta1_layers, "avg_cluster_size_eta1_layers[3]/D");
-    summary_tree->Branch("avg_cluster_size_eta2_layers", avg_cluster_size_eta2_layers, "avg_cluster_size_eta2_layers[3]/D");
+    summary_tree->Branch("measurement_type", &measurement_type);
+    summary_tree->Branch("mixture", &mixture);
+    summary_tree->Branch("source", &source);
+    summary_tree->Branch("filter", &filter);
+    summary_tree->Branch("lv_setting", &lv_setting);
+    summary_tree->Branch("scanned_layer", &scanned_layer);
+    summary_tree->Branch("scanned_hv", &scanned_hv);
+    summary_tree->Branch("other_hv", &other_hv);
 
-    // Save efficiencies as graphs
     summary_tree->Branch("eff_eta1_external", eta1_efficiency_external_summary, "eff_eta1_external[3]/D");
     summary_tree->Branch("eff_eta2_external", eta2_efficiency_external_summary, "eff_eta2_external[3]/D");
     summary_tree->Branch("eff_or_external", eta_or_efficiency_external_summary, "eff_or_external[3]/D");
@@ -507,22 +510,27 @@ void DataAnalyzer::produceSummaryStats() {
     summary_tree->Branch("track_eff_or_rpc_error", track_eta_or_efficiency_rpc_error_summary, "track_eff_or_rpc_error[3]/D");
     summary_tree->Branch("track_eff_and_rpc_error", track_eta_and_efficiency_rpc_error_summary, "track_eff_and_rpc_error[3]/D");
 
+    summary_tree->Branch("avg_cluster_size_eta1", &avg_cluster_size_eta1);
+    summary_tree->Branch("avg_cluster_size_eta2", &avg_cluster_size_eta2);
+    summary_tree->Branch("avg_cluster_size_eta1_layers", avg_cluster_size_eta1_layers, "avg_cluster_size_eta1_layers[3]/D");
+    summary_tree->Branch("avg_cluster_size_eta2_layers", avg_cluster_size_eta2_layers, "avg_cluster_size_eta2_layers[3]/D");
+
     summary_tree->Branch("noise_rate", &noise_rate);
     summary_tree->Branch("noise_rate_eta1", noise_rate_eta1, "noise_rate_eta1[3]/D");
     summary_tree->Branch("noise_rate_eta2", noise_rate_eta2, "noise_rate_eta2[3]/D");
 
     // Process each measurement entry in this config file
-    for (const auto& entry : summary.entries) {
-        if (entry.root_file.empty()) {
-            std::cout << "Warning: Skipping entry '" << entry.name << "' due to missing ROOT file path." << std::endl;
+    for (const auto& metadata_entry : scan.metadata) {
+        if (metadata_entry.root_file.empty()) {
+            std::cout << "Warning: Skipping entry '" << metadata_entry.name << "' due to missing ROOT file path." << std::endl;
             continue;
         }
 
-        TFile* input_file = TFile::Open(entry.root_file.c_str(), "UPDATE");
+        TFile* input_file = TFile::Open(metadata_entry.root_file.c_str(), "UPDATE");
         if (!input_file || input_file->IsZombie()) {
-            std::cout << "Error: Failed to open ROOT file '" << entry.root_file << "' for entry '" << entry.name << "'. Skipping this entry." << std::endl;
+            std::cout << "Error: Failed to open ROOT file '" << metadata_entry.root_file << "' for entry '" << metadata_entry.name << "'. Skipping this entry." << std::endl;
             if (input_file) {
-                std::cout << "Closing and deleting invalid ROOT file object for entry '" << entry.name << "'." << std::endl;
+                std::cout << "Closing and deleting invalid ROOT file object for entry '" << metadata_entry.name << "'." << std::endl;
                 input_file->Close();
                 delete input_file;
             }
@@ -532,11 +540,19 @@ void DataAnalyzer::produceSummaryStats() {
         // Calculate and fill per-file relevant statistics for this measurement entry and save into the input ROOT file
         producePerFileStats(input_file);
 
-        // Extract relevant statistics from the input ROOT file for this measurement entry
-        PerFileStats stats;
-        stats.name = entry.name;
-        stats.layer = entry.layer;
-        stats.hv = entry.hv;
+        // Extract metadata values for this measurement entry
+        entry_name = metadata_entry.name;
+        measurement_type = metadata_entry.measurement_type;
+        mixture = metadata_entry.mixture;
+        source = metadata_entry.source;
+        filter = metadata_entry.filter;
+        lv_setting = metadata_entry.lv_setting;
+        scanned_layer = metadata_entry.scanned_layer;
+        scanned_hv = metadata_entry.scanned_hv;
+        other_hv = metadata_entry.other_hv;
+
+        // Extract relevant data/statistics from the input ROOT file for this measurement entry
+        MeasurementData stats;
 
         // Extract efficiency values from histograms for this measurement entry
         for (int layer = 0; layer < 3; ++layer) {
@@ -736,7 +752,7 @@ void DataAnalyzer::produceSummaryStats() {
             }
         }
 
-        // Calculate split noise rates using raw hit times from InputData
+        // Calculate noise rates per layer per side using raw hit times from InputData
         TTree* input_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
         TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
         if (input_tree && proc_tree) {
@@ -797,9 +813,6 @@ void DataAnalyzer::produceSummaryStats() {
             }
         }
 
-        entry_name = stats.name;
-        layer = stats.layer;
-        hv = stats.hv;
         avg_cluster_size_eta1 = stats.avg_cluster_size_eta1;
         avg_cluster_size_eta2 = stats.avg_cluster_size_eta2;
         for (int layer = 0; layer < 3; ++layer) {
@@ -850,15 +863,13 @@ void DataAnalyzer::produceSummaryStats() {
         }
         noise_rate = stats.noise_rate;
         summary_tree->Fill();
-        summary.per_file_stats.push_back(stats);
+        scan.data.push_back(stats);
 
         input_file->Close();
         delete input_file;
     }
 
-    summary_root.cd();
+    summary_root_file.cd();
     summary_tree->Write("", TObject::kOverwrite);
-    summary_root.Close();
-    summaries.push_back(std::move(summary));
-
+    summary_root_file.Close();
 }

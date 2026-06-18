@@ -21,6 +21,9 @@
 #include "types.hpp"
 #include "constants.hpp"
 
+#include "dataPlotter.hpp"
+#include "configParser.hpp"
+
 #include "event.hpp"
 #include "hit.hpp"
 #include "cluster.hpp"
@@ -28,11 +31,12 @@
 
 
 // ==========================================================================================
-// Analysis utility/helper namespaces for plotting and calculating statistics
+// Analysis utility/helper namespace for plotting and calculating statistics
 // ==========================================================================================
-/// @namespace Utilities
-/// @brief Namespace for utility functions used in the DataAnalyzer class
-namespace Utilities {
+/// @namespace perFileHelpers
+/// @brief Namespace for helper plotting functions producing per-filerelevant statistics
+/// for each measurement entry
+namespace perFileHelpers {
 
     /// @struct ColumnsShift
     /// @brief Struct to define the start and end of a column and the shift to apply
@@ -48,33 +52,6 @@ namespace Utilities {
     constexpr std::array<ColumnsShift, 1> columnShifts = {{
         {16, 31, -8} // Shifting strips 16-31 down by 8 to create a continuous range of 0-23
     }};
-
-    /// @brief Utility function to ensure a directory exists in the ROOT file and return a
-    /// pointer to it
-    /// @param parent Pointer to the parent directory where the new directory should be
-    /// created
-    /// @param name Pointer to the name of the directory to be created
-    /// @return Pointer to the created or existing directory, or nullptr if there was an
-    /// error
-    TDirectory* ensureDirectory(TDirectory* parent, const char* name);
-
-    /// @brief Utility function to setup the directory structure in the input ROOT file
-    /// @param input_file Pointer to the input ROOT file where the directory structure will
-    /// be created
-    /// @param overwrite Boolean flag to indicate whether to overwrite existing analysis
-    /// directory
-    void setupDirectories(TFile* input_file, bool overwrite);
-
-    /// @brief Utility function to remap raw strip numbers to a continuous range
-    /// @param rawStrip The raw strip number to be remapped
-    /// @return The remapped strip number for plotting
-    int remapStrip(int rawStrip);
-}
-
-/// @namespace perFileHelpers
-/// @brief Namespace for helper plotting functions producing per-filerelevant statistics
-/// for each measurement entry
-namespace perFileHelpers {
 
     /// @brief Helper function to plot strip 1D distributions for all hits and valid tracks
     /// @param input_file Pointer to the input ROOT file containing processed DCT data for
@@ -124,13 +101,8 @@ public:
     /// specific measurement entry
     void producePerFileStats(TFile* input_file);
 
-    // Getters
-    const std::vector<MeasurementEntry>& getEntries() const { return parsed_entries; }
-    const std::vector<SummaryStats>& getSummaries() const { return summaries; }
-
 private:
     std::string _config_path;
     std::filesystem::path _output_directory = std::filesystem::path("data/output");
-    std::vector<MeasurementEntry> parsed_entries;
-    std::vector<SummaryStats> summaries;
+    std::vector<MeasurementData> _measurement_data;
 };
