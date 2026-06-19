@@ -15,6 +15,7 @@ if [[ "$@" == *"--help"* ]] || [[ "$@" == *"-h"* ]]; then
     echo "  --config <config_file>  Path to the YAML config file"
     echo ""
     echo "OPTIONS:"
+    echo "  --recompile             Force recompilation of the main analysis executable before running"
     echo "  -h, --help              Display this help message"
     exit 0
 fi
@@ -27,11 +28,17 @@ fi
 
 # Process CLI arguments
 config_file=""
+recompile=false
+
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
         --config)
             config_file="$2"
             shift 2
+            ;;
+        --recompile)
+            recompile=true
+            shift
             ;;
         --help|-h)
             usage
@@ -58,8 +65,19 @@ echo "Root directory: $rootDir"
 
 # Recompile main C++ analysis executable if not already compiled
 cd "$rootDir"
-echo "Compiling main analysis executable..."
-make build
+if [ "$recompile" = true ]; then
+    echo "Recompilation requested. Cleaning previous builds..."
+    make clean
+    echo "Recompiling analysis executable..."
+    make -j$(nproc)
+else
+    if [ ! -f "$rootDir/bin/analysis" ]; then
+        echo "Analysis executable not found. Compiling..."
+        make -j$(nproc)
+    else
+        echo "Analysis executable already exists. Skipping compilation."
+    fi
+fi
 
 # Run analysis executable on the config file
 "$rootDir/bin/analysis" analyze --config "$config_file"

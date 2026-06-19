@@ -13,6 +13,7 @@ if [[ "$@" == *"--help"* ]] || [[ "$@" == *"-h"* ]]; then
     echo "  --configs <config_files...>  Space-separated paths to YAML config files"
     echo ""
     echo "OPTIONS:"
+    echo "  --recompile                  Force recompilation of the main analysis executable before running"
     echo "  -h, --help                   Display this help message"
     exit 0
 fi
@@ -24,6 +25,7 @@ if [ "$#" -lt 2 ]; then
 fi
 
 # Initialize an array to hold configuration files
+recompile=false
 config_files=()
 
 # Process CLI arguments
@@ -36,6 +38,10 @@ while [[ "$#" -gt 0 ]]; do
                 config_files+=("$1")
                 shift
             done
+            ;;
+        --recompile)
+            recompile=true
+            shift
             ;;
         --help|-h)
             usage
@@ -64,10 +70,21 @@ done
 rootDir="$(dirname "$(dirname "$(realpath "$0")")")"
 echo "Root directory: $rootDir"
 
-# Recompile main C++ analysis executable
+# Recompile main C++ analysis executable if requested, otherwise check if it exists
 cd "$rootDir"
-echo "Compiling main analysis executable..."
-make build
+if [ "$recompile" = true ]; then
+    echo "Recompilation requested. Cleaning previous builds..."
+    make clean
+    echo "Recompiling analysis executable..."
+    make -j$(nproc)
+else
+    if [ ! -f "$rootDir/bin/analysis" ]; then
+        echo "Analysis executable not found. Compiling..."
+        make -j$(nproc)
+    else
+        echo "Analysis executable already exists. Skipping compilation."
+    fi
+fi
 
 # Construct the exact multi-config argument syntax your C++ binary expects
 # e.g., --config path1.yaml --config path2.yaml
