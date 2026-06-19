@@ -1,5 +1,5 @@
 import argparse
-import re, os
+import re
 import sys
 
 import json
@@ -9,15 +9,19 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 
-# Match timestamps in formats like "YYYY-MM-DD_HH-MM-SS", "YYYY-MM-DD-HH-MM-SS", 
-# "YYYY-MM-DD_HH_MM_SS", "YYYY-MM-DD-HH_MM_SS", and with optional seconds
+# Match timestamps in formats like "YYYY-MM-DD_HH-MM-SS",
+# "YYYY-MM-DD-HH-MM-SS", "YYYY-MM-DD_HH_MM_SS",
+# "YYYY-MM-DD-HH_MM_SS", and with optional seconds
 TIMESTAMP_RE = re.compile(
-    r"(?P<date>\d{4}-\d{2}-\d{2})[_-](?P<hh>\d{2})[-_](?P<mm>\d{2})(?:[-_](?P<ss>\d{2}))?"
+    r"(?P<date>\d{4}-\d{2}-\d{2})[_-](?P<hh>\d{2})[-_](?P<mm>\d{2})"
+    r"(?:[-_](?P<ss>\d{2}))?"
 )
+
 
 def normalizeTimestamp(name: str) -> Optional[str]:
     match = TIMESTAMP_RE.search(name)
-    if not match: return None
+    if not match:
+        return None
 
     date = match.group("date")
     hh = match.group("hh")
@@ -25,16 +29,20 @@ def normalizeTimestamp(name: str) -> Optional[str]:
     ss = match.group("ss") or "00"
     return f"{date}_{hh}_{mm}_{ss}"
 
+
 # Match measurement types based on keywords in the name
 typesMap = {"longrun": ["longrun", "long_run"],
             "noise scan": ["noise"],
             "efficiency scan": ["layer"],
             "debug": ["debug", "test", "prova"]}
+
+
 def parseMeasurementType(lowerName: str) -> Optional[str]:
     for type_name, keywords in typesMap.items():
         if any(keyword in lowerName for keyword in keywords):
             return type_name
     return None
+
 
 # Match mixture types based on keywords like "std", "mix1", "mix2", etc.
 def parseMixtureType(lowerName: str) -> Optional[str]:
@@ -45,18 +53,24 @@ def parseMixtureType(lowerName: str) -> Optional[str]:
         return "std"
     return match.group(2)
 
+
 # Match source status based on keywords like "sourceon", "source_off", etc.
 sourceMap = {"ON": ["sourceon", "source_on", "source-on"],
              "OFF": ["sourceoff", "source_off", "source-off"]}
+
+
 def parseSource(lowerName: str) -> Optional[str]:
     for status, keywords in sourceMap.items():
         if any(keyword in lowerName for keyword in keywords):
             return status
     return None
 
+
 # Match filter settings based on patterns like "absX", "abs_X", "abs-X_Y", etc.
 def parseFilterSetting(lowerName: str) -> Optional[float]:
-    match = re.search(r"(?:^|[_-])abs[_-]?(\d+(?:[_-]\d+)*)(?:$|[_-])", lowerName)
+    match = re.search(
+        r"(?:^|[_-])abs[_-]?(\d+(?:[_-]\d+)*)(?:$|[_-])",
+        lowerName)
     if not match:
         return None
     token = match.group(1)
@@ -65,6 +79,7 @@ def parseFilterSetting(lowerName: str) -> Optional[float]:
         if len(parts) >= 2:
             return float(f"{parts[0]}.{parts[1]}")
     return float(token)
+
 
 # Match high voltage settings based on patterns like "HVXXX" and "lyXY_HVXXX"
 def parseVoltages(name: str) -> Tuple[Optional[int], Optional[int]]:
@@ -80,28 +95,37 @@ def parseVoltages(name: str) -> Tuple[Optional[int], Optional[int]]:
         other = scanned
     return scanned, other
 
+
 # Match LV settings based on given patterns
 lvPatternMap = {"LVset": r"(?:^|[_-])lvset(\d+)(?:$|[_-])",
                 "LV": r"(?:^|[_-])lv(\d+)(?:$|[_-])",
                 "LVsetting": r"(?:^|[_-])lvsetting(\d+)(?:$|[_-])"}
+
+
 def parseLVSetting(lowerName: str) -> Optional[int]:
     match = re.search(r"(?:^|[_-])lvset(\d+)(?:$|[_-])", lowerName)
-    if match: return int(match.group(1))
+    if match:
+        return int(match.group(1))
     match = re.search(r"(?:^|[_-])lv(\d+)(?:$|[_-])", lowerName)
     return int(match.group(1)) if match else None
+
 
 # Index raw data directories
 def indexRawData(raw_dir: Path) -> Dict[str, List[str]]:
     index: Dict[str, List[str]] = {}
     for path in raw_dir.rglob("*"):
-        if not path.is_dir(): continue
+        if not path.is_dir():
+            continue
 
         ts = normalizeTimestamp(path.name)
-        if not ts: continue
+        if not ts:
+            continue
 
         files = [str(p) for p in path.iterdir() if p.is_file()]
-        if files: index[ts] = files
+        if files:
+            index[ts] = files
     return index
+
 
 # Load existing JSON data if necessary
 def loadExisting(output_path: Path) -> Dict:
@@ -114,23 +138,28 @@ def loadExisting(output_path: Path) -> Dict:
     except json.JSONDecodeError:
         return {}
 
-# Build the info dictionary for a measurement file, extracting all relevant metadata.
+
+# Build the info dictionary for a measurement file, extracting all relevant
+# metadata.
 def buildInfo(
-    measure_path: Path,
+    plot_path: Path,
     raw_paths: List[str],
     context_name: str,
 ) -> "OrderedDict[str, object]":
 
     # Pass lowercase name to some parsers for consistent matching
-    name = measure_path.name
+    name = plot_path.name
     lower_context_name = context_name.lower()
 
     scan_type = parseMeasurementType(lower_context_name)
     mixture = parseMixtureType(lower_context_name)
     lv_setting = parseLVSetting(lower_context_name)
     source = parseSource(lower_context_name)
-    filter_setting = parseFilterSetting(lower_context_name) if source == "ON" else None
-    if scan_type == "noise scan" and source == "ON": scan_type = "source scan"
+    filter_setting = (
+        parseFilterSetting(lower_context_name) if source == "ON" else None
+    )
+    if scan_type == "noise scan" and source == "ON":
+        scan_type = "source scan"
     scanned_voltage, other_voltage = parseVoltages(name)
 
     info = OrderedDict()
@@ -140,8 +169,9 @@ def buildInfo(
     info["source_status"] = source
     info["filter"] = filter_setting
     info["scanned_hv"] = scanned_voltage
-    if scan_type != "noise scan": info["other_hv"] = other_voltage
-    info["path_plot"] = str(measure_path)
+    if scan_type != "noise scan":
+        info["other_hv"] = other_voltage
+    info["path_plot"] = str(plot_path)
     info["path_raw"] = raw_paths
     return info
 
@@ -157,15 +187,19 @@ def warnIfConflict(
         return
     if file_value != dir_value:
         print(
-            f"Warning: {field_name} conflict between file '{file_name}' and dir '{dir_name}'",
+            f"Warning: {field_name} conflict between file '{file_name}' "
+            f"and dir '{dir_name}'",
             file=sys.stderr,
         )
 
+
 # Arguments parserer
 def buildParser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Match measurement files to raw data by timestamp.")
+    parser = argparse.ArgumentParser(
+        description="Match plot PDF files (with comments in the names) "
+        "to raw data by timestamp.")
     parser.add_argument(
-        "--measure-dir",
+        "--plots-dir",
         "-m",
         required=True, help="Directory with measurement files.")
     parser.add_argument(
@@ -190,7 +224,7 @@ def main() -> int:
 
     args = buildParser().parse_args()
 
-    measure_dir = Path(args.measure_dir).expanduser().resolve()
+    plots_dir = Path(args.plots_dir).expanduser().resolve()
     raw_dir = Path(args.raw_dir).expanduser().resolve()
     output_path = Path(args.output).expanduser().resolve()
 
@@ -201,36 +235,51 @@ def main() -> int:
         existing = loadExisting(output_path)
         merged = dict(existing)
 
-    for measure_path in sorted(measure_dir.rglob("*")):
-        if not measure_path.is_file(): continue
+    for plot_path in sorted(plots_dir.rglob("*")):
+        if not plot_path.is_file():
+            continue
 
-        relative_parts = measure_path.relative_to(measure_dir).parts
+        relative_parts = plot_path.relative_to(plots_dir).parts
         relative_name = "_".join(relative_parts)
         dir_name = "_".join(relative_parts[:-1])
-        measurement_name = measure_path.stem
+        measurement_name = plot_path.stem
 
-        ts = normalizeTimestamp(measure_path.name)
-        if not ts: continue
+        ts = normalizeTimestamp(plot_path.name)
+        if not ts:
+            continue
 
-        file_lower = measure_path.name.lower()
+        file_lower = plot_path.name.lower()
         dir_lower = dir_name.lower() if dir_name else ""
-        warnIfConflict("type", parseMeasurementType(file_lower), parseMeasurementType(dir_lower), measure_path.name, dir_name)
-        warnIfConflict("mixture", parseMixtureType(file_lower), parseMixtureType(dir_lower), measure_path.name, dir_name)
-        warnIfConflict("lv_setting", parseLVSetting(file_lower), parseLVSetting(dir_lower), measure_path.name, dir_name)
-        warnIfConflict("source_status", parseSource(file_lower), parseSource(dir_lower), measure_path.name, dir_name)
-        warnIfConflict("filter", parseFilterSetting(file_lower), parseFilterSetting(dir_lower), measure_path.name, dir_name)
+        warnIfConflict("type", parseMeasurementType(file_lower),
+                       parseMeasurementType(dir_lower),
+                       plot_path.name, dir_name)
+        warnIfConflict("mixture", parseMixtureType(file_lower),
+                       parseMixtureType(dir_lower),
+                       plot_path.name, dir_name)
+        warnIfConflict("lv_setting", parseLVSetting(file_lower),
+                       parseLVSetting(dir_lower),
+                       plot_path.name, dir_name)
+        warnIfConflict("source_status", parseSource(file_lower),
+                       parseSource(dir_lower),
+                       plot_path.name, dir_name)
+        warnIfConflict("filter", parseFilterSetting(file_lower),
+                       parseFilterSetting(dir_lower),
+                       plot_path.name, dir_name)
 
         raw_paths = raw_index.get(ts)
-        if not raw_paths: continue
+        if not raw_paths:
+            continue
 
-        if ts not in merged: merged[ts] = OrderedDict()
+        if ts not in merged:
+            merged[ts] = OrderedDict()
 
-        info = buildInfo(measure_path, sorted(raw_paths), relative_name)
+        info = buildInfo(plot_path, sorted(raw_paths), relative_name)
         merged[ts][measurement_name] = info
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as handle:
-        sorted_merged = OrderedDict(sorted(merged.items(), key=lambda item: item[0]))
+        sorted_merged = OrderedDict(
+            sorted(merged.items(), key=lambda item: item[0]))
         json.dump(sorted_merged, handle, indent=4)
         handle.write("\n")
 

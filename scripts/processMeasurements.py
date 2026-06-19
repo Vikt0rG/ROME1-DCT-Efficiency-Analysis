@@ -8,6 +8,7 @@ import yaml
 
 import argparse
 
+
 # Safely extract tar files to prevent path traversal vulnerabilities
 def safe_extract(tar, path):
     for member in tar.getmembers():
@@ -18,6 +19,7 @@ def safe_extract(tar, path):
             raise RuntimeError(f"Unsafe path in tar: {member.name}")
     tar.extractall(path)
 
+
 # Find the bin_data_files.tar.gz in the list of raw files
 def find_bin_tar(raw_files):
     for item in raw_files:
@@ -25,12 +27,14 @@ def find_bin_tar(raw_files):
             return item
     return None
 
+
 # Check if there is a compressed tarball containing text files
 def find_text_tar(raw_files):
     for item in raw_files:
         if "text_data_files.tar.gz" in item:
             return item
     return None
+
 
 # Check if there is directly an uncompressed txt file
 def find_raw_txt(raw_files, name):
@@ -43,12 +47,16 @@ def find_raw_txt(raw_files, name):
             return file
     return None
 
+
 # Check if a path exists, or if it can be found in the fallback directory
 def resolve_path(path, fallback_dir):
-    if not path: return None
-    if os.path.exists(path): return path
+    if not path:
+        return None
+    if os.path.exists(path):
+        return path
     candidate = os.path.join(fallback_dir, os.path.basename(path))
     return candidate if os.path.exists(candidate) else None
+
 
 # Collect all entries from the config's data section
 def collect_entries(config):
@@ -73,22 +81,33 @@ def normalize_raw_files(raw_files):
         expanded = []
         for item in raw_files:
             if isinstance(item, str) and os.path.isdir(item):
-                expanded.extend(os.path.join(item, f) for f in os.listdir(item))
+                expanded.extend(
+                    os.path.join(item, f) for f in os.listdir(item)
+                )
             else:
                 expanded.append(item)
         return expanded
     return []
 
+
 # Parse command-line arguments
 def parse_args():
-    parser = argparse.ArgumentParser(description="Process measurement configs into ROOT files.")
+    parser = argparse.ArgumentParser(
+        description="Process measurement configs into ROOT files."
+    )
     parser.add_argument("configs", nargs="+", help="Config YAML file(s)")
-    parser.add_argument("--dt-max", type=int, default=-100, help="Max time window (default: -100)")
-    parser.add_argument("--dt-min", type=int, default=-180, help="Min time window (default: -180)")
-    parser.add_argument("--no-external", action="store_true", help="Disable external trigger usage in analysis")
-    parser.add_argument("--force", action="store_true", help="Rebuild txt/root even if they exist")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--dt-max", type=int, default=-100,
+                        help="Max time window (default: -100)")
+    parser.add_argument("--dt-min", type=int, default=-180,
+                        help="Min time window (default: -180)")
+    parser.add_argument("--no-external", action="store_true",
+                        help="Disable external trigger usage in analysis")
+    parser.add_argument("--force", action="store_true",
+                        help="Rebuild txt/root even if they exist")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="Enable verbose logging")
     return parser.parse_args()
+
 
 # Main processing function
 def main():
@@ -130,24 +149,31 @@ def main():
         config_changed = False
         for entry in collect_entries(config):
             name = entry.get("name")
-            raw_files = normalize_raw_files(entry.get("raw files", entry.get("path_raw", [])))
+            raw_files = normalize_raw_files(
+                entry.get("raw files", entry.get("path_raw", []))
+            )
             if not name or not raw_files:
                 continue
 
-            # If a finalized txt already exists, skip re-processing unless forced
+            # If a finalized txt already exists, skip re-processing unless
+            # forced
             expected_txt = os.path.join(target_txt_dir, f"{name}.txt")
             if os.path.exists(expected_txt) and not args.force:
-                vprint(f"Skipping raw processing; txt already exists: {expected_txt}")
+                vprint(
+                    f"Skipping raw processing; txt already exists: {expected_txt}"
+                )
                 txt_paths = [expected_txt]
             else:
-                # Step 5: Determine the txt source (raw txt -> text tar -> bin tar)
+                # Step 5: Determine the txt source
+                # (raw txt -> text tar -> bin tar)
                 raw_txt_path = find_raw_txt(raw_files, name)
                 text_tar_path = find_text_tar(raw_files)
                 bin_tar_path = find_bin_tar(raw_files)
 
                 txt_paths = []
 
-                # Check if the source raw txt file exists or can be found in the fallback directory
+                # Check if the source raw txt file exists or can be found in
+                # the fallback directory
                 if raw_txt_path:
                     source_txt = resolve_path(raw_txt_path, target_txt_dir)
                     if not source_txt:
@@ -158,11 +184,13 @@ def main():
                     target_txt = os.path.join(target_txt_dir, f"{name}.txt")
                     if os.path.abspath(source_txt) != os.path.abspath(target_txt):
 
-                        # If the target already exists and --force is not set, skip moving
+                        # If the target already exists and --force is not set,
+                        # skip moving
                         if os.path.exists(target_txt) and not args.force:
                             pass
                         else:
-                            # Remove existing target for --force if it exists to avoid issues with shutil.copy2
+                            # Remove existing target for --force if it exists
+                            # to avoid issues with shutil.copy2
                             if os.path.exists(target_txt):
                                 os.remove(target_txt)
                             shutil.copy2(source_txt, target_txt)
@@ -172,7 +200,8 @@ def main():
 
                     txt_paths = [target_txt]
 
-                    # Cleanup any tar files that might have been used in this process to avoid confusion later
+                    # Cleanup any tar files that might have been used in this
+                    # process to avoid confusion later
                     for cleanup_path in (text_tar_path, bin_tar_path):
                         resolved = resolve_path(cleanup_path, target_bin_dir)
                         if resolved and os.path.abspath(resolved).startswith(root_dir):
@@ -251,7 +280,10 @@ def main():
                         continue
 
                     for pcap in pcap_paths:
-                        txt_path = os.path.join(target_txt_dir, os.path.basename(pcap).replace(".pcapng", ".txt"))
+                        txt_path = os.path.join(
+                            target_txt_dir,
+                            os.path.basename(pcap).replace(".pcapng", ".txt")
+                        )
                         txt_paths.append(txt_path)
                         if os.path.exists(txt_path) and not args.force:
                             continue
@@ -283,7 +315,6 @@ def main():
                 if os.path.exists(expected_txt) and expected_txt not in txt_paths:
                     txt_paths.append(expected_txt)
 
-
             # Step 7: Run analysis and write ROOT output
             root_path = os.path.join(target_root_dir, f"{name}.root")
             if os.path.exists(root_path) and not args.force:
@@ -291,12 +322,17 @@ def main():
 
             existing_txt = [p for p in txt_paths if os.path.exists(p)]
             if len(existing_txt) != 1:
-                raise ValueError(f"Expected 1 txt for {name}, found {len(existing_txt)}. Skipping analysis.")
-                
+                raise ValueError(
+                    f"Expected 1 txt for {name}, found {len(existing_txt)}.",
+                    "Skipping analysis."
+                )
+
                 continue
 
             command = "process"
-            analysis_cmd = [analysis_bin, command, existing_txt[0], str(args.dt_max), str(args.dt_min)]
+            analysis_cmd = [analysis_bin, command,
+                            existing_txt[0],
+                            str(args.dt_max), str(args.dt_min)]
             if args.no_external:
                 analysis_cmd.append("--no-external")
 
