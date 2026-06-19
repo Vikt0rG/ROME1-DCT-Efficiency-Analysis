@@ -6,13 +6,10 @@ import argparse
 
 from collections import OrderedDict
 from pathlib import Path
-from sys import prefix
 from typing import Any, Dict, List, Optional, Tuple
 
-from matplotlib import lines, text
-from numpy import info
-
 # Read matched JSON data and build YAML configs for each group of measurements
+
 
 def loadJSON(path: Path) -> Dict[str, Dict[str, Dict[str, Any]]]:
     with path.open("r", encoding="utf-8") as handle:
@@ -20,7 +17,8 @@ def loadJSON(path: Path) -> Dict[str, Dict[str, Dict[str, Any]]]:
 
 
 def formatFilterToken(value: Optional[float]) -> str:
-    if value is None: return "NONE"
+    if value is None:
+        return "NONE"
     text = f"{value}"
     return text.replace(".", "_")
 
@@ -78,9 +76,11 @@ def groupEntries(data: Dict[str, Dict[str, Dict[str, Any]]]) -> Dict[Tuple, List
 
             entry = OrderedDict()
             entry["name"] = measurement_name
-            if measurement_type != "noise scan" and measurement_type != "source scan": entry["layer"] = parseLayer(measurement_name)
+            if measurement_type != "noise scan" and measurement_type != "source scan":
+                entry["layer"] = parseLayer(measurement_name)
             entry["scanned_hv"] = info.get("scanned_hv")
-            if "other_hv" in info: entry["other_hv"] = info.get("other_hv")
+            if "other_hv" in info:
+                entry["other_hv"] = info.get("other_hv")
             entry["path_plot"] = info.get("path_plot")
             entry["path_raw"] = info.get("path_raw")
 
@@ -89,9 +89,12 @@ def groupEntries(data: Dict[str, Dict[str, Dict[str, Any]]]) -> Dict[Tuple, List
 
 
 def yamlScalar(value: Any) -> str:
-    if value is None: return "null"
-    if isinstance(value, bool): return "true" if value else "false"
-    if isinstance(value, (int, float)): return str(value)
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
     text = str(value)
     if text == "" or re.search(r"[:#\n]", text) or text.strip() != text:
         escaped = text.replace("\\", "\\\\").replace('"', '\\"')
@@ -203,6 +206,7 @@ def parseArgs() -> argparse.Namespace:
         help="Directory to write YAML configs."
     )
     return parser.parse_args()
+
 
 def main() -> int:
     args = parseArgs()
