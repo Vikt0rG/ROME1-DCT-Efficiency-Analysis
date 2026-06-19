@@ -102,21 +102,21 @@ int main(int argc, char** argv) {
 
     // Command 3: Produce summary plots from processed data
     if (command == "plotter") {
-        std::string config_file;
+        std::vector<std::string> config_paths;
         for (int i = 2; i < argc; ++i) {
             std::string arg = argv[i];
             if (arg == "--config" && i + 1 < argc) {
-                config_file = argv[++i];
+                config_paths.push_back(argv[++i]);
             }
         }
 
-        if (config_file.empty()) {
-            std::cerr << "Usage: " << argv[0] << " plotter --config <config_file>" << std::endl;
+        if (config_paths.empty()) {
+            std::cerr << "Usage: " << argv[0] << " plotter --config <config_files>" << std::endl;
             return 1;
         }
 
         try {
-            DataPlotter plotter(config_file);
+            DataPlotter plotter(config_paths);
             plotter.produceSummaryPlots();
         } catch (const std::exception& e) {
             std::cerr << "Error plotting data: " << e.what() << std::endl;

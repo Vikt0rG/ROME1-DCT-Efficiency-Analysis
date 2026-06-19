@@ -1,0 +1,81 @@
+#!/bin/bash
+usage() {
+    echo "Usage: $0 --configs <config_file1> <config_file2> ..."
+    echo "Use --help for more information."
+    exit 1
+}
+
+# Check for help flag first
+if [[ "$@" == *"--help"* ]] || [[ "$@" == *"-h"* ]]; then
+    echo "Script usage: $0 --configs <config_files...>"
+    echo ""
+    echo "REQUIRED ARGUMENTS:"
+    echo "  --configs <config_files...>  Space-separated paths to YAML config files"
+    echo ""
+    echo "OPTIONS:"
+    echo "  -h, --help                   Display this help message"
+    exit 0
+fi
+
+# Check for minimum required arguments
+if [ "$#" -lt 2 ]; then
+    echo "ERROR: Missing required arguments."
+    usage
+fi
+
+# Initialize an array to hold configuration files
+config_files=()
+
+# Process CLI arguments
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        --configs)
+            shift
+            # Keep pulling files until hitting another option or running out of arguments
+            while [[ "$#" -gt 0 && ! "$1" =~ ^- ]]; do
+                config_files+=("$1")
+                shift
+            done
+            ;;
+        --help|-h)
+            usage
+            ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            ;;
+    esac
+done
+
+# Validate captured config files
+if [ ${#config_files[@]} -eq 0 ]; then
+    echo "ERROR: At least one configuration file is required via --configs."
+    usage
+fi
+
+# Verify every single passed configuration file exists
+for config in "${config_files[@]}"; do
+    if [ ! -e "$config" ]; then
+        echo "ERROR: Config file '$config' does not exist."
+        exit 1
+    fi
+done
+
+rootDir="$(dirname "$(dirname "$(realpath "$0")")")"
+echo "Root directory: $rootDir"
+
+# Recompile main C++ analysis executable
+cd "$rootDir"
+echo "Compiling main analysis executable..."
+make build
+
+# Construct the exact multi-config argument syntax your C++ binary expects
+# e.g., --config path1.yaml --config path2.yaml
+cpp_args=()
+for config in "${config_files[@]}"; do
+    cpp_args+=("--config" "$config")
+done
+
+echo "Executing plotter with ${#config_files[@]} configurations..."
+# Run analysis executable with the expanded arguments array
+"$rootDir/bin/analysis" plotter "${cpp_args[@]}"
