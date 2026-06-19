@@ -33,22 +33,37 @@ namespace PlotterHelpers {
 
 // Anonymous namespace for internal helpers & ATLAS styling
 namespace {
-    void drawATLASLabel(double x, double y, const std::string& status) {
+    void drawATLASLabel(double x_offset, double y_offset, const std::string& status) {
+        // Fallback defaults if no active canvas pad is found
+        double left_margin = 0.16;
+        double top_margin = 0.06;
+
+        // Dynamically fetch the current margins set on the active canvas/pad
+        if (gPad) {
+            left_margin = gPad->GetLeftMargin();
+            top_margin = gPad->GetTopMargin();
+        }
+
+        // Convert relative offset into absolute Canvas NDC coordinates
+        double final_x = left_margin + x_offset;
+        double final_y = (1.0 - top_margin) - y_offset;
+
         TLatex l;
         l.SetNDC();
         l.SetTextFont(72); // Bold-Italic Helvetica for "ATLAS"
         l.SetTextColor(kBlack);
         l.SetTextSize(0.04);
-        l.DrawLatex(x, y, "ATLAS");
+        l.DrawLatex(final_x, final_y, "ATLAS");
 
         if (!status.empty()) {
             TLatex s;
             s.SetNDC();
-            s.SetTextFont(42); // Standard Helvetica for the status text
+            s.SetTextFont(42); // Standard Helvetica for status text
             s.SetTextColor(kBlack);
             s.SetTextSize(0.04);
+            
             // Offset slightly to the right of "ATLAS"
-            s.DrawLatex(x + 0.13, y, status.c_str()); 
+            s.DrawLatex(final_x + 0.12, final_y, status.c_str()); 
         }
     }
 
@@ -56,6 +71,11 @@ namespace {
         TAxis* xAxis = nullptr;
         TAxis* yAxis = nullptr;
         TAxis* zAxis = nullptr;
+
+        if (gPad) {
+            gPad->SetTickx(1); // 1 = Draw ticks on top side
+            gPad->SetTicky(1); // 1 = Draw ticks on right side
+        }
 
         // Safely extract axes depending on the object type
         if (auto h = dynamic_cast<TH1*>(obj)) {
@@ -88,12 +108,14 @@ namespace {
             xAxis->SetLabelSize(0.04);
             xAxis->SetTitleSize(0.05);
             xAxis->SetTitleOffset(1.1);
+            xAxis->SetNdivisions(510, kTRUE);
 
             yAxis->SetLabelFont(42);
             yAxis->SetTitleFont(42);
             yAxis->SetLabelSize(0.04);
             yAxis->SetTitleSize(0.05);
             yAxis->SetTitleOffset(1.3);
+            yAxis->SetNdivisions(510, kTRUE);
         }
 
         if (zAxis) {
@@ -150,7 +172,7 @@ namespace {
 
                 // Apply cosmetics & branding
                 applyATLASStyle(obj);
-                drawATLASLabel(0.19, 0.88, "Internal");
+                drawATLASLabel(0.05, 0.07, "Work in Progress");
 
                 // Construct clean output file string
                 std::string safe_name = obj->GetName();
@@ -252,34 +274,18 @@ void DataPlotter::produceSummaryPlots() {
         "eff_eta2_external",
         "eff_or_external",
         "eff_and_external",
-        "eff_eta1_external_error",
-        "eff_eta2_external_error",
-        "eff_or_external_error",
-        "eff_and_external_error",
         "eff_eta1_rpc",
         "eff_eta2_rpc",
         "eff_or_rpc",
         "eff_and_rpc",
-        "eff_eta1_rpc_error",
-        "eff_eta2_rpc_error",
-        "eff_or_rpc_error",
-        "eff_and_rpc_error",
         "track_eff_eta1_external",
         "track_eff_eta2_external",
         "track_eff_or_external",
         "track_eff_and_external",
-        "track_eff_eta1_external_error",
-        "track_eff_eta2_external_error",
-        "track_eff_or_external_error",
-        "track_eff_and_external_error",
         "track_eff_eta1_rpc",
         "track_eff_eta2_rpc",
         "track_eff_or_rpc",
         "track_eff_and_rpc",
-        "track_eff_eta1_rpc_error",
-        "track_eff_eta2_rpc_error",
-        "track_eff_or_rpc_error",
-        "track_eff_and_rpc_error",
 
         "avg_cluster_size_eta1_layers",
         "avg_cluster_size_eta2_layers",
@@ -333,9 +339,12 @@ void DataPlotter::produceSummaryPlots() {
         TTreeReaderValue<double> other_hv(readerSummary, "other_hv");
 
         std::vector<std::unique_ptr<TTreeReaderArray<double>>> layer_arrays;
+        std::vector<std::unique_ptr<TTreeReaderArray<double>>> layer_error_arrays;
         layer_arrays.reserve(layer_metrics.size());
+        layer_error_arrays.reserve(layer_metrics.size());
         for (const auto& name : layer_metrics) {
             layer_arrays.push_back(std::make_unique<TTreeReaderArray<double>>(readerSummary, name.c_str()));
+            layer_error_arrays.push_back(std::make_unique<TTreeReaderArray<double>>(readerSummary, (name + "_error").c_str()));
         }
 
         std::vector<std::unique_ptr<TTreeReaderValue<double>>> scalar_values;
@@ -356,6 +365,8 @@ void DataPlotter::produceSummaryPlots() {
             for (size_t i = 0; i < layer_metrics.size(); ++i) {
                 const auto& metric_name = layer_metrics[i];
                 const auto& values = *layer_arrays[i];
+                const auto& errors = *layer_error_arrays[i];
+
                 if (layer_series.find(metric_name) == layer_series.end()) {
                     layer_series.emplace(metric_name, Utilities::LayerSeries{});
                 }
@@ -363,8 +374,10 @@ void DataPlotter::produceSummaryPlots() {
                     const double x_value = (layer == scanned_layer_value) ? scanned_hv_value : other_hv_value;
                     layer_series[metric_name].x[layer].push_back(x_value);
                     layer_series[metric_name].y[layer].push_back(values[layer]);
+                    layer_series[metric_name].y_errors[layer].push_back(errors[layer]);
                 }
             }
+
             // Populate scalar metrics
             auto& scalar_x = scalar_x_by_scan[scanned_layer_value];
             auto& scalar_y = scalar_y_by_scan[scanned_layer_value];
@@ -417,23 +430,27 @@ void DataPlotter::produceSummaryPlots() {
                 metric_dir->cd();
                 
                 TMultiGraph* multi_graph = new TMultiGraph();
-                // Give it a highly unique name combining scan environment and metric name
-                std::string mg_unique_name = "scanned_layer" + std::to_string(scan_layer) + "_" + metric_name;
-                multi_graph->SetName(mg_unique_name.c_str());
-                std::string title_str = metric_name + "_scanned_layer" + std::to_string(scan_layer) + ";HV;Value";
+                multi_graph->SetName(metric_name.c_str());
+                std::string title_str = metric_name + ";HV;Value";
                 multi_graph->SetTitle(title_str.c_str());
 
                 // Inner Loop: Iterate through layers (0, 1, 2)
                 for (int layer = 0; layer < 3; ++layer) {
                     const auto& xs = series.x[layer];
                     const auto& ys = series.y[layer];
+                    const auto& y_errors = series.y_errors[layer];
                     if (xs.empty()) { continue; }
                     
-                    TGraph* layer_graph = new TGraph(static_cast<int>(xs.size()), xs.data(), ys.data());
+                    TGraphErrors* layer_graph = new TGraphErrors(
+                        static_cast<int>(xs.size()),
+                        xs.data(), 
+                        ys.data(),
+                        nullptr,
+                        y_errors.data()
+                    );
                     
                     // Name reflects the physical layer being recorded
-                    std::string layer_graph_name = mg_unique_name + "_layer" + std::to_string(layer);
-                    layer_graph->SetName(layer_graph_name.c_str());
+                    layer_graph->SetName(metric_name.c_str());
                     layer_graph->SetMarkerStyle(20 + layer);
                     layer_graph->SetMarkerColor(1 + layer);
                     layer_graph->SetLineColor(1 + layer);
@@ -460,6 +477,7 @@ void DataPlotter::produceSummaryPlots() {
         }
     }   // End of loop over configs
     analysis_root->Close();
+    delete analysis_root;
 }
 
 /*

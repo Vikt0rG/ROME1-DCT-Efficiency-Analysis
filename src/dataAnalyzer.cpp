@@ -374,9 +374,12 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
     perFileHelpers::plotToTVsStrip(input_file);
     perFileHelpers::plotMultiplicityAndDelayVsStrip(input_file);
 
+    // Write analysis directory into the file
+    input_file->Write();
+
     // Export per-file plots to PDF
     std::string root_file_path = input_file->GetName();
-    std::string target_plots_dir = (_output_directory / "plots").string();
+    std::string target_plots_dir = (_output_directory / "plots" / std::filesystem::path(input_file->GetName()).stem()).string();
     PlotterHelpers::autoExportToATLASPDF(root_file_path, target_plots_dir);
 }
 
@@ -457,11 +460,20 @@ void DataAnalyzer::produceSummaryStats() {
     double noise_rate_eta1[3] = {0.0, 0.0, 0.0};
     double noise_rate_eta2[3] = {0.0, 0.0, 0.0};
 
+    double noise_rate_error = 0.0;
+    double noise_rate_eta1_error[3] = {0.0, 0.0, 0.0};
+    double noise_rate_eta2_error[3] = {0.0, 0.0, 0.0};
+
     // Both scans relevant statistics
-    double avg_cluster_size_eta2 = 0.0;
     double avg_cluster_size_eta1 = 0.0;
+    double avg_cluster_size_eta2 = 0.0;
     double avg_cluster_size_eta1_layers[3] = {0.0, 0.0, 0.0};
     double avg_cluster_size_eta2_layers[3] = {0.0, 0.0, 0.0};
+
+    double avg_cluster_size_eta1_error = 0.0;
+    double avg_cluster_size_eta2_error = 0.0;
+    double avg_cluster_size_eta1_layers_error[3] = {0.0, 0.0, 0.0};
+    double avg_cluster_size_eta2_layers_error[3] = {0.0, 0.0, 0.0};
 
     // Set up branches for the summary tree
     summary_tree->Branch("name", &entry_name);
@@ -514,10 +526,17 @@ void DataAnalyzer::produceSummaryStats() {
     summary_tree->Branch("avg_cluster_size_eta2", &avg_cluster_size_eta2);
     summary_tree->Branch("avg_cluster_size_eta1_layers", avg_cluster_size_eta1_layers, "avg_cluster_size_eta1_layers[3]/D");
     summary_tree->Branch("avg_cluster_size_eta2_layers", avg_cluster_size_eta2_layers, "avg_cluster_size_eta2_layers[3]/D");
+    summary_tree->Branch("avg_cluster_size_eta1_error", &avg_cluster_size_eta1_error);
+    summary_tree->Branch("avg_cluster_size_eta2_error", &avg_cluster_size_eta2_error);
+    summary_tree->Branch("avg_cluster_size_eta1_layers_error", avg_cluster_size_eta1_layers_error, "avg_cluster_size_eta1_layers_error[3]/D");
+    summary_tree->Branch("avg_cluster_size_eta2_layers_error", avg_cluster_size_eta2_layers_error, "avg_cluster_size_eta2_layers_error[3]/D");
 
     summary_tree->Branch("noise_rate", &noise_rate);
     summary_tree->Branch("noise_rate_eta1", noise_rate_eta1, "noise_rate_eta1[3]/D");
     summary_tree->Branch("noise_rate_eta2", noise_rate_eta2, "noise_rate_eta2[3]/D");
+    summary_tree->Branch("noise_rate_error", &noise_rate_error, "noise_rate_error[3]/D");
+    summary_tree->Branch("noise_rate_eta1_error", noise_rate_eta1_error, "noise_rate_eta1_error[3]/D");
+    summary_tree->Branch("noise_rate_eta2_error", noise_rate_eta2_error, "noise_rate_eta2_error[3]/D");
 
     // Process each measurement entry in this config file
     for (const auto& metadata_entry : scan.metadata) {
