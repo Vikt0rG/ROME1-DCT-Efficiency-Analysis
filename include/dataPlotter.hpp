@@ -37,10 +37,6 @@
 #include "utils.hpp"
 #include "configParser.hpp"
 
-/// TODO: 
-/// - Need function to style graphs (markers, colors, ticks, etc.) / ATLAS Style
-/// - ATLAS Logo
-
 // ==========================================================================================
 // Plotting utility namespaces for creating graphs from the DataAnalyzer summary ROOT files
 // ==========================================================================================
@@ -48,14 +44,17 @@
 /// @brief Namespace for general utility functions used across the plotting code
 namespace Utilities {
     /// @struct LayerSeries
-    /// @brief Struct to hold x and y data for a specific metric across different three layers
+    /// @brief Struct to hold x and y, as well as y_errors data for a specific metric across
+    /// different three layers
     struct LayerSeries {
         std::array<std::vector<double>, 3> x;
         std::array<std::vector<double>, 3> y;
+        std::array<std::vector<double>, 3> y_errors;
     };
 
     /// @brief Utility function to parse measurement entries from provided configuration paths
-    /// @param config_paths 
+    /// @param config_paths A vector of strings representing paths to YAML configuration files
+    /// for different measurement entries
     /// @return A map of scan data indexed by the configuration file path
     std::map<std::string, ConfigData> parseConfigs(
         const std::vector<std::string>& config_paths
