@@ -222,8 +222,8 @@ void Event::calculateTOTCluster() {
 
     // Check if there are more cluster centers for eta1/eta2 than falling edges
     auto [_, falling_count] = countEdges();
-    bool more_eta1_centers = _clusters_eta1.size() > falling_count;
-    bool more_eta2_centers = _clusters_eta2.size() > falling_count;
+    bool more_eta1_centers = _clusters_eta1.size() > static_cast<size_t>(falling_count);
+    bool more_eta2_centers = _clusters_eta2.size() > static_cast<size_t>(falling_count);
 
     /// Calculate ToT for cluster centers from eta1 clustering first
     for (size_t i = 0; i < _hits.size(); i++) {
