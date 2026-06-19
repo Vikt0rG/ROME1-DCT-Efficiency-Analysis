@@ -17,13 +17,22 @@ HEADERS := $(wildcard $(INCLUDE_DIR)/*.hpp)
 # Compiler: use the same C++ compiler that ROOT was built with
 CC = $(shell root-config --cxx)
 
+CONDA_PREFIX_CLEAN = $(strip $(CONDA_PREFIX))
+EXTRA_INCLUDES :=
+EXTRA_LIBS :=
+
+ifneq ($(CONDA_PREFIX_CLEAN),)
+    EXTRA_INCLUDES := -I$(CONDA_PREFIX_CLEAN)/include
+    EXTRA_LIBS := -L$(CONDA_PREFIX_CLEAN)/lib -Wl,-rpath,/$(CONDA_PREFIX_CLEAN)/lib
+endif
+
 # Compiler flags:
 # -g 						: debugging info
 # -Wall 					: compiler warnings
 # -O2 						: optimization level 2
 # -std=c++17 				: use C++ standard as the one from root-config
 # `root-config --cflags` 	: necessary ROOT include flags
-CFLAGS := -g -Wall -std=c++17 -O2 -I$(INCLUDE_DIR) -I$(UTILS_DIR) $(shell root-config --cflags)
+CFLAGS := -g -Wall -std=c++17 -O2 -I$(INCLUDE_DIR) -I$(UTILS_DIR) $(EXTRA_INCLUDES) $(shell root-config --cflags)
 
 LDFLAGS := $(shell root-config --libs) -lyaml-cpp
 

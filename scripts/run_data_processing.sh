@@ -18,8 +18,9 @@ if [[ "$@" == *"--help"* ]]; then
     echo "  -s, --self          Used self-trigger firmware during acquisition"
     echo "  --dt-max VALUE      Maximum time window for efficiency (default: -100)"
     echo "  --dt-min VALUE      Minimum time window for efficiency (default: -180)"
-    echo "  --old-data-type     Whether to use old data type (default: false)"
     echo "  --no-external       Disable external trigger usage in analysis"
+    echo "  --old-data-type     Whether to use old data type (default: false)"
+    echo "  --recompile         Force recompilation of the main analysis executable before running"
     echo "  -h, --help          Display this help message"
     echo ""
     echo "EXAMPLES:"
@@ -43,6 +44,7 @@ fi
 # Initialize time window parameters with defaults
 dt_max="-100"
 dt_min="-180"
+recompile=false
 
 # Process flags and optional arguments
 shift 1
@@ -68,8 +70,8 @@ while [[ "$#" -gt 0 ]]; do
             old_data_type="--use-old-data"
             shift
             ;;
-        --reject-background)
-            reject_background="--reject-background"
+        --recompile)
+            recompile=true
             shift
             ;;
         --help|-h)
@@ -93,8 +95,19 @@ fi
 
 # Recompile main C++ analysis executable if not already compiled
 cd "$rootDir"
-echo "Compiling main analysis executable..."
-make build
+if [ "$recompile" = true ]; then
+    echo "Recompilation requested. Cleaning previous builds..."
+    make clean
+    echo "Recompiling analysis executable..."
+    make -j$(nproc)
+else
+    if [ ! -f "$rootDir/bin/analysis" ]; then
+        echo "Analysis executable not found. Compiling..."
+        make -j$(nproc)
+    else
+        echo "Analysis executable already exists. Skipping compilation."
+    fi
+fi
 
 # Run analysis executable on each file to process raw hits and generate ROOT file
 if [ -d "$input" ]; then
