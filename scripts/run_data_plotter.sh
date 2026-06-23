@@ -1,20 +1,21 @@
 #!/bin/bash
 usage() {
-    echo "Usage: $0 --configs <config_file1> <config_file2> ..."
+    echo "Usage: $0 --configs <config_file1> <config_file2> ... --output-dir <output_directory> [--recompile]"
     echo "Use --help for more information."
     exit 1
 }
 
 # Check for help flag first
 if [[ "$@" == *"--help"* ]] || [[ "$@" == *"-h"* ]]; then
-    echo "Script usage: $0 --configs <config_files...>"
+    echo "Script usage: $0 --configs <config_files...> --output-dir <output_directory>"
     echo ""
     echo "REQUIRED ARGUMENTS:"
-    echo "  --configs <config_files...>  Space-separated paths to YAML config files"
+    echo "  --configs <config_files...>      Space-separated paths to YAML config files"
+    echo "  --output-dir <output_directory>  Path to the output directory"
     echo ""
     echo "OPTIONS:"
-    echo "  --recompile                  Force recompilation of the main analysis executable before running"
-    echo "  -h, --help                   Display this help message"
+    echo "  --recompile                      Force recompilation of the main analysis executable before running"
+    echo "  -h, --help                       Display this help message"
     exit 0
 fi
 
@@ -39,6 +40,10 @@ while [[ "$#" -gt 0 ]]; do
                 shift
             done
             ;;
+        --output-dir)
+            output_directory="$2"
+            shift 2
+            ;;
         --recompile)
             recompile=true
             shift
@@ -56,6 +61,12 @@ done
 # Validate captured config files
 if [ ${#config_files[@]} -eq 0 ]; then
     echo "ERROR: At least one configuration file is required via --configs."
+    usage
+fi
+
+# Validate output directory
+if [ -z "$output_directory" ]; then
+    echo "ERROR: --output-dir is required."
     usage
 fi
 
@@ -95,4 +106,4 @@ done
 
 echo "Executing plotter with ${#config_files[@]} configurations..."
 # Run analysis executable with the expanded arguments array
-"$rootDir/bin/analysis" plotter "${cpp_args[@]}"
+"$rootDir/bin/analysis" plotter "${cpp_args[@]}" --output-dir "$output_directory"

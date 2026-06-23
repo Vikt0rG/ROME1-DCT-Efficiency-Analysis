@@ -102,6 +102,10 @@ def parse_args():
                         help="Min time window (default: -180)")
     parser.add_argument("--no-external", action="store_true",
                         help="Disable external trigger usage in analysis")
+    parser.add_argument("--output-dir", type=str, default=None,
+                        help="Specify output directory for ROOT files")
+    parser.add_argument("--recompile", action="store_true",
+                        help="Recompile the analysis binary before processing")
     parser.add_argument("--force", action="store_true",
                         help="Rebuild txt/root even if they exist")
     parser.add_argument("-v", "--verbose", action="store_true",
@@ -117,22 +121,29 @@ def main():
         if args.verbose:
             print(message)
 
+    # Step 0: Validate arguments
+    if not args.configs or not args.output_dir or not args.dt_max or not args.dt_min:
+        print("Missing required arguments.", file=sys.stderr)
+        sys.exit(1)
+
     # Step 1: Resolve paths and tools
     root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    target_bin_dir = os.path.join(root_dir, "data", "raw", "bin")
-    target_txt_dir = os.path.join(root_dir, "data", "raw", "txt")
-    target_root_dir = os.path.join(root_dir, "data", "root")
+    target_bin_dir = os.path.join(args.output_dir, "raw", "bin")
+    target_txt_dir = os.path.join(args.output_dir, "raw", "txt")
+    target_root_dir = os.path.join(args.output_dir, "root")
+
     bin_to_txt = os.path.join(root_dir, "scripts", "bin_to_txt.sh")
-    analysis_bin = os.path.join(root_dir, "bin", "analysis")
+    analysis_bin = os.path.join(root_dir, "bin", "analysis")    
 
     # Step 2: Ensure output directories exist
     os.makedirs(target_bin_dir, exist_ok=True)
     os.makedirs(target_txt_dir, exist_ok=True)
     os.makedirs(target_root_dir, exist_ok=True)
 
-    # Recompile the binary once before processing configs
-    vprint("Recompiling analysis binary...")
-    subprocess.run(["make", "build"], check=True, cwd=root_dir)
+    # Recompile the binary once before processing configs if requested
+    if args.recompile:
+        vprint("Recompiling analysis binary...")
+        subprocess.run(["make", "build"], check=True, cwd=root_dir)
 
     # Step 3: Process each config file
     for cfg_path in args.configs:

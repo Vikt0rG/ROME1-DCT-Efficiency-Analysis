@@ -103,6 +103,6 @@ public:
 
 private:
     std::string _config_path;
-    std::filesystem::path _output_directory = std::filesystem::path("data/output");
+    std::filesystem::path _output_directory;
     std::vector<MeasurementData> _measurement_data;
 };

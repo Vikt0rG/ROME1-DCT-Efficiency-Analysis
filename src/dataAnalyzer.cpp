@@ -349,8 +349,9 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
 // ==========================================================================================
 // DataAnalyzer class implementation for analyzing processed DCT data and plotting results
 // ==========================================================================================
-DataAnalyzer::DataAnalyzer(const std::string& config_file_path)
-    : _config_path({config_file_path}) {
+DataAnalyzer::DataAnalyzer(const std::string& config_file_path, const std::string& output_directory_path)
+    : _config_path({config_file_path})
+    , _output_directory(output_directory_path) {
 }
 
 DataAnalyzer::~DataAnalyzer() {
@@ -375,7 +376,7 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
     perFileHelpers::plotMultiplicityAndDelayVsStrip(input_file);
 
     // Write analysis directory into the file
-    input_file->Write();
+    input_file->Write("", TObject::kOverwrite);
 
     // Export per-file plots to PDF
     std::string root_file_path = input_file->GetName();
