@@ -134,6 +134,6 @@ echo "Processing data from config file: $config_file"
 
 # Step 2: Run the analysis on the processed data
 echo "Running analysis on processed data from the config file: $config_file"
-"$rootDir/scripts/run_analysis.sh" --config "$config_file" --output-dir "$output_directory" $no_external $force
+"$rootDir/scripts/run_data_analysis.sh" --config "$config_file" --output-dir "$output_directory" $no_external $force
 
 echo "Pipeline completed successfully. Data stored in: $output_directory"
