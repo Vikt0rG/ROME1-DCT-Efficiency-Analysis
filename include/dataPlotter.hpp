@@ -96,8 +96,7 @@ public:
     const TGraph* getGraphForMetric(const std::string& metric_name) const;
 
 private:
-    std::vector<std::string> _config_paths;
-    std::filesystem::path _output_directory = std::filesystem::path("data/output");
+    std::filesystem::path _output_directory;
 
     /// @brief Map to hold parsed ConfigData structs for each scan, indexed by the configuration file path
     std::map<std::string, ConfigData> _parsed_configs;

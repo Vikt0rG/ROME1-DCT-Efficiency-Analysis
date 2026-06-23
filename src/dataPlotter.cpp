@@ -245,8 +245,8 @@ void removeLayerFromGraph(TGraph* graph, int layer_to_remove) {
 // ==========================================================================================
 // DataPlotter class implementation for plotting summary statistics
 // ==========================================================================================
-DataPlotter::DataPlotter(const std::vector<std::string>& config_paths)
-    : _config_paths(config_paths) {
+DataPlotter::DataPlotter(const std::vector<std::string>& config_paths, const std::filesystem::path& output_directory) {
+    _output_directory = output_directory;
     _parsed_configs = Utilities::parseConfigs(config_paths);
 }
 

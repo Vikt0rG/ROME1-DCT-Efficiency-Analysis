@@ -1,6 +1,6 @@
 #!/bin/bash
 usage() {
-    echo "Usage: $0 --config <config_file>"
+    echo "Usage: $0 --config <config_file> --output <output_directory> [--recompile]"
     echo "Use --help for more information."
     exit 1
 }
@@ -9,14 +9,15 @@ usage() {
 
 # Check for help flag first
 if [[ "$@" == *"--help"* ]] || [[ "$@" == *"-h"* ]]; then
-    echo "Script usage: $0 --config <config_file>"
+    echo "Script usage: $0 --config <config_file> --output-dir <output_directory>"
     echo ""
     echo "REQUIRED ARGUMENTS:"
-    echo "  --config <config_file>  Path to the YAML config file"
+    echo "  --config <config_file>           Path to the YAML config file"
+    echo "  --output-dir <output_directory>  Path to the output directory"
     echo ""
     echo "OPTIONS:"
-    echo "  --recompile             Force recompilation of the main analysis executable before running"
-    echo "  -h, --help              Display this help message"
+    echo "  --recompile                      Force recompilation of the main analysis executable before running"
+    echo "  -h, --help                       Display this help message"
     exit 0
 fi
 
@@ -34,6 +35,10 @@ while [[ "$#" -gt 0 ]]; do
     case "$1" in
         --config)
             config_file="$2"
+            shift 2
+            ;;
+        --output-dir)
+            output_directory="$2"
             shift 2
             ;;
         --recompile)
@@ -60,6 +65,11 @@ if [ ! -e "$config_file" ]; then
     exit 1
 fi
 
+if [ -z "$output_directory" ]; then
+    echo "ERROR: --output-dir is required."
+    usage
+fi
+
 rootDir="$(dirname "$(dirname "$(realpath "$0")")")"
 echo "Root directory: $rootDir"
 
@@ -80,7 +90,7 @@ else
 fi
 
 # Run analysis executable on the config file
-"$rootDir/bin/analysis" analyze --config "$config_file"
+"$rootDir/bin/analysis" analyze --config "$config_file" --output-dir "$output_directory"
 
 # Update config file with the location of the summary file for plotting
 config_base="$(basename "$config_file")"
