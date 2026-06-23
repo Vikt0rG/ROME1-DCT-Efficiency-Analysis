@@ -76,7 +76,7 @@ namespace PlotterHelpers {
     /// should be saved
     void autoExportToATLASPDF(
         const std::string& root_file_path,
-        const std::string& target_plots_dir
+        const std::filesystem::path& target_plots_dir
     );
 
     void removeLayerFromGraph(TGraph* graph, int layer_to_remove);
@@ -88,7 +88,7 @@ namespace PlotterHelpers {
 // ==========================================================================================
 class DataPlotter {
 public:
-    DataPlotter(const std::vector<std::string>& config_paths);
+    DataPlotter(const std::vector<std::string>& config_paths, const std::filesystem::path& output_directory);
 
     void produceSummaryPlots();
 
@@ -98,7 +98,8 @@ public:
 private:
     std::filesystem::path _output_directory;
 
-    /// @brief Map to hold parsed ConfigData structs for each scan, indexed by the configuration file path
+    /// @brief Map to hold parsed ConfigData structs for each scan, indexed by the configuration
+    /// file path
     std::map<std::string, ConfigData> _parsed_configs;
 
     /// @brief String path to the summary ROOT of a scan

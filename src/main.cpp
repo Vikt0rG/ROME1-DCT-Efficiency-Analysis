@@ -7,7 +7,7 @@ int main(int argc, char** argv) {
 
     if (argc < 2) {
         std::cerr << "Usage:\n"
-                  << "  " << argv[0] << " process <input_file> <dt_max> <dt_min> [--no-external] [--use-old-data] [--reject-background]\n"
+                  << "  " << argv[0] << " process <input_file> <dt_max> <dt_min> [--no-external] [--use-old-data]\n"
                   << "  " << argv[0] << " analyze --config <config_file>" << std::endl
                   << "  " << argv[0] << " plotter --config <config_file>" << std::endl;
         return 1;
@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
     // Command 1: Process input data and produce output ROOT file with trees
     if (command == "process") {
         if (argc < 5) {
-            std::cerr << "Usage: " << argv[0] << " process <input_file> <dt_max> <dt_min> [--no-external] [--use-old-data] [--reject-background]" << std::endl;
+            std::cerr << "Usage: " << argv[0] << " process <input_file> <dt_max> <dt_min> [--no-external] [--use-old-data]" << std::endl;
             return 1;
         }
 
@@ -40,7 +40,6 @@ int main(int argc, char** argv) {
         }
 
         bool use_external_trigger = true; // a.k.a. no_external = false
-        bool reject_background = false; // By default, apply background rejection to improve efficiency results
         DataProcesser::InputFormat input_format = DataProcesser::InputFormat::FiledumpPackets;
 
         for (int i = 5; i < argc; ++i) {
@@ -49,12 +48,10 @@ int main(int argc, char** argv) {
                 use_external_trigger = false;
             } else if (arg == "--use-old-data") {
                 input_format = DataProcesser::InputFormat::DecodedWords;
-            } else if (arg == "--reject-background") {
-                reject_background = true;
             }
         }
 
-        DataProcesser processor(input, dt_max, dt_min, input_format, use_external_trigger, reject_background);
+        DataProcesser processor(input, dt_max, dt_min, input_format, use_external_trigger);
         processor.setupOutputFile();
         processor.setupBranches();
 
