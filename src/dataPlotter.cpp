@@ -128,7 +128,7 @@ namespace {
     }
 
     // Process a single directory recursively
-    void scanDirectory(TDirectory* dir, const std::string& output_dir_path) {
+    void scanDirectory(TDirectory* dir, const std::filesystem::path& output_dir_path) {
         // Loop over all keys (objects saved) in the current directory
         TIter next(dir->GetListOfKeys());
         TKey* key = nullptr;
@@ -176,10 +176,10 @@ namespace {
 
                 // Construct clean output file string
                 std::string safe_name = obj->GetName();
-                std::string export_path = output_dir_path + "/" + safe_name + ".pdf";
+                std::filesystem::path export_path = output_dir_path / (safe_name + ".pdf");
 
                 // Save and drop memory overhead
-                canvas->SaveAs(export_path.c_str());
+                canvas->SaveAs(export_path.string().c_str());
                 
                 delete canvas;
                 delete obj;
@@ -188,9 +188,9 @@ namespace {
     }
 }   // Anonymous namespace
 
-void autoExportToATLASPDF(const std::string& root_file_path, const std::string& target_plots_dir) {
+void autoExportToATLASPDF(const std::string& root_file_path, const std::filesystem::path& target_plots_dir) {
     // Ensure the output folder exists
-    gSystem->mkdir(target_plots_dir.c_str(), kTRUE);
+    gSystem->mkdir(target_plots_dir.string().c_str(), kTRUE);
 
     // Open file in strict READ mode
     TFile* file = TFile::Open(root_file_path.c_str(), "READ");

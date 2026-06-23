@@ -89,7 +89,7 @@ namespace perFileHelpers {
 /// @brief Main class for analyzing DCT data and producing summary statistics
 class DataAnalyzer {
 public:
-    explicit DataAnalyzer(const std::string& config_file_path);
+    explicit DataAnalyzer(const std::string& config_file_path, const std::string& output_directory_path);
     ~DataAnalyzer();
 
     /// @brief Main function to produce summary statistics for each measurement entry in the

@@ -13,15 +13,13 @@ DataProcesser::DataProcesser(
     const int dt_max,
     const int dt_min,
     InputFormat format,
-    bool use_external_trigger_arg,
-    bool reject_background_arg
+    bool use_external_trigger_arg
 ) 
     : _input_path(input_path)
     , _dt_max(dt_max)
     , _dt_min(dt_min)
     , _format(format)
-    , _use_external_trigger(use_external_trigger_arg)
-    , _reject_background(reject_background_arg) {
+    , _use_external_trigger(use_external_trigger_arg) {
     setupOutputFile();
     setupBranches();
 }
