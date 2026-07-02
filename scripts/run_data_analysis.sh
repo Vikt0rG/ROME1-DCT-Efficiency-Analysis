@@ -38,7 +38,7 @@ while [[ "$#" -gt 0 ]]; do
             shift 2
             ;;
         -o|--output-dir)
-            output_directory="$2"
+            outputDir="$2"
             shift 2
             ;;
         -r|--recompile)
@@ -66,7 +66,7 @@ if [ ! -e "$config_file" ]; then
     exit 1
 fi
 
-if [ -z "$output_directory" ]; then
+if [ -z "$outputDir" ]; then
     echo "ERROR: --output-dir is required."
     usage
 fi
@@ -76,7 +76,7 @@ if [ -z "$IN_PIPELINE" ]; then
     rootDir="$(dirname "$(dirname "$(realpath "$0")")")"
     echo ""
     echo "Root directory: $rootDir"
-    echo "Output directory: $output_directory"
+    echo "Output directory: $outputDir"
 else
     rootDir="$ROOT_DIR"
 fi
@@ -100,12 +100,12 @@ if [ -z "$IN_PIPELINE" ]; then
 fi
 
 # Run analysis executable on the config file
-"$rootDir/bin/analysis" analyze --config "$config_file" --output-dir "$output_directory"
+"$rootDir/bin/analysis" analyze --config "$config_file" --output-dir "$outputDir"
 
 # Update config file with the location of the summary file for plotting
 config_base="$(basename "$config_file")"
 config_stem="${config_base%.*}"
-summary_root="$rootDir/data/output/${config_stem}_summary.root"
+summary_root="$outputDir/root_summaries/${config_stem}_summary.root"
 
 if grep -q '^summary root file:' "$config_file"; then
     sed -i '' "s|^summary root file:.*|summary root file: $summary_root|" "$config_file"

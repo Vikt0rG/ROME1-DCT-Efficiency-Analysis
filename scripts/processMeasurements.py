@@ -17,7 +17,7 @@ def safe_extract(tar, path):
         abs_member = os.path.abspath(member_path)
         if not abs_member.startswith(abs_path + os.sep):
             raise RuntimeError(f"Unsafe path in tar: {member.name}")
-    tar.extractall(path)
+    tar.extractall(path, filter='data')
 
 
 # Find the bin_data_files.tar.gz in the list of raw files
@@ -296,10 +296,9 @@ def main():
                             continue
 
                         vprint(f"Converting {pcap} to txt")
-                        subprocess.run(
-                            ["bash", bin_to_txt, "--data-dir", args.data_dir, "--input", pcap, "--force" if args.force else ""],
-                            check=True,
-                        )
+                        convert_cmd = ["bash", bin_to_txt, "--data-dir", args.data_dir, "--input", pcap]
+                        if args.force: convert_cmd.append("--force")
+                        subprocess.run(convert_cmd, check=True, cwd=root_dir)
 
                     if len(txt_paths) == 1 and os.path.exists(txt_paths[0]):
                         if os.path.basename(txt_paths[0]) != f"{name}.txt":
