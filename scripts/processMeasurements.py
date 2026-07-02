@@ -93,20 +93,21 @@ def normalize_raw_files(raw_files):
 # Parse command-line arguments
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Process measurement configs into ROOT files."
+        description="Process measurement config(s) into ROOT files."
     )
-    parser.add_argument("configs", nargs="+", help="Config YAML file(s)")
+    parser.add_argument("-c", "--config", nargs="+", type=str, required=True,
+                        help="Config YAML file(s) (space separated)")
     parser.add_argument("--dt-max", type=int, default=-100,
                         help="Max time window (default: -100)")
     parser.add_argument("--dt-min", type=int, default=-180,
                         help="Min time window (default: -180)")
+    parser.add_argument("-d", "--data-dir", type=str, default=None, required=True,
+                        help="Specify data directory (the one containing raw/txt/root subdirectories)")
     parser.add_argument("--no-external", action="store_true",
                         help="Disable external trigger usage in analysis")
-    parser.add_argument("--output-dir", type=str, default=None,
-                        help="Specify output directory for ROOT files")
-    parser.add_argument("--recompile", action="store_true",
+    parser.add_argument("-r", "--recompile", action="store_true",
                         help="Recompile the analysis binary before processing")
-    parser.add_argument("--force", action="store_true",
+    parser.add_argument("-f", "--force", action="store_true",
                         help="Rebuild txt/root even if they exist")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Enable verbose logging")
@@ -121,16 +122,11 @@ def main():
         if args.verbose:
             print(message)
 
-    # Step 0: Validate arguments
-    if not args.configs or not args.output_dir or not args.dt_max or not args.dt_min:
-        print("Missing required arguments.", file=sys.stderr)
-        sys.exit(1)
-
     # Step 1: Resolve paths and tools
     root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    target_bin_dir = os.path.join(args.output_dir, "raw", "bin")
-    target_txt_dir = os.path.join(args.output_dir, "raw", "txt")
-    target_root_dir = os.path.join(args.output_dir, "root")
+    target_bin_dir = os.path.join(args.data_dir, "raw", "bin")
+    target_txt_dir = os.path.join(args.data_dir, "raw", "txt")
+    target_root_dir = os.path.join(args.data_dir, "root")
 
     bin_to_txt = os.path.join(root_dir, "scripts", "bin_to_txt.sh")
     analysis_bin = os.path.join(root_dir, "bin", "analysis")    
@@ -146,7 +142,7 @@ def main():
         subprocess.run(["make", "build"], check=True, cwd=root_dir)
 
     # Step 3: Process each config file
-    for cfg_path in args.configs:
+    for cfg_path in args.config:
         if not os.path.isfile(cfg_path):
             print(f"Config not found: {cfg_path}", file=sys.stderr)
             continue
@@ -301,7 +297,7 @@ def main():
 
                         vprint(f"Converting {pcap} to txt")
                         subprocess.run(
-                            ["bash", bin_to_txt, "--input", pcap, "--force" if args.force else ""],
+                            ["bash", bin_to_txt, "--data-dir", args.data_dir, "--input", pcap, "--force" if args.force else ""],
                             check=True,
                         )
 
@@ -341,11 +337,8 @@ def main():
                 continue
 
             command = "process"
-            analysis_cmd = [analysis_bin, command,
-                            existing_txt[0],
-                            str(args.dt_max), str(args.dt_min)]
-            if args.no_external:
-                analysis_cmd.append("--no-external")
+            analysis_cmd = [analysis_bin, command, existing_txt[0], str(args.dt_max), str(args.dt_min)]
+            if args.no_external: analysis_cmd.append("--no-external")
 
             subprocess.run(analysis_cmd, check=True, cwd=root_dir)
 
@@ -357,8 +350,8 @@ def main():
             shutil.move(output_root, root_path)
             print(f"Wrote {root_path}")
 
-            # Step 8: Update config with root file path if not already set
-            if entry.get("root file") != root_path:
+            # Step 8: Update config with root file path if not already set or if force is used
+            if entry.get("root file") != root_path or args.force:
                 entry["root file"] = root_path
                 config_changed = True
 
