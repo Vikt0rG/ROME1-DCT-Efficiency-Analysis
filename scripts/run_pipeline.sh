@@ -113,6 +113,9 @@ if [ "$dt_max" -le "$dt_min" ]; then
     exit 1
 fi
 
+# Remove trailing slash from data directory if present
+data_directory="${data_directory%/}"
+
 # Setup and validate paths
 rootDir="$(dirname "$(dirname "$(realpath "$0")")")"
 output_directory="$data_directory/output"
