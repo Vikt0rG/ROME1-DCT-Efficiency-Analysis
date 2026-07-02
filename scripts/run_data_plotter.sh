@@ -1,21 +1,21 @@
 #!/bin/bash
 usage() {
-    echo "Usage: $0 --configs <config_file1> <config_file2> ... --output-dir <output_directory> [--recompile]"
-    echo "Use --help for more information."
+    echo "Usage: $0 --config <config_file(s)> --output-dir <output_directory> [--recompile]"
+    echo "Use -h or --help for more information."
     exit 1
 }
 
 # Check for help flag first
 if [[ "$@" == *"--help"* ]] || [[ "$@" == *"-h"* ]]; then
-    echo "Script usage: $0 --configs <config_files...> --output-dir <output_directory>"
+    echo "Script usage: $0 --config <config_file(s)> --output-dir <output_directory>"
     echo ""
     echo "REQUIRED ARGUMENTS:"
-    echo "  --configs <config_files...>      Space-separated paths to YAML config files"
-    echo "  --output-dir <output_directory>  Path to the output directory"
+    echo "  -c | --config <config_file>             Path(s) (space-separated) to YAML config file(s)"
+    echo "  -o | --output-dir <output_directory>    Path to the output directory containing final analysis subdirectory"
     echo ""
     echo "OPTIONS:"
-    echo "  --recompile                      Force recompilation of the main analysis executable before running"
-    echo "  -h, --help                       Display this help message"
+    echo "  -r | --recompile                        Force recompilation of the main analysis executable before running"
+    echo "  -h | --help                             Display this help message"
     exit 0
 fi
 
@@ -32,7 +32,7 @@ config_files=()
 # Process CLI arguments
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
-        --configs)
+        -c | --config)
             shift
             # Keep pulling files until hitting another option or running out of arguments
             while [[ "$#" -gt 0 && ! "$1" =~ ^- ]]; do
@@ -40,15 +40,15 @@ while [[ "$#" -gt 0 ]]; do
                 shift
             done
             ;;
-        --output-dir)
+        -o | --output-dir)
             output_directory="$2"
             shift 2
             ;;
-        --recompile)
+        -r | --recompile)
             recompile=true
             shift
             ;;
-        --help|-h)
+        -h | --help)
             usage
             ;;
         *)
@@ -78,26 +78,34 @@ for config in "${config_files[@]}"; do
     fi
 done
 
-rootDir="$(dirname "$(dirname "$(realpath "$0")")")"
-echo "Root directory: $rootDir"
-
-# Recompile main C++ analysis executable if requested, otherwise check if it exists
-cd "$rootDir"
-if [ "$recompile" = true ]; then
-    echo "Recompilation requested. Cleaning previous builds..."
-    make clean
-    echo "Recompiling analysis executable..."
-    make -j$(nproc)
+if [ -z "$IN_PIPELINE" ]; then
+    rootDir="$(dirname "$(dirname "$(realpath "$0")")")"
+    echo ""
+    echo "Root directory: $rootDir"
+    echo "Output directory: $output_directory"
 else
-    if [ ! -f "$rootDir/bin/analysis" ]; then
-        echo "Analysis executable not found. Compiling..."
+    rootDir="$ROOT_DIR"
+fi
+
+# Recompile main C++ analysis executable if requested, not already compiled and not in a pipeline
+cd "$rootDir"
+if [ -z "$IN_PIPELINE" ]; then
+    if [ "$recompile" = true ]; then
+        echo "Recompilation requested. Cleaning previous builds..."
+        make clean
+        echo "Recompiling analysis executable..."
         make -j$(nproc)
     else
-        echo "Analysis executable already exists. Skipping compilation."
+        if [ ! -f "$rootDir/bin/analysis" ]; then
+            echo "Analysis executable not found. Compiling..."
+            make -j$(nproc)
+        else
+            echo "Analysis executable already exists. Skipping compilation."
+        fi
     fi
 fi
 
-# Construct the exact multi-config argument syntax your C++ binary expects
+# Construct the exact multi-config argument syntax C++ binary expects
 # e.g., --config path1.yaml --config path2.yaml
 cpp_args=()
 for config in "${config_files[@]}"; do

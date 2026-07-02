@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
 usage() {
     echo "Usage: $0 [OPTIONS]"
-    echo "Use --help for more information."
+    echo "Use -h or --help for more information."
     exit 1
 }
 
 # Skript to convert .pcapng files into .txt files
 
 # Check for help flag first
-if [[ "$@" == *"--help"* ]]; then
+if [[ "$@" == *"--help"* ]] || [[ "$@" == *"-h"* ]]; then
     echo "Script usage: $0 [OPTIONS]"
     echo ""
+    echo "REQUIRED ARGUMENTS:"
+    echo "  -d | --data-dir PATH    Path to the data directory containing 'raw' subdirectory"
+    echo ""
     echo "OPTIONS:"
-    echo "  --input FILE        Convert only this .pcapng file (can be repeated)"
-    echo "  --force             Overwrite the target .txt if it already exists"
+    echo "  -i | --input PATH       Convert only this .pcapng file (can be repeated)"
+    echo "  -f | --force            Overwrite the target .txt if it already exists"
+    echo "  -h | --help             Display this help message"
     echo ""
     echo "EXAMPLES:"
     echo "  $0 --input data/raw/bin/sample.pcapng"
@@ -22,23 +26,32 @@ if [[ "$@" == *"--help"* ]]; then
     exit 0
 fi
 
-rootDir="$(dirname "$(dirname "$(realpath "$0")")")"
+# Check for required arguments
+if [ "$#" -lt 1 ]; then
+    echo "ERROR: Missing required arguments."
+    usage
+fi
 
-# Path to the folder containing .pcapng files
-binDir="$rootDir/data/raw/bin"
-txtDir="$rootDir/data/raw/txt"
-
+# Process CLI arguments
+dataDir=""
 inputs=()
 force=0
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
-        --input)
+        -d|--data-dir)
+            dataDir="$2"
+            shift 2
+            ;;
+        -i|--input)
             inputs+=("$2")
             shift 2
             ;;
-        --force)
+        -f|--force)
             force=1
             shift
+            ;;
+        -h|--help)
+            usage
             ;;
         *)
             echo "Unknown option: $1"
@@ -46,6 +59,11 @@ while [[ "$#" -gt 0 ]]; do
             ;;
     esac
 done
+
+# Set paths
+rootDir="$(dirname "$(dirname "$(realpath "$0")")")"
+binDir="$dataDir/raw/bin"
+txtDir="$dataDir/raw/txt"
 
 # Check if the folder exists
 if [ ! -d "$binDir" ]; then
@@ -92,6 +110,7 @@ for file in "${files[@]}"; do
     txtFile="$txtDir/$(basename "${file%.pcapng}.txt")"
     tmpTxtFile="${file%.pcapng}.txt"
 
+    # Check if the txt file already exists and handle the force flag
     if [ $force -eq 1 ] && [ -f "$txtFile" ]; then
         rm "$txtFile"
     fi

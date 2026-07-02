@@ -1,7 +1,7 @@
 #!/bin/bash
 usage() {
-    echo "Usage: $0 --config <config_file> --output <output_directory> [--recompile]"
-    echo "Use --help for more information."
+    echo "Usage: $0 --config <config_file> --output-dir <output_directory> [--recompile]"
+    echo "Use -h or --help for more information."
     exit 1
 }
 
@@ -12,12 +12,12 @@ if [[ "$@" == *"--help"* ]] || [[ "$@" == *"-h"* ]]; then
     echo "Script usage: $0 --config <config_file> --output-dir <output_directory>"
     echo ""
     echo "REQUIRED ARGUMENTS:"
-    echo "  --config <config_file>           Path to the YAML config file"
-    echo "  --output-dir <output_directory>  Path to the output directory"
+    echo "  -c | --config <config_file>           Path to the YAML config file"
+    echo "  -o | --output-dir <output_directory>  Path to the output directory containing summaries and plot subdirectories"
     echo ""
     echo "OPTIONS:"
-    echo "  --recompile                      Force recompilation of the main analysis executable before running"
-    echo "  -h, --help                       Display this help message"
+    echo "  -r | --recompile                      Force recompilation of the main analysis executable before running"
+    echo "  -h | --help                           Display this help message"
     exit 0
 fi
 
@@ -33,19 +33,19 @@ recompile=false
 
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
-        --config)
+        -c|--config)
             config_file="$2"
             shift 2
             ;;
-        --output-dir)
+        -o|--output-dir)
             output_directory="$2"
             shift 2
             ;;
-        --recompile)
+        -r|--recompile)
             recompile=true
             shift
             ;;
-        --help|-h)
+        -h|--help)
             usage
             ;;
         *)
@@ -55,6 +55,7 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
+# Validate required arguments and options
 if [ -z "$config_file" ]; then
     echo "ERROR: --config is required."
     usage
@@ -70,22 +71,31 @@ if [ -z "$output_directory" ]; then
     usage
 fi
 
-rootDir="$(dirname "$(dirname "$(realpath "$0")")")"
-echo "Root directory: $rootDir"
-
-# Recompile main C++ analysis executable if not already compiled
-cd "$rootDir"
-if [ "$recompile" = true ]; then
-    echo "Recompilation requested. Cleaning previous builds..."
-    make clean
-    echo "Recompiling analysis executable..."
-    make -j$(nproc)
+# Setup and validate paths
+if [ -z "$IN_PIPELINE" ]; then
+    rootDir="$(dirname "$(dirname "$(realpath "$0")")")"
+    echo ""
+    echo "Root directory: $rootDir"
+    echo "Output directory: $output_directory"
 else
-    if [ ! -f "$rootDir/bin/analysis" ]; then
-        echo "Analysis executable not found. Compiling..."
+    rootDir="$ROOT_DIR"
+fi
+
+# Recompile main C++ analysis executable if requested, not already compiled and not in a pipeline
+cd "$rootDir"
+if [ -z "$IN_PIPELINE" ]; then
+    if [ "$recompile" = true ]; then
+        echo "Recompilation requested. Cleaning previous builds..."
+        make clean
+        echo "Recompiling analysis executable..."
         make -j$(nproc)
     else
-        echo "Analysis executable already exists. Skipping compilation."
+        if [ ! -f "$rootDir/bin/analysis" ]; then
+            echo "Analysis executable not found. Compiling..."
+            make -j$(nproc)
+        else
+            echo "Analysis executable already exists. Skipping compilation."
+        fi
     fi
 fi
 
