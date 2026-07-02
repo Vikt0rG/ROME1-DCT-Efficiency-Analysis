@@ -252,10 +252,10 @@ DataPlotter::DataPlotter(const std::vector<std::string>& config_paths, const std
 
 // Produce summary plots based on the parsed entries and summary root file
 void DataPlotter::produceSummaryPlots() {
-    std::filesystem::create_directories(_output_directory);
+    std::filesystem::create_directories(_output_directory / "analysis");
 
     // Create an output path following "DD-MM-YYYY_HH-MM-SS_analysis.root" format
-    std::filesystem::path analysis_root_path = _output_directory / (Utilities::getTimestamp() + "_analysis.root");
+    std::filesystem::path analysis_root_path = _output_directory / "analysis" / (Utilities::getTimestamp() + "_analysis.root");
     TFile* analysis_root = TFile::Open(analysis_root_path.c_str(), "RECREATE");
     PathUtils::verifyROOTFile(analysis_root, analysis_root_path.string());
 

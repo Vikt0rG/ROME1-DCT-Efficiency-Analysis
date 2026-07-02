@@ -67,8 +67,8 @@ int main(int argc, char** argv) {
 
     // Command 2: Analyze processed data and produce summary statistics
     if (command == "analyze") {
-        std::string config_file = argv[2];
-        std::string output_directory = argv[3];
+        std::string config_file = argv[3];
+        std::string output_directory = argv[5];
 
         if (config_file.empty() || output_directory.empty()) {
             std::cerr << "Usage: " << argv[0] << " analyze --config <config_file> --output <output_directory>" << std::endl;

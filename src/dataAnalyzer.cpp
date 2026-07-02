@@ -387,7 +387,8 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
 void DataAnalyzer::produceSummaryStats() {
 
     // Process each config file and build the list of measurement entries and summaries
-    std::filesystem::create_directories(_output_directory);
+    std::cout << _output_directory << std::endl;
+    std::filesystem::create_directories(_output_directory / "root_summaries");
 
     // Prepare a measurement structure (measurement's metadata + data/statistics) and a root
     // file for this config
@@ -396,7 +397,7 @@ void DataAnalyzer::produceSummaryStats() {
     scan.metadata = ConfigUtils::parseMeasurementMetadata(_config_path);
 
     std::filesystem::path config_stem = std::filesystem::path(_config_path).stem();
-    std::filesystem::path summary_root_path = _output_directory / (config_stem.string() + "_summary.root");
+    std::filesystem::path summary_root_path = _output_directory / "root_summaries" / (config_stem.string() + "_summary.root");
 
     // Create a ROOT file and tree to store summary statistics for this config
     TFile summary_root_file(summary_root_path.string().c_str(), "RECREATE");
