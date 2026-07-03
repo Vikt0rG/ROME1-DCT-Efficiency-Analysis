@@ -63,11 +63,69 @@ namespace {
             s.SetTextSize(0.04);
             
             // Offset slightly to the right of "ATLAS"
-            s.DrawLatex(final_x + 0.12, final_y, status.c_str()); 
+            s.DrawLatex(final_x + 0.10, final_y, status.c_str()); 
         }
     }
 
-    void applyATLASStyle(TObject* obj) {
+    void drawPlotTitle(TObject* obj, double x_offset = 0.05, double y_offset = 0.07) {
+        if (!obj || !gPad) return;
+
+        // Get the object's title string safely
+        std::string titleStr = obj->GetTitle();
+        if (titleStr.empty()) return;
+
+        // Fetch live canvas boundaries
+        double left_margin = gPad->GetLeftMargin();
+        double top_margin = gPad->GetTopMargin();
+
+        // Align with the vertical level of drawATLASLabel
+        double final_x = left_margin + x_offset;
+        double final_y = (1.0 - top_margin) - y_offset - 0.05; // Slightly below the ATLAS label
+
+        TLatex t;
+        t.SetNDC();
+        t.SetTextFont(42);         // Standard Helvetica
+        t.SetTextSize(0.04);       // Matches ATLAS label status size
+        t.SetTextColor(kBlack);
+
+        t.DrawLatex(final_x, final_y, titleStr.c_str());
+
+        // Strip the default top title box from printing
+        if (auto h = dynamic_cast<TH1*>(obj)) {
+            h->SetTitle("");
+        }
+    }
+
+    void adjustDynamicCB(TH2* h2, TPad* pad) {
+        if (!h2 || !pad) return;
+
+        double maxVal = h2->GetMaximum();
+        int digits = 1;
+        if (maxVal > 0) {
+            digits = static_cast<int>(std::log10(maxVal)) + 1;
+        }
+
+        double rightMargin = 0.15;
+        double titleOffset = 0.95;
+
+        if (digits > 5) {
+            rightMargin = 0.19;
+            titleOffset = 1.35;
+        } else if (digits >= 4) {
+            rightMargin = 0.17; 
+            titleOffset = 1.10;
+        }
+
+        // Apply directly to the pad pointer before any Draw() execution happens
+        pad->SetRightMargin(rightMargin);
+        
+        TAxis* zAxis = h2->GetZaxis();
+        if (zAxis) {
+            zAxis->SetTitleOffset(titleOffset);
+        }
+    }
+
+    void applyATLASStyle(TObject* obj, TPad* pad = nullptr) {
         TAxis* xAxis = nullptr;
         TAxis* yAxis = nullptr;
         TAxis* zAxis = nullptr;
@@ -78,7 +136,14 @@ namespace {
         }
 
         // Safely extract axes depending on the object type
-        if (auto h = dynamic_cast<TH1*>(obj)) {
+        if (auto h2 = dynamic_cast<TH2*>(obj)) {
+            xAxis = h2->GetXaxis();
+            yAxis = h2->GetYaxis();
+            zAxis = h2->GetZaxis();
+            h2->SetStats(0);
+            adjustDynamicCB(h2, pad); // Adjust color bar dynamically based on max value
+        }
+        else if (auto h = dynamic_cast<TH1*>(obj)) {
             xAxis = h->GetXaxis();
             yAxis = h->GetYaxis();
             h->SetMarkerStyle(20);
@@ -86,22 +151,20 @@ namespace {
             h->SetLineColor(kBlack);
             h->SetLineWidth(2);
             h->SetStats(0);
-        } else if (auto g = dynamic_cast<TGraph*>(obj)) {
+        } 
+        else if (auto g = dynamic_cast<TGraph*>(obj)) {
             xAxis = g->GetXaxis();
             yAxis = g->GetYaxis();
             g->SetMarkerStyle(20);
             g->SetMarkerSize(1.2);
             g->SetLineColor(kBlack);
             g->SetLineWidth(2);
-            g->SetStats(0);
-        } else if (auto h2 = dynamic_cast<TH2*>(obj)) {
-            xAxis = h2->GetXaxis();
-            yAxis = h2->GetYaxis();
-            zAxis = h2->GetZaxis();
-            h2->SetStats(0);
         }
 
-        // Apply ATLAS standard font rules (Font 42 = Helvetica, Font 43 = Precise Pixel size)
+        // Set colormap and palette for 2D histograms
+        gStyle->SetPalette(kBird);
+
+        // Apply ATLAS standard font rules (Font 42 = Helvetica, Font 43 = Precise Pixel size) to all axes
         if (xAxis && yAxis) {
             xAxis->SetLabelFont(42);
             xAxis->SetTitleFont(42);
@@ -123,7 +186,6 @@ namespace {
             zAxis->SetTitleFont(42);
             zAxis->SetLabelSize(0.04);
             zAxis->SetTitleSize(0.05);
-            zAxis->SetTitleOffset(1.2);
         }
     }
 
@@ -151,28 +213,35 @@ namespace {
                 TObject* obj = key->ReadObj();
                 if (!obj) continue;
 
-                // Create a clean, standard ATLAS aspect-ratio canvas (600x600 or 800x600)
+                // Create a standard ATLAS aspect-ratio canvas (600x600 or 800x600) with default margins
                 TCanvas* canvas = new TCanvas("c_temp", "", 800, 600);
+                canvas->cd();
                 canvas->SetLeftMargin(0.16);
                 canvas->SetRightMargin(0.05);
                 canvas->SetTopMargin(0.06);
                 canvas->SetBottomMargin(0.14);
 
-                // Handle 2D histograms differently (usually require colz palette)
+                // Apply ATLAS style to the object and canvas
+                applyATLASStyle(obj, canvas);
+
+                // Execute draw call with the calculated metrics
                 if (cl->InheritsFrom(TH2::Class())) {
-                    canvas->SetRightMargin(0.14); // Make room for color palette
                     obj->Draw("COLZ");
+                } else if (cl->InheritsFrom(TGraphErrors::Class())) {
+                    obj->Draw("APZ"); 
                 } else if (cl->InheritsFrom(TGraph::Class())) {
-                    // Force axis generation for TGraphs using "AP" (Axis + Points)
                     obj->Draw("AP"); 
                 } else {
-                    // 1D Histograms draw with errors by default
-                    obj->Draw("E1"); 
+                    obj->Draw("E1 X0");
                 }
 
-                // Apply cosmetics & branding
-                applyATLASStyle(obj);
+                // Force re-calculation & compilation
+                canvas->Modified();
+                canvas->Update();
+
+                // Add text overlays
                 drawATLASLabel(0.05, 0.07, "Work in Progress");
+                drawPlotTitle(obj, 0.05, 0.07);
 
                 // Construct clean output file string
                 std::string safe_name = obj->GetName();
@@ -189,7 +258,7 @@ namespace {
 }   // Anonymous namespace
 
 void autoExportToATLASPDF(const std::string& root_file_path, const std::filesystem::path& target_plots_dir) {
-    // Ensure the output folder exists
+    // Ensure the output plot folder exists
     gSystem->mkdir(target_plots_dir.string().c_str(), kTRUE);
 
     // Open file in strict READ mode
