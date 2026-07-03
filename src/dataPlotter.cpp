@@ -63,18 +63,47 @@ namespace {
             s.SetTextSize(0.04);
             
             // Offset slightly to the right of "ATLAS"
-            s.DrawLatex(final_x + 0.12, final_y, status.c_str()); 
+            s.DrawLatex(final_x + 0.10, final_y, status.c_str()); 
         }
     }
 
-    void applyATLASStyle(TObject* obj) {
+    void drawPlotTitle(TObject* obj, double x_offset = 0.05, double y_offset = 0.07) {
+        if (!obj || !gPad) return;
+
+        // Get the object's title string safely
+        std::string titleStr = obj->GetTitle();
+        if (titleStr.empty()) return;
+
+        // Fetch live canvas boundaries
+        double left_margin = gPad->GetLeftMargin();
+        double top_margin = gPad->GetTopMargin();
+
+        // Align with the vertical level of drawATLASLabel
+        double final_x = left_margin + x_offset;
+        double final_y = (1.0 - top_margin) - y_offset - 0.05; // Slightly below the ATLAS label
+
+        TLatex t;
+        t.SetNDC();
+        t.SetTextFont(42);         // Standard Helvetica
+        t.SetTextSize(0.04);       // Matches ATLAS label status size
+        t.SetTextColor(kBlack);
+
+        t.DrawLatex(final_x, final_y, titleStr.c_str());
+
+        // Strip the default top title box from printing
+        if (auto h = dynamic_cast<TH1*>(obj)) {
+            h->SetTitle("");
+        }
+    }
+
+    void applyATLASStyle(TObject* obj, TPad* pad = nullptr) {
         TAxis* xAxis = nullptr;
         TAxis* yAxis = nullptr;
         TAxis* zAxis = nullptr;
 
-        if (gPad) {
-            gPad->SetTickx(1); // 1 = Draw ticks on top side
-            gPad->SetTicky(1); // 1 = Draw ticks on right side
+        if (pad) {
+            pad->SetTickx(1); // 1 = Draw ticks on top side
+            pad->SetTicky(1); // 1 = Draw ticks on right side
         }
 
         // Safely extract axes depending on the object type
@@ -101,6 +130,9 @@ namespace {
             h2->SetStats(0);
         }
 
+        // Set colormap and palette for 2D histograms
+        gStyle->SetPalette(kBird);
+
         // Apply ATLAS standard font rules (Font 42 = Helvetica, Font 43 = Precise Pixel size)
         if (xAxis && yAxis) {
             xAxis->SetLabelFont(42);
@@ -123,7 +155,33 @@ namespace {
             zAxis->SetTitleFont(42);
             zAxis->SetLabelSize(0.04);
             zAxis->SetTitleSize(0.05);
-            zAxis->SetTitleOffset(1.2);
+
+            // Let ROOT draw the palette first, then tune the z-axis title spacing from
+            // the actual palette geometry instead of relying on a fixed offset.
+            if (pad) std::cout << "[ATLAS Export] Adjusting z-axis title offset based on palette geometry..." << std::endl;
+            if (auto h2 = dynamic_cast<TH2*>(obj)) std::cout << "[ATLAS Export] Adjusting z-axis title offset based on palette geometry..." << std::endl;
+            if (auto h2 = dynamic_cast<TH2*>(obj); h2 && pad) {
+                pad->Modified();
+                pad->Update();
+
+                std::cout << "[ATLAS Export] Adjusting z-axis title offset based on palette geometry..." << std::endl;
+
+                if (auto* palette = dynamic_cast<TPaletteAxis*>(h2->GetListOfFunctions()->FindObject("palette"))) {
+                    const double palette_left = palette->GetX1NDC();
+                    const double palette_width = std::max(0.01, palette->GetX2NDC() - palette_left);
+                    const double pad_right_edge = 1.0 - pad->GetRightMargin();
+                    const double available_space = std::max(0.0, palette_left - pad_right_edge);
+
+                    // Increase the title offset when the palette consumes more of the right side.
+                    // This keeps the vertical z-axis title clear of the colorbar labels.
+                    const double dynamic_offset = 1.2 + (available_space / palette_width) * 1.5;
+                    zAxis->SetTitleOffset(dynamic_offset);
+                } else {
+                    zAxis->SetTitleOffset(1.4);
+                }
+            } else {
+                zAxis->SetTitleOffset(1.4);
+            }
         }
     }
 
@@ -153,26 +211,34 @@ namespace {
 
                 // Create a clean, standard ATLAS aspect-ratio canvas (600x600 or 800x600)
                 TCanvas* canvas = new TCanvas("c_temp", "", 800, 600);
+                canvas->cd();
                 canvas->SetLeftMargin(0.16);
                 canvas->SetRightMargin(0.05);
                 canvas->SetTopMargin(0.06);
                 canvas->SetBottomMargin(0.14);
 
-                // Handle 2D histograms differently (usually require colz palette)
+                // Handle 2D histograms differently (require colz palette)
                 if (cl->InheritsFrom(TH2::Class())) {
-                    canvas->SetRightMargin(0.14); // Make room for color palette
+                    canvas->SetRightMargin(0.18); // Leave extra room so ROOT can fit the palette labels
                     obj->Draw("COLZ");
+                } else if (cl->InheritsFrom(TGraphErrors::Class())) {
+                    // Specifically catch TGraphErrors and suppress X-errors visually
+                    obj->Draw("APZ"); 
                 } else if (cl->InheritsFrom(TGraph::Class())) {
-                    // Force axis generation for TGraphs using "AP" (Axis + Points)
+                    // Standard TGraph with no errors
                     obj->Draw("AP"); 
                 } else {
-                    // 1D Histograms draw with errors by default
-                    obj->Draw("E1"); 
+                    // 1D Histograms draw without x-axis errors
+                    obj->Draw("E1 X0");
                 }
 
+                canvas->Modified();
+                canvas->Update();
+
                 // Apply cosmetics & branding
-                applyATLASStyle(obj);
+                applyATLASStyle(obj, canvas);
                 drawATLASLabel(0.05, 0.07, "Work in Progress");
+                drawPlotTitle(obj, 0.05, 0.07);
 
                 // Construct clean output file string
                 std::string safe_name = obj->GetName();
@@ -189,7 +255,7 @@ namespace {
 }   // Anonymous namespace
 
 void autoExportToATLASPDF(const std::string& root_file_path, const std::filesystem::path& target_plots_dir) {
-    // Ensure the output folder exists
+    // Ensure the output plot folder exists
     gSystem->mkdir(target_plots_dir.string().c_str(), kTRUE);
 
     // Open file in strict READ mode

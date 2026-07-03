@@ -5,6 +5,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string_view>
+#include <algorithm>
 
 #include <string>
 #include <vector>
@@ -27,6 +28,7 @@
 #include "TH1.h"
 #include "TH2.h"
 #include "TCanvas.h"
+#include "TPaletteAxis.h"
 
 #include "TLatex.h"
 #include "TAxis.h"

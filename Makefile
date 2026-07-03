@@ -34,7 +34,7 @@ endif
 # `root-config --cflags` 	: necessary ROOT include flags
 CFLAGS := -g -Wall -std=c++17 -O2 -I$(INCLUDE_DIR) -I$(UTILS_DIR) $(EXTRA_INCLUDES) $(shell root-config --cflags)
 
-LDFLAGS := $(shell root-config --libs) -lyaml-cpp
+LDFLAGS := $(shell root-config --libs) -lHistPainter -lyaml-cpp
 
 # Default target
 all: build
