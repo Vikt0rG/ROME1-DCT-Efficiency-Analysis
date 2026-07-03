@@ -110,7 +110,7 @@ void plotDtVsStrip(TFile* input_file) {
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
-                            Form("Layer %d;Strip;dt [ticks]", layer),
+                            Form("Layer %d;Strip;dt [Ticks]; Entries", layer),
                             24, 0, 24, 40, -20, 20);
             dt_strip_histograms[suffixes[c]][layer] = hist;
         }
@@ -176,7 +176,7 @@ void plotToTVsStrip(TFile* input_file) {
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
-                            Form("Layer %d;Strip;ToT [ticks]", layer),
+                            Form("Layer %d;Strip;ToT [Ticks]; Entries", layer),
                             24, 0, 24, 100, 0, 100);
             tot_strip_histograms[suffixes[c]][layer] = hist;
         }
@@ -256,8 +256,8 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_%s_layer%d", categories[c], layer),
-                            Form("Layer %d;Strip;Multiplicity", layer),
-                            24, 0, 24, 10, 0, 10);
+                            Form("Layer %d;Strip;Multiplicity; Entries", layer),
+                            24, 0, 24, 9, 1, 10);
             multiplicity_histograms[categories[c]][layer] = hist;
         }
     }
@@ -265,7 +265,7 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_delay_%s_layer%d", categories[c], layer),
-                            Form("Layer %d;Strip;Delay from First Hit [ticks]", layer),
+                            Form("Layer %d;Strip;Delay from First Hit [Ticks]; Entries", layer),
                             24, 0, 24, 100, 0, 100);
             delay_histograms[categories[c]][layer] = hist;
         }
