@@ -108,7 +108,14 @@ config_stem="${config_base%.*}"
 summary_root="$outputDir/root_summaries/${config_stem}_summary.root"
 
 if grep -q '^summary root file:' "$config_file"; then
-    sed -i '' "s|^summary root file:.*|summary root file: $summary_root|" "$config_file"
+    # Dynamically detect if we are running on macOS or Linux
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS syntax
+        sed -i '' "s|^summary root file:.*|summary root file: $summary_root|" "$config_file"
+    else
+        # Linux syntax
+        sed -i "s|^summary root file:.*|summary root file: $summary_root|" "$config_file"
+    fi
 else
     printf '\nsummary root file: %s\n' "$summary_root" >> "$config_file"
 fi
