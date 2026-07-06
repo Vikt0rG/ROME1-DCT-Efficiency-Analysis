@@ -131,8 +131,8 @@ bool Track::hasAllLayers() const {
     return hasAllEta1Layers() && hasAllEta2Layers();
 }
 
-// Get track size
-int Track::getSize() const {
+// Get number of hits in the track
+int Track::getNHits() const {
     int count = 0;
     for (const Hit* hit : _track_hits) {
         if (_eta_side == ETA1 && hit->hasEta1Time()) count++;
@@ -178,28 +178,81 @@ int Track::getLayerCount() const {
     return count;
 }
 
-// Get track timing information
-int Track::getDt() const {
-    int earliest_time = INT_MAX;
-    int latest_time = INT_MIN;
+// Get track's time differences between layers for the track's eta side
+std::array<std::tuple<bool, bool, int>, LAYER_COUNT> Track::getDts() const {
+    std::map<int, int> layer_times;
 
     for (const Hit* hit : _track_hits) {
         int hit_time = (_eta_side == ETA1) ? hit->getTimeEta1() : hit->getTimeEta2();
-        if (hit_time != -1) {
-            if (hit_time < earliest_time) earliest_time = hit_time;
-            if (hit_time > latest_time) latest_time = hit_time;
-        } else {
-            // This should not happen since getDt should only be called on tracks (hits with valid times only), check just in case
-            std::cerr << "Warning: Hit in track has invalid time for eta side " << _eta_side << std::endl;
+        if (hit_time == -1) {
+            std::cerr << "Warning: Hit in track has invalid time." << std::endl;
             std::exit(EXIT_FAILURE);
+        }
+
+        int hit_layer = hit->getLayer();
+        if (layer_times.find(hit_layer) == layer_times.end() || hit_time < layer_times[hit_layer]) {
+            layer_times[hit_layer] = hit_time;
         }
     }
 
-    // If no valid times found, return -1: This should not happen for any tracks, but check to be safe
-    if (earliest_time == INT_MAX || latest_time == INT_MIN) {
-        std::cerr << "Warning: No valid hit times found for track on eta side " << _eta_side << std::endl;
-        return -1;
+    // Initialize result tuples with default values: {has_hits=false, is_adjacent=false, dt=0}
+    std::array<std::tuple<bool, bool, int>, LAYER_COUNT> result_tuples;
+    result_tuples.fill({false, false, 0});
+
+    // Use a flat tracking counter to safely map combinations to the sequential array slots
+    int tuple_idx = 0; 
+    
+    for (int layer = 0; layer < LAYER_COUNT; ++layer) {
+        for (int other_layer = layer + 1; other_layer < LAYER_COUNT; ++other_layer) {
+
+            // Dynamically calculate adjacency (if the gap is exactly 1 layer)
+            bool is_adjacent = (other_layer - layer == 1);
+
+            // Dynamically evaluate hits and time difference
+            if (layer_times.count(layer) && layer_times.count(other_layer)) {
+                int dt = layer_times[layer] - layer_times[other_layer];
+                result_tuples[tuple_idx] = {true, is_adjacent, dt};
+            } else {
+                // If a layer is missing a hit, keep track of adjacency structure but flag has_hits as false
+                result_tuples[tuple_idx] = {false, is_adjacent, 0};
+            }
+
+            // Move safely to the next array slot
+            tuple_idx++;
+        }
     }
 
-    return latest_time - earliest_time;
+    return result_tuples;
+}
+
+// Get track's time separation (dt between earliest and latest hit) for the track's eta side
+int Track::getTimeSeparation() const {
+    auto dts = getDts();
+    int max_dt = -1; // Fallback default for no valid pairs
+
+    // Unpack the tuple: [bool has_hits, bool is_adjacent, int dt_val]
+    for (const auto& [has_hits, _, dt_val] : dts) {
+        if (has_hits) { 
+            int dt = std::abs(dt_val);
+            if (dt > max_dt) {
+                max_dt = dt;
+            }
+        }
+    }
+    return max_dt;
+}
+
+// Get time differences between adjacent layers for the track's eta side
+std::vector<int> Track::getTimeResolution() const {
+    auto dts = getDts();
+    std::vector<int> time_differences;
+
+    // Unpack the tuple elements dynamically
+    for (const auto& [has_hits, is_adjacent, dt_val] : dts) {
+        // Only collect the delta if layers are physically next to each other AND both recorded a hit
+        if (is_adjacent && has_hits) {
+            time_differences.push_back(std::abs(dt_val));
+        }
+    }
+    return time_differences;
 }

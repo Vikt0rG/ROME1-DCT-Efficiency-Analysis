@@ -16,9 +16,9 @@
 #include "constants.hpp"
 
 
-// ============================================================
+// ==========================================================================================
 // DataProcesser Class: Main data processing section
-// ============================================================
+// ==========================================================================================
 class DataProcesser {
 public:
     enum class InputFormat {
@@ -73,8 +73,6 @@ public:
     std::vector<int>& getTrackWidthEta2() { return _track_width_eta2; }
     std::vector<int>& getTrackSizeEta1() { return _track_size_eta1; }
     std::vector<int>& getTrackSizeEta2() { return _track_size_eta2; }
-    std::vector<int>& getTrackDtEta1() { return _track_dt_eta1; }
-    std::vector<int>& getTrackDtEta2() { return _track_dt_eta2; }
 
     /// @brief Main entry point function for txt to ROOT data processing
     void processInputData();
@@ -95,17 +93,12 @@ public:
     /// @param word 
     void decodeDCTWord(int word);
 
-    /// @brief Process the current event: clusterization, track reconstruction, efficiency flag updates, and filling processed data vectors
+    /// @brief Process the current event: clusterization, track reconstruction, efficiency flag updates,
+    /// and filling processed data vectors
     /// @param counters Reference to the efficiency counters struct to be updated during processing
     /// @param counters_tracks Reference to the efficiency counters using tracks struct to be updated during processing
     void processEvent(EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks);
 
-    /// @brief Utility function to fill the hit's cluster ID branch
-    /// @param event Reference to the current event being processed
-    void updateClusterIDs(const Event& event);
-    /// @brief Utility function to fill the hit's track ID branch
-    /// @param event Reference to the current event being processed
-    void updateTrackIDs(const Event& event);
     /// @brief Utility function to determine if a hit is in a valid track and fill the corresponding branch
     /// @param event Reference to the current event being processed
     void hitsInValidTrack(const Event& event);
@@ -114,6 +107,15 @@ public:
     void pushBackProcessedData(const Event&);
     void pushBackClusterData(const Cluster&);
     void pushBackTrackData(const Track&);
+
+    // ID Management
+    /// @brief Utility function to update hit cluster IDs after clusterization and fill the hit's cluster ID branch
+    /// @param event Reference to the current event being processed
+    void updateClusterIDs(const Event& event);
+
+    /// @brief Utility function to update hit track IDs after track reconstruction and fill the hit's track ID branch
+    /// @param event Reference to the current event being processed
+    void updateTrackIDs(const Event& event);
 
     // Analysis
     void updateEfficiencies();
@@ -163,7 +165,8 @@ private:
     std::array<std::vector<int>, 3> cluster_size_eta1_layers, cluster_size_eta2_layers;
     std::array<std::vector<int>, 3> cluster_tot1_from_eta1_layers, cluster_tot2_from_eta1_layers, cluster_tot1_from_eta2_layers, cluster_tot2_from_eta2_layers;  // Layer-specific cluster data
     std::vector<int> _track_length_eta1, _track_length_eta2, _track_width_eta1, _track_width_eta2, _track_size_eta1, _track_size_eta2;
-    std::vector<int> _track_dt_eta1, _track_dt_eta2;
+    std::vector<int> _track_time_separation_eta1, _track_time_separation_eta2;
+    std::vector<int> _track_time_resolution_eta1, _track_time_resolution_eta2;
     std::vector<bool> _in_valid_track_eta1, _in_valid_track_eta2;
 
     // ID vectors for hits in clusters and tracks

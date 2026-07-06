@@ -40,12 +40,14 @@ public:
 
     // Track quality methods
     bool isValidTrack() const { return _track_hits.size() >= MIN_TRACK_LENGTH; }
-    int getSize() const;
+    int getNHits() const;
     int getWidth() const;
     int getLayerCount() const;
 
     // Track timing information
-    int getDt() const;  // Time difference between earliest and latest hit in track for the track's eta side
+    int getTimeSeparation() const;  // Time difference between earliest and latest hit in track for the track's eta side
+    std::array<std::tuple<bool, bool, int>, LAYER_COUNT> getDts() const;  // Time differences between different layers for the track's eta side
+    std::vector<int> getTimeResolution() const;  // Time resolutions for each layer pair
 
 private:
     int _track_id;                  // Unique identifier for the track

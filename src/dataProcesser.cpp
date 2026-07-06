@@ -1,9 +1,6 @@
 #include "dataProcesser.hpp"
 
 
-/// TODO:
-/// - Channel inversion for eta2 (?) side (in the same column: channel 1 of swaps with 8, 2 with 7, etc.)
-
 // ==========================================================================================
 // DataProcesser class implementation for processing raw DCT data
 // ==========================================================================================
@@ -114,8 +111,10 @@ void DataProcesser::setupBranches() {
     _track_reconstruction_tree->Branch("track_width_eta2", &_track_width_eta2);
     _track_reconstruction_tree->Branch("track_size_eta1", &_track_size_eta1);
     _track_reconstruction_tree->Branch("track_size_eta2", &_track_size_eta2);
-    _track_reconstruction_tree->Branch("track_dt_eta1", &_track_dt_eta1);
-    _track_reconstruction_tree->Branch("track_dt_eta2", &_track_dt_eta2);
+    _track_reconstruction_tree->Branch("track_time_separation_eta1", &_track_time_separation_eta1);
+    _track_reconstruction_tree->Branch("track_time_separation_eta2", &_track_time_separation_eta2);
+    _track_reconstruction_tree->Branch("track_time_resolution_eta1", &_track_time_resolution_eta1);
+    _track_reconstruction_tree->Branch("track_time_resolution_eta2", &_track_time_resolution_eta2);
 }
 
 // ------------------------------------------------------------------------------------------
@@ -354,8 +353,10 @@ void DataProcesser::clearEventVectors() {
     _track_width_eta2.clear();
     _track_size_eta1.clear();
     _track_size_eta2.clear();
-    _track_dt_eta1.clear();
-    _track_dt_eta2.clear();
+    _track_time_separation_eta1.clear();
+    _track_time_separation_eta2.clear();
+    _track_time_resolution_eta1.clear();
+    _track_time_resolution_eta2.clear();
 }
 
 // Utility function to push back raw hit data
@@ -419,16 +420,19 @@ void DataProcesser::pushBackClusterData(const Cluster& cluster) {
 
 // Utility functions to push track-level data into the corresponding vectors for tree filling
 void DataProcesser::pushBackTrackData(const Track& track) {
+    const auto time_resolution = track.getTimeResolution();
     if (track.getSide() == Track::ETA1) {
         _track_length_eta1.push_back(track.getLayerCount());
         _track_width_eta1.push_back(track.getWidth());
-        _track_size_eta1.push_back(track.getSize());
-        _track_dt_eta1.push_back(track.getDt());
+        _track_size_eta1.push_back(track.getNHits());
+        _track_time_separation_eta1.push_back(track.getTimeSeparation());
+        _track_time_resolution_eta1.insert(_track_time_resolution_eta1.end(), time_resolution.begin(), time_resolution.end());
     } else if (track.getSide() == Track::ETA2) {
         _track_length_eta2.push_back(track.getLayerCount());
         _track_width_eta2.push_back(track.getWidth());
-        _track_size_eta2.push_back(track.getSize());
-        _track_dt_eta2.push_back(track.getDt());
+        _track_size_eta2.push_back(track.getNHits());
+        _track_time_separation_eta2.push_back(track.getTimeSeparation());
+        _track_time_resolution_eta2.insert(_track_time_resolution_eta2.end(), time_resolution.begin(), time_resolution.end());
     }
 }
 
@@ -761,7 +765,9 @@ void DataProcesser::processEvent(
     }
 }
 
+
 // Utility function to update hit cluster IDs after clusterization
+// and push back the results into the corresponding vectors for tree filling
 void DataProcesser::updateClusterIDs(const Event& event) {
     for (const auto& cluster : event.getClustersEta1()) {
         for (const auto& hit: cluster.getHits()) {
@@ -776,6 +782,7 @@ void DataProcesser::updateClusterIDs(const Event& event) {
 }
 
 // Utility function to update hit track IDs after track reconstruction
+// and push back the results into the corresponding vectors for tree filling
 void DataProcesser::updateTrackIDs(const Event& event) {
     for (const auto& track : event.getTracksEta1()) {
         for (const auto& hit: track.getHits()) {
@@ -790,6 +797,7 @@ void DataProcesser::updateTrackIDs(const Event& event) {
 }
 
 // Utility function to check if a hit is a part of a valid track based on its track ID
+// and push back the result into the corresponding vectors for tree filling
 void DataProcesser::hitsInValidTrack(const Event& event) {
 
     std::unordered_map<int, bool> valid_eta1, valid_eta2;
