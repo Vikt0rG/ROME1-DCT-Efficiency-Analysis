@@ -36,12 +36,14 @@ while [[ "$#" -gt 0 ]]; do
             shift
             # Keep pulling files until hitting another option or running out of arguments
             while [[ "$#" -gt 0 && ! "$1" =~ ^- ]]; do
-                config_files+=("$1")
+                # Convert path to absolute immediately using realpath
+                abs_path=$(realpath "$1")
+                config_files+=("$abs_path")
                 shift
             done
             ;;
         -o | --output-dir)
-            output_directory="$2"
+            output_directory=$(realpath "$2")
             shift 2
             ;;
         -r | --recompile)
