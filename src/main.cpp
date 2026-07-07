@@ -108,6 +108,7 @@ int main(int argc, char** argv) {
         try {
             DataPlotter plotter(config_paths, output_directory);
             plotter.produceSummaryPlots();
+            plotter.exportPlotsToATLASPDF();
         } catch (const std::exception& e) {
             std::cerr << "Error plotting data: " << e.what() << std::endl;
             return 1;

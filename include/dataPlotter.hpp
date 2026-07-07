@@ -111,6 +111,7 @@ public:
 
 private:
     std::filesystem::path _output_directory;
+    std::filesystem::path _analysis_root_file;
 
     /// @brief Map to hold parsed ConfigData structs for each scan, indexed by the configuration
     /// file path

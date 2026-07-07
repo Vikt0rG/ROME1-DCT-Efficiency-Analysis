@@ -221,12 +221,21 @@ namespace {
         }
 
         // Efficiency plots
-        if (name.find("eff_") != std::string::npos) {
+        if (name.find("eff_") != std::string::npos || name.find("track_eff_") != std::string::npos) {
             if (obj->InheritsFrom(TMultiGraph::Class())) {
                 return PlotCategory::EfficiencyVsHV;
             } else if (obj->InheritsFrom(TGraph::Class())) {
                 return PlotCategory::Efficiency;
             }
+        }
+        // Cluster size plots
+        if (name.find("avg_cluster_size") != std::string::npos) {
+            return PlotCategory::Default; // Or custom Cluster category
+        }
+
+        // Noise Rate plots
+        if (name.find("noise_rate") != std::string::npos) {
+            return PlotCategory::Default; // Or custom Noise category
         }
 
         return PlotCategory::Default;
@@ -313,7 +322,7 @@ namespace {
     }
 
     // Process a single directory recursively
-    void scanDirectory(TDirectory* dir, const std::filesystem::path& output_dir_path) {
+    void scanDirectory(TDirectory* dir, const std::filesystem::path& current_output_path) {
         TIter next(dir->GetListOfKeys());
         TKey* key = nullptr;
 
@@ -321,10 +330,17 @@ namespace {
             TClass* cl = TClass::GetClass(key->GetClassName());
             if (!cl) continue;
 
-            // CASE A: Subdirectory found -> Dive in recursively
+            // CASE A: Subdirectory found -> Mirror it physically and dive in
             if (cl->InheritsFrom(TDirectory::Class())) {
                 TDirectory* subDir = dynamic_cast<TDirectory*>(key->ReadObj());
-                if (subDir) scanDirectory(subDir, output_dir_path);
+                if (subDir) {
+                    std::string sub_dir_name = key->GetName();
+                    std::filesystem::path next_output_path = current_output_path / sub_dir_name;
+                    
+                    std::cout << "[ATLAS Export] Entering subdirectory: " << sub_dir_name << std::endl;
+                    std::filesystem::create_directories(next_output_path);
+                    scanDirectory(subDir, next_output_path);
+                }
                 continue;
             }
 
@@ -361,7 +377,7 @@ namespace {
                 }
 
                 // Construct clean output file string and save
-                std::filesystem::path export_path = output_dir_path / (obj_name + ".pdf");
+                std::filesystem::path export_path = current_output_path / (obj_name + ".pdf");
                 canvas->SaveAs(export_path.string().c_str());
                 
                 delete canvas;
@@ -439,9 +455,9 @@ void DataPlotter::produceSummaryPlots() {
     std::filesystem::create_directories(_output_directory / "analysis");
 
     // Create an output path following "DD-MM-YYYY_HH-MM-SS_analysis.root" format
-    std::filesystem::path analysis_root_path = _output_directory / "analysis" / (Utilities::getTimestamp() + "_analysis.root");
-    TFile* analysis_root = TFile::Open(analysis_root_path.c_str(), "RECREATE");
-    PathUtils::verifyROOTFile(analysis_root, analysis_root_path.string());
+    _analysis_root_file = _output_directory / "analysis" / (Utilities::getTimestamp() + "_analysis.root");
+    TFile* analysis_root = TFile::Open(_analysis_root_file.c_str(), "RECREATE");
+    PathUtils::verifyROOTFile(analysis_root, _analysis_root_file.string());
 
     // Set up analysis ROOT file
     std::vector<std::string> dir_names;
@@ -664,17 +680,28 @@ void DataPlotter::produceSummaryPlots() {
     delete analysis_root;
 }
 
-
-/*
 void DataPlotter::exportPlotsToATLASPDF() {
     std::string timestamp = Utilities::getTimestamp();
-    std::filesystem::create_directories(_output_directory / "plots" / timestamp + "_analysis.root");
+    std::filesystem::path target_plots_dir = _output_directory / "plots" / (timestamp + "_analysis_plots");
+    std::filesystem::create_directories(target_plots_dir);
 
-    std::cout << "[ATLAS Export] Exporting plots to ATLAS PDF format..." << std::endl;
-    std::cout << "  Summary ROOT file: " << _summary_root_file << std::endl;
-    std::cout << "  Target directory: " << (_output_directory / "plots" / timestamp) << std::endl;
+    std::cout << "[ATLAS Export] Exporting multi-graphs to ATLAS PDF format..." << std::endl;
+    std::cout << "  Reading Compiled MultiGraphs from: " << _analysis_root_file << std::endl;
+    std::cout << "  Saving Target PDFs directory:    " << target_plots_dir << std::endl;
 
-    std::filesystem::path target_plots_dir = _output_directory / "plots" / timestamp;
-    PlotterHelpers::autoExportToATLASPDF(_summary_root_file, target_plots_dir);
+    // Open generated file containing the TMultiGraphs
+    TFile* file = TFile::Open(_analysis_root_file.c_str(), "READ");
+    if (!file || file->IsZombie()) {
+        std::cerr << "ERROR: Could not open analysis file for PDF rendering: " << _analysis_root_file << std::endl;
+        if (file) delete file;
+        return;
+    }
+
+    // Call styling engine's directory walker to map everything to ATLAS style
+    PlotterHelpers::scanDirectory(file, target_plots_dir);
+
+    // Clean up file handle pointers cleanly
+    file->Close();
+    delete file;
+    std::cout << "[ATLAS Export] Completed rendering all metrics successfully." << std::endl;
 }
-*/
