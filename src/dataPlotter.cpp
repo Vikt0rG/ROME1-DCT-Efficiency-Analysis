@@ -189,9 +189,131 @@ namespace {
         }
     }
 
+    // Helper function to detect type and name of the object in the ROOT file and return a PlotCategory enum
+    PlotCategory getPlotCategory(const TObject* obj) {
+        if (!obj) {
+            std::cerr << "Warning: Null object passed to getPlotCategory." << std::endl;
+            return PlotCategory::Default;
+        }
+
+        // Extract the name of the object for pattern matching
+        std::string name = obj->GetName();
+
+        // Strip distribution plots
+        if (name.find("h1d_strip_eta") != std::string::npos) {
+            return PlotCategory::StripDistribution;
+        }
+        // dt vs strip plots
+        if (name.find("h2d_dt_strip") != std::string::npos) {
+            return PlotCategory::DtVsStrip;
+        }
+        // ToT vs strip plots
+        if (name.find("h2d_tot") != std::string::npos) {
+            return PlotCategory::ToTVsStrip;
+        }
+        // Multiplicity vs strip plots
+        if (name.find("h2d_mult") != std::string::npos) {
+            return PlotCategory::MultiplicityVsStrip;
+        }
+        // Delay vs strip plots
+        if (name.find("h2d_delay") != std::string::npos) {
+            return PlotCategory::DelayVsStrip;
+        }
+
+        // Efficiency plots
+        if (name.find("eff_") != std::string::npos) {
+            if (obj->InheritsFrom(TMultiGraph::Class())) {
+                return PlotCategory::EfficiencyVsHV;
+            } else if (obj->InheritsFrom(TGraph::Class())) {
+                return PlotCategory::Efficiency;
+            }
+        }
+
+        return PlotCategory::Default;
+    }
+
+    void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas) {
+        // Configure Canvas specifically for high-voltage curves
+        canvas->SetLeftMargin(0.15);
+        canvas->SetRightMargin(0.05);
+        canvas->SetTopMargin(0.08);
+        canvas->SetBottomMargin(0.14);
+
+        applyATLASStyle(obj, canvas);
+
+        obj->Draw("A PMC PLC"); // Smooth multi-color/marker palette for layers
+
+        canvas->Modified();
+        canvas->Update();
+
+        // Custom positioning for labels so they don't cover the plateau
+        drawATLASLabel(0.18, 0.82, "Work in Progress"); 
+        drawPlotTitle(obj, 0.18, 0.76); 
+    }
+
+    void styleStripDistribution(TObject* obj, TCanvas* canvas) {
+        canvas->SetLeftMargin(0.16);
+        canvas->SetRightMargin(0.05);
+        canvas->SetTopMargin(0.06);
+        canvas->SetBottomMargin(0.14);
+
+        applyATLASStyle(obj, canvas);
+
+        if (auto h1 = dynamic_cast<TH1*>(obj)) {
+            h1->SetLineColor(kBlack);
+            h1->SetLineWidth(1.8);
+            h1->SetLineStyle(1);
+
+            // Fill properties: Pick a base color (e.g., kBlue-9 or kAzure) and make it transparent
+            // Format: TColor::GetColorTransparent(Color_Index, Alpha_Opacity_From_0_to_1)
+            // 0.30 gives a light saturation
+            Int_t light_blue_transparent = TColor::GetColorTransparent(kAzure + 7, 0.30);
+            h1->SetFillColor(light_blue_transparent);
+            h1->SetFillStyle(1001); // 1001 = Solid fill style
+
+            // Draw option "HIST" forces ROOT to draw it as a filled bar/step chart 
+            h1->Draw("HIST");
+        } else {
+            // Fallback draw if object isn't a 1D histogram
+            obj->Draw("E1");
+        }
+
+        canvas->Modified();
+        canvas->Update();
+
+        drawATLASLabel(0.05, 0.07, "Work in Progress");
+        drawPlotTitle(obj, 0.05, 0.07);
+    }
+
+    void styleDefaultPlot(TObject* obj, TCanvas* canvas, TClass* cl) {
+        // Standard configurations for generic plots
+        canvas->SetLeftMargin(0.16);
+        canvas->SetRightMargin(cl->InheritsFrom(TH2::Class()) ? 0.14 : 0.05);
+        canvas->SetTopMargin(0.06);
+        canvas->SetBottomMargin(0.14);
+
+        applyATLASStyle(obj, canvas);
+
+        if (cl->InheritsFrom(TH2::Class())) {
+            obj->Draw("COLZ");
+        } else if (cl->InheritsFrom(TGraphErrors::Class())) {
+            obj->Draw("APZ"); 
+        } else if (cl->InheritsFrom(TGraph::Class())) {
+            obj->Draw("AP"); 
+        } else {
+            obj->Draw("E1 X0");
+        }
+
+        canvas->Modified();
+        canvas->Update();
+
+        // Default positioning near the bottom left or top left
+        drawATLASLabel(0.05, 0.07, "Work in Progress");
+        drawPlotTitle(obj, 0.05, 0.07);
+    }
+
     // Process a single directory recursively
     void scanDirectory(TDirectory* dir, const std::filesystem::path& output_dir_path) {
-        // Loop over all keys (objects saved) in the current directory
         TIter next(dir->GetListOfKeys());
         TKey* key = nullptr;
 
@@ -202,52 +324,44 @@ namespace {
             // CASE A: Subdirectory found -> Dive in recursively
             if (cl->InheritsFrom(TDirectory::Class())) {
                 TDirectory* subDir = dynamic_cast<TDirectory*>(key->ReadObj());
-                if (subDir) {
-                    scanDirectory(subDir, output_dir_path);
-                }
+                if (subDir) scanDirectory(subDir, output_dir_path);
                 continue;
             }
 
             // CASE B: Target visual object found
-            if (cl->InheritsFrom(TH1::Class()) || cl->InheritsFrom(TGraph::Class())) {
+            if (cl->InheritsFrom(TH1::Class()) || cl->InheritsFrom(TGraph::Class()) || cl->InheritsFrom(TMultiGraph::Class())) {
                 TObject* obj = key->ReadObj();
                 if (!obj) continue;
 
-                // Create a standard ATLAS aspect-ratio canvas (600x600 or 800x600) with default margins
                 TCanvas* canvas = new TCanvas("c_temp", "", 800, 600);
                 canvas->cd();
-                canvas->SetLeftMargin(0.16);
-                canvas->SetRightMargin(0.05);
-                canvas->SetTopMargin(0.06);
-                canvas->SetBottomMargin(0.14);
 
-                // Apply ATLAS style to the object and canvas
-                applyATLASStyle(obj, canvas);
+                // Determine profile category based on the name string
+                std::string obj_name = obj->GetName();
+                PlotCategory category = getPlotCategory(obj);
 
-                // Execute draw call with the calculated metrics
-                if (cl->InheritsFrom(TH2::Class())) {
-                    obj->Draw("COLZ");
-                } else if (cl->InheritsFrom(TGraphErrors::Class())) {
-                    obj->Draw("APZ"); 
-                } else if (cl->InheritsFrom(TGraph::Class())) {
-                    obj->Draw("AP"); 
-                } else {
-                    obj->Draw("E1 X0");
+                // Dispatch layout and style to the correct engine
+                switch (category) {
+                    case PlotCategory::EfficiencyVsHV: {
+                        styleEfficiencyVsHV(obj, canvas);
+                        break;
+                    }
+                    case PlotCategory::StripDistribution: {
+                        styleStripDistribution(obj, canvas);
+                        break;
+                    }
+
+                    // Future categories can be clean extensions here
+                    // case PlotCategory::TimeResolution:
+                    //     styleTimeResolution(obj, canvas);
+                    //     break;
+                    default:
+                        styleDefaultPlot(obj, canvas, cl);
+                        break;
                 }
 
-                // Force re-calculation & compilation
-                canvas->Modified();
-                canvas->Update();
-
-                // Add text overlays
-                drawATLASLabel(0.05, 0.07, "Work in Progress");
-                drawPlotTitle(obj, 0.05, 0.07);
-
-                // Construct clean output file string
-                std::string safe_name = obj->GetName();
-                std::filesystem::path export_path = output_dir_path / (safe_name + ".pdf");
-
-                // Save and drop memory overhead
+                // Construct clean output file string and save
+                std::filesystem::path export_path = output_dir_path / (obj_name + ".pdf");
                 canvas->SaveAs(export_path.string().c_str());
                 
                 delete canvas;
@@ -255,6 +369,7 @@ namespace {
             }
         }
     }
+
 }   // Anonymous namespace
 
 void autoExportToATLASPDF(const std::string& root_file_path, const std::filesystem::path& target_plots_dir) {
@@ -549,28 +664,17 @@ void DataPlotter::produceSummaryPlots() {
     delete analysis_root;
 }
 
+
 /*
-// Accessors
-const TGraph* DataPlotter::getGraphForMetric(const std::string& metric_name) const {
-    std::filesystem::path config_stem = std::filesystem::path(config_path).stem();
-    std::filesystem::path analysis_root_path = _output_directory / (config_stem.string() + "_analysis.root");
-    TFile* file = TFile::Open(analysis_root_path.string().c_str(), "READ");
-    if (!file || file->IsZombie()) {
-        if (file) {
-            file->Close();
-            delete file;
-            file = nullptr;
-        }
-        std::cerr << "Failed to open analysis root file: " << analysis_root_path << std::endl;
-        return nullptr;
-    }
-    TGraph* graph = dynamic_cast<TGraph*>(file->Get(metric_name.c_str()));
-    if (!graph) {
-        file->Close();
-        delete file;
-        std::cerr << "Graph not found for metric: " << metric_name << std::endl;
-        return nullptr;
-    }
-    return graph;
+void DataPlotter::exportPlotsToATLASPDF() {
+    std::string timestamp = Utilities::getTimestamp();
+    std::filesystem::create_directories(_output_directory / "plots" / timestamp + "_analysis.root");
+
+    std::cout << "[ATLAS Export] Exporting plots to ATLAS PDF format..." << std::endl;
+    std::cout << "  Summary ROOT file: " << _summary_root_file << std::endl;
+    std::cout << "  Target directory: " << (_output_directory / "plots" / timestamp) << std::endl;
+
+    std::filesystem::path target_plots_dir = _output_directory / "plots" / timestamp;
+    PlotterHelpers::autoExportToATLASPDF(_summary_root_file, target_plots_dir);
 }
 */

@@ -65,6 +65,22 @@ namespace Utilities {
     std::string getTimestamp();
 }
 
+/// @enum PlotCategory
+/// @brief Enum to represent different categories of plots that can be generated
+enum class PlotCategory {
+    Efficiency,
+    EfficiencyVsHV,
+    StripDistribution,
+    DtVsStrip,
+    ToT,
+    ToTVsStrip,
+    MultiplicityVsStrip,
+    DelayVsStrip,
+    ClusterSize,
+    MeanClusterSize,
+    Default
+};
+
 // ------------------------------------------------------------------------------------------
 /// @brief Namespace for plotting helper functions used in the DataPlotter class
 namespace PlotterHelpers {
@@ -91,9 +107,7 @@ public:
     DataPlotter(const std::vector<std::string>& config_paths, const std::filesystem::path& output_directory);
 
     void produceSummaryPlots();
-
-    // Accessors
-    const TGraph* getGraphForMetric(const std::string& metric_name) const;
+    void exportPlotsToATLASPDF();
 
 private:
     std::filesystem::path _output_directory;
