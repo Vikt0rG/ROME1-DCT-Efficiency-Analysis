@@ -26,13 +26,14 @@ std::string getTimestamp() {
     char timestamp[20];
     std::strftime(timestamp, sizeof(timestamp), "%d-%m-%Y_%H-%M-%S", &now_tm);
     return std::string(timestamp);}
-}
+}   // namespace Utilities
 
 // ------------------------------------------------------------------------------------------
 namespace PlotterHelpers {
 
-// Anonymous namespace for internal helpers & ATLAS styling
-namespace {
+// --------------------------------------------------------------------------------------
+// Helper functions for applying ATLAS style to plots
+namespace ATLASStyler {
     void drawATLASLabel(double x_offset, double y_offset, const std::string& status) {
         // Fallback defaults if no active canvas pad is found
         double left_margin = 0.16;
@@ -188,61 +189,15 @@ namespace {
             zAxis->SetTitleSize(0.05);
         }
     }
+}
 
-    // Helper function to detect type and name of the object in the ROOT file and return a PlotCategory enum
-    PlotCategory getPlotCategory(const TObject* obj) {
-        if (!obj) {
-            std::cerr << "Warning: Null object passed to getPlotCategory." << std::endl;
-            return PlotCategory::Default;
-        }
+// --------------------------------------------------------------------------------------
+// Helper functions for styling plots based on their category
+namespace PlotStyler {
 
-        // Extract the name of the object for pattern matching
-        std::string name = obj->GetName();
-
-        // Strip distribution plots
-        if (name.find("h1d_strip_eta") != std::string::npos) {
-            return PlotCategory::StripDistribution;
-        }
-        // dt vs strip plots
-        if (name.find("h2d_dt_strip") != std::string::npos) {
-            return PlotCategory::DtVsStrip;
-        }
-        // ToT vs strip plots
-        if (name.find("h2d_tot") != std::string::npos) {
-            return PlotCategory::ToTVsStrip;
-        }
-        // Multiplicity vs strip plots
-        if (name.find("h2d_mult") != std::string::npos) {
-            return PlotCategory::MultiplicityVsStrip;
-        }
-        // Delay vs strip plots
-        if (name.find("h2d_delay") != std::string::npos) {
-            return PlotCategory::DelayVsStrip;
-        }
-
-        // Efficiency plots
-        if (name.find("eff_") != std::string::npos || name.find("track_eff_") != std::string::npos) {
-            if (obj->InheritsFrom(TMultiGraph::Class())) {
-                return PlotCategory::EfficiencyVsHV;
-            } else if (obj->InheritsFrom(TGraph::Class())) {
-                return PlotCategory::Efficiency;
-            }
-        }
-        // Cluster size plots
-        if (name.find("avg_cluster_size") != std::string::npos) {
-            return PlotCategory::Default; // Or custom Cluster category
-        }
-
-        // Noise Rate plots
-        if (name.find("noise_rate") != std::string::npos) {
-            return PlotCategory::Default; // Or custom Noise category
-        }
-
-        return PlotCategory::Default;
-    }
+    using namespace ATLASStyler;
 
     void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas) {
-        // Configure Canvas specifically for high-voltage curves
         canvas->SetLeftMargin(0.15);
         canvas->SetRightMargin(0.05);
         canvas->SetTopMargin(0.08);
@@ -250,14 +205,13 @@ namespace {
 
         applyATLASStyle(obj, canvas);
 
-        obj->Draw("A PMC PLC"); // Smooth multi-color/marker palette for layers
+        obj->Draw("A PMC PLC");
 
         canvas->Modified();
         canvas->Update();
 
-        // Custom positioning for labels so they don't cover the plateau
-        drawATLASLabel(0.18, 0.82, "Work in Progress"); 
-        drawPlotTitle(obj, 0.18, 0.76); 
+        drawATLASLabel(0.05, 0.07, "Work in Progress"); 
+        drawPlotTitle(obj, 0.05, 0.07); 
     }
 
     void styleStripDistribution(TObject* obj, TCanvas* canvas) {
@@ -321,6 +275,83 @@ namespace {
         drawPlotTitle(obj, 0.05, 0.07);
     }
 
+    using PlotStylerFunc = std::function<void(TObject*, TCanvas*, TClass*)>;
+
+    std::unordered_map<PlotCategory, PlotStylerFunc> getPlotStyleRegistry() {
+        std::unordered_map<PlotCategory, PlotStylerFunc> registry;
+
+        // Register style A: Efficiency curves
+        registry[PlotCategory::EfficiencyVsHV] = [](TObject* obj, TCanvas* canvas, TClass* cl) {
+            styleEfficiencyVsHV(obj, canvas);
+        };
+
+        // Register style B: Strip distributions
+        registry[PlotCategory::StripDistribution] = [](TObject* obj, TCanvas* canvas, TClass* cl) {
+            styleStripDistribution(obj, canvas);
+        };
+
+        return registry;
+    }
+
+}   // Styler namespace
+
+// --------------------------------------------------------------------------------------
+// Anonymous namespace for internal helpers
+namespace {
+
+    // Helper function to detect type and name of the object in the ROOT file and return a PlotCategory enum
+    PlotCategory getPlotCategory(const TObject* obj) {
+        if (!obj) {
+            std::cerr << "Warning: Null object passed to getPlotCategory." << std::endl;
+            return PlotCategory::Default;
+        }
+
+        // Extract the name of the object for pattern matching
+        std::string name = obj->GetName();
+
+        // Strip distribution plots
+        if (name.find("h1d_strip_eta") != std::string::npos) {
+            return PlotCategory::StripDistribution;
+        }
+        // dt vs strip plots
+        if (name.find("h2d_dt_strip") != std::string::npos) {
+            return PlotCategory::DtVsStrip;
+        }
+        // ToT vs strip plots
+        if (name.find("h2d_tot") != std::string::npos) {
+            return PlotCategory::ToTVsStrip;
+        }
+        // Multiplicity vs strip plots
+        if (name.find("h2d_mult") != std::string::npos) {
+            return PlotCategory::MultiplicityVsStrip;
+        }
+        // Delay vs strip plots
+        if (name.find("h2d_delay") != std::string::npos) {
+            return PlotCategory::DelayVsStrip;
+        }
+
+        // Efficiency plots
+        if (name.find("eff_") != std::string::npos || name.find("track_eff_") != std::string::npos) {
+            if (obj->InheritsFrom(TMultiGraph::Class())) {
+                return PlotCategory::EfficiencyVsHV;
+            } else if (obj->InheritsFrom(TGraph::Class())) {
+                std::cout << "[ATLAS Export] Detected efficiency graph: " << name << std::endl;
+                return PlotCategory::Efficiency;
+            }
+        }
+        // Cluster size plots
+        if (name.find("avg_cluster_size") != std::string::npos) {
+            return PlotCategory::Default; // Or custom Cluster category
+        }
+
+        // Noise Rate plots
+        if (name.find("noise_rate") != std::string::npos) {
+            return PlotCategory::Default; // Or custom Noise category
+        }
+
+        return PlotCategory::Default;
+    }
+
     // Process a single directory recursively
     void scanDirectory(TDirectory* dir, const std::filesystem::path& current_output_path) {
         TIter next(dir->GetListOfKeys());
@@ -359,20 +390,20 @@ namespace {
                 // Dispatch layout and style to the correct engine
                 switch (category) {
                     case PlotCategory::EfficiencyVsHV: {
-                        styleEfficiencyVsHV(obj, canvas);
+                        PlotStyler::styleEfficiencyVsHV(obj, canvas);
                         break;
                     }
                     case PlotCategory::StripDistribution: {
-                        styleStripDistribution(obj, canvas);
+                        PlotStyler::styleStripDistribution(obj, canvas);
                         break;
                     }
 
                     // Future categories can be clean extensions here
                     // case PlotCategory::TimeResolution:
-                    //     styleTimeResolution(obj, canvas);
+                    //     PlotStyler::styleTimeResolution(obj, canvas);
                     //     break;
                     default:
-                        styleDefaultPlot(obj, canvas, cl);
+                        PlotStyler::styleDefaultPlot(obj, canvas, cl);
                         break;
                 }
 
@@ -410,37 +441,120 @@ void autoExportToATLASPDF(const std::string& root_file_path, const std::filesyst
     delete file;
 }
 
-void removeLayerFromGraph(TGraph* graph, int layer_to_remove) {
-    if (!graph) { 
-        std::cerr << "Graph pointer is null." << std::endl;
-        return; 
-    }
-    TMultiGraph* multi_graph = dynamic_cast<TMultiGraph*>(graph);
-    if (!multi_graph) { 
-        std::cerr << "Failed to cast graph to TMultiGraph." << std::endl;
-        return; 
-    }
-    TGraph* layer_graph = nullptr;
-    auto* list = multi_graph->GetListOfGraphs();
-    if (!list) { 
-        std::cerr << "MultiGraph has no list of graphs." << std::endl;
-        return; 
-    }
-    for (int i = 0; i < list->GetSize(); ++i) {
-        TGraph* g = dynamic_cast<TGraph*>(list->At(i));
-        if (g && g->GetName() && std::string(g->GetName()).find("layer" + std::to_string(layer_to_remove)) != std::string::npos) {
-            layer_graph = g;
-            break;
+// Helper function to build a global TMultiGraph for global RPC plots across all layers for a given metric
+void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path& config_output_path) {
+    if (!config_dir) return;
+
+    // STEP 1: Dynamically find any available scanned_layer directory to act as a blueprint
+    TDirectory* blueprint_dir = nullptr;
+    TIter next_top_key(config_dir->GetListOfKeys());
+    TKey* top_key = nullptr;
+
+    while ((top_key = static_cast<TKey*>(next_top_key()))) {
+        TClass* cl = TClass::GetClass(top_key->GetClassName());
+        if (cl && cl->InheritsFrom(TDirectory::Class())) {
+            std::string dir_name = top_key->GetName();
+            if (dir_name.rfind("scanned_layer_", 0) == 0) {
+                blueprint_dir = dynamic_cast<TDirectory*>(top_key->ReadObj());
+                break; 
+            }
         }
     }
-    if (layer_graph) {
-        list->Remove(layer_graph);
-        delete layer_graph;
-    } else {
-        std::cerr << "Layer graph not found for layer: " << layer_to_remove << std::endl;
+
+    if (!blueprint_dir) {
+        std::cerr << "Warning: No 'scanned_layer_*' directories found inside configuration: " 
+                  << config_dir->GetName() << ". Skipping." << std::endl;
+        return;
     }
+
+    static const auto style_registry = PlotStyler::getPlotStyleRegistry();
+
+    // STEP 2: Iterate through analysis categories (e.g., efficiency_analysis)
+    TIter next_analysis_dir(blueprint_dir->GetListOfKeys());
+    TKey* analysis_key = nullptr;
+
+    while ((analysis_key = static_cast<TKey*>(next_analysis_dir()))) {
+        TClass* cl_dir = TClass::GetClass(analysis_key->GetClassName());
+        if (!cl_dir || !cl_dir->InheritsFrom(TDirectory::Class())) continue;
+
+        std::string analysis_subdir_name = analysis_key->GetName();
+        TDirectory* analysis_dir = dynamic_cast<TDirectory*>(analysis_key->ReadObj());
+        if (!analysis_dir) continue;
+
+        // STEP 3: Dynamically open "layer0" (or layer1/layer2 if 0 is missing) to extract real metric names
+        TDirectory* layer_blueprint = nullptr;
+        for (int l = 0; l < 3; ++l) {
+            layer_blueprint = dynamic_cast<TDirectory*>(analysis_dir->Get(("layer" + std::to_string(l)).c_str()));
+            if (layer_blueprint) break;
+        }
+
+        if (!layer_blueprint) {
+            delete analysis_dir;
+            continue; // No layer folders here, move to next category
+        }
+
+        // Now find the REAL target keys inside the layer folder (e.g., eff_eta1_external)
+        TIter next_metric_key(layer_blueprint->GetListOfKeys());
+        TKey* metric_key = nullptr;
+
+        while ((metric_key = static_cast<TKey*>(next_metric_key()))) {
+            std::string metric_name = metric_key->GetName();
+
+            TCanvas* canvas = new TCanvas("c_global", "", 800, 600);
+            canvas->cd();
+
+            TMultiGraph* global_multigraph = new TMultiGraph();
+            global_multigraph->SetName((metric_name + "_global").c_str());
+            global_multigraph->SetTitle((metric_name + " Global Performance;HV;Value").c_str());
+
+            bool graph_added = false;
+
+            // STEP 4: Stitch layers together by mapping the path correctly
+            for (int layer = 0; layer < 3; ++layer) {
+                std::string scan_folder = "scanned_layer_" + std::to_string(layer);
+                std::string target_path = scan_folder + "/" + analysis_subdir_name + "/layer" + std::to_string(layer) + "/" + metric_name;
+
+                // Look for either TGraphErrors or a component TGraph
+                TGraph* layer_graph = dynamic_cast<TGraph*>(config_dir->Get(target_path.c_str()));
+                if (!layer_graph) continue;
+
+                TGraph* graph_clone = static_cast<TGraph*>(layer_graph->Clone());
+                graph_clone->SetMarkerColor(1 + layer);
+                graph_clone->SetLineColor(1 + layer);
+                graph_clone->SetMarkerStyle(20 + layer);
+
+                global_multigraph->Add(graph_clone, "P");
+                graph_added = true;
+            }
+
+            // STEP 5: Style and render the output
+            if (graph_added) {
+                PlotCategory category = getPlotCategory(global_multigraph);
+                TClass* cl = TMultiGraph::Class();
+
+                auto it = style_registry.find(category);
+                if (it != style_registry.end()) {
+                    it->second(global_multigraph, canvas, cl);
+                } else {
+                    PlotStyler::styleDefaultPlot(global_multigraph, canvas, cl);
+                }
+
+                std::filesystem::path export_file = config_output_path / analysis_subdir_name / (metric_name + "_global.pdf");
+                std::filesystem::create_directories(export_file.parent_path());
+                
+                canvas->SaveAs(export_file.string().c_str());
+            }
+
+            delete global_multigraph;
+            delete canvas;
+        }
+        delete layer_blueprint;
+        delete analysis_dir;
+    }
+    delete blueprint_dir;
 }
-}
+
+}   // PlotterHelpers namespace
 
 // ==========================================================================================
 // DataPlotter class implementation for plotting summary statistics
@@ -682,14 +796,9 @@ void DataPlotter::produceSummaryPlots() {
 
 void DataPlotter::exportPlotsToATLASPDF() {
     std::string timestamp = Utilities::getTimestamp();
-    std::filesystem::path target_plots_dir = _output_directory / "plots" / (timestamp + "_analysis_plots");
+    std::filesystem::path target_plots_dir = _output_directory / "plots";
     std::filesystem::create_directories(target_plots_dir);
 
-    std::cout << "[ATLAS Export] Exporting multi-graphs to ATLAS PDF format..." << std::endl;
-    std::cout << "  Reading Compiled MultiGraphs from: " << _analysis_root_file << std::endl;
-    std::cout << "  Saving Target PDFs directory:    " << target_plots_dir << std::endl;
-
-    // Open generated file containing the TMultiGraphs
     TFile* file = TFile::Open(_analysis_root_file.c_str(), "READ");
     if (!file || file->IsZombie()) {
         std::cerr << "ERROR: Could not open analysis file for PDF rendering: " << _analysis_root_file << std::endl;
@@ -697,11 +806,31 @@ void DataPlotter::exportPlotsToATLASPDF() {
         return;
     }
 
-    // Call styling engine's directory walker to map everything to ATLAS style
-    PlotterHelpers::scanDirectory(file, target_plots_dir);
+    std::cout << "[ATLAS Export] Automatically fetching and exporting all metrics..." << std::endl;
 
-    // Clean up file handle pointers cleanly
+    // Loop through all top-level configuration directories
+    TIter next_config(file->GetListOfKeys());
+    TKey* config_key = nullptr;
+
+    while ((config_key = static_cast<TKey*>(next_config()))) {
+        TClass* cl = TClass::GetClass(config_key->GetClassName());
+        if (!cl || !cl->InheritsFrom(TDirectory::Class())) continue;
+
+        TDirectory* config_dir = dynamic_cast<TDirectory*>(config_key->ReadObj());
+        if (!config_dir) continue;
+
+        std::string config_name = config_key->GetName();
+        std::filesystem::path config_output_path = target_plots_dir / config_name;
+
+        std::cout << "  -> Processing configuration: " << config_name << std::endl;
+
+        // Dynamically process every analysis directory and metric present in the file
+        PlotterHelpers::buildGlobalMultiGraphs(config_dir, config_output_path);
+
+        delete config_dir;
+    }
+
     file->Close();
     delete file;
-    std::cout << "[ATLAS Export] Completed rendering all metrics successfully." << std::endl;
+    std::cout << "[ATLAS Export] Completed rendering all intrinsic metrics successfully." << std::endl;
 }

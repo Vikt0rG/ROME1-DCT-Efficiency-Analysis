@@ -11,6 +11,7 @@
 #include <array>
 #include <map>
 #include <unordered_map>
+#include <functional>
 
 #include <TDirectory.h>
 #include <TFile.h>
@@ -95,7 +96,16 @@ namespace PlotterHelpers {
         const std::filesystem::path& target_plots_dir
     );
 
-    void removeLayerFromGraph(TGraph* graph, int layer_to_remove);
+    /// @brief Helper function to build global TMultiGraph objects for all metrics across
+    /// all layers in a given configuration directory, and save them to the specified output path
+    /// @param config_dir A pointer to the TDirectory representing the configuration directory 
+    /// in the ROOT file
+    /// @param config_output_path The filesystem path to the directory where the output files
+    /// should be saved
+    void buildGlobalMultiGraphs(
+        TDirectory* config_dir,
+        const std::filesystem::path& config_output_path
+    );
 
 }
 
@@ -104,7 +114,10 @@ namespace PlotterHelpers {
 // ==========================================================================================
 class DataPlotter {
 public:
-    DataPlotter(const std::vector<std::string>& config_paths, const std::filesystem::path& output_directory);
+    DataPlotter(
+        const std::vector<std::string>& config_paths,
+        const std::filesystem::path& output_directory
+    );
 
     void produceSummaryPlots();
     void exportPlotsToATLASPDF();
