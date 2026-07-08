@@ -28,6 +28,7 @@
 #include "TH1.h"
 #include "TH2.h"
 #include "TCanvas.h"
+#include "TLegend.h"
 
 #include "TLatex.h"
 #include "TAxis.h"
@@ -106,6 +107,8 @@ namespace PlotterHelpers {
         TDirectory* config_dir,
         const std::filesystem::path& config_output_path
     );
+
+    /// TODO: Add definitions of the nested namespaces
 
 }
 

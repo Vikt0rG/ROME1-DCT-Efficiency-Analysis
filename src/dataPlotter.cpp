@@ -34,6 +34,14 @@ namespace PlotterHelpers {
 // --------------------------------------------------------------------------------------
 // Helper functions for applying ATLAS style to plots
 namespace ATLASStyler {
+
+    const std::vector<Color_t> ATLAS_PALETTE = {
+        kAzure + 1,    // Sharp Blue
+        kRed + 1,      // Deep Red
+        kGreen + 2,    // Dark Green
+        kOrange + 7    // Burnt Orange
+    };
+
     void drawATLASLabel(double x_offset, double y_offset, const std::string& status) {
         // Fallback defaults if no active canvas pad is found
         double left_margin = 0.16;
@@ -94,7 +102,47 @@ namespace ATLASStyler {
         // Strip the default top title box from printing
         if (auto h = dynamic_cast<TH1*>(obj)) {
             h->SetTitle("");
+        } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
+            mg->SetTitle("");
         }
+    }
+
+    void drawATLASLegend(TMultiGraph* mg, double x_left = 0.19, double y_top = 0.70) {
+        if (!mg) return;
+
+        TList* graph_list = mg->GetListOfGraphs();
+        if (!graph_list || graph_list->GetSize() == 0) return;
+
+        // Calculate a dynamic height based on the number of active layers present
+        double entry_height = 0.04; 
+        double total_height = graph_list->GetSize() * entry_height;
+        double x_right = x_left + 0.25;
+        double y_bottom = y_top - total_height;
+
+        // Create a borderless, transparent legend box
+        TLegend* leg = new TLegend(x_left, y_bottom, x_right, y_top);
+        leg->SetBorderSize(0);
+        leg->SetFillStyle(0);
+        leg->SetTextFont(42);
+        leg->SetTextSize(0.04);
+
+        TIter next_graph(graph_list);
+        TGraph* sub_graph = nullptr;
+
+        while ((sub_graph = static_cast<TGraph*>(next_graph()))) {
+            std::string g_name = sub_graph->GetName();
+            std::string label = "Unknown Layer";
+
+            // Map the internal graph identity back to a beautiful display string
+            if (g_name.find("layer0") != std::string::npos) label = "Layer 0";
+            else if (g_name.find("layer1") != std::string::npos) label = "Layer 1";
+            else if (g_name.find("layer2") != std::string::npos) label = "Layer 2";
+
+            // "p" draws just the marker point symbol next to the text label
+            leg->AddEntry(sub_graph, label.c_str(), "pe");
+        }
+
+        leg->Draw();
     }
 
     void adjustDynamicCB(TH2* h2, TPad* pad) {
@@ -143,8 +191,7 @@ namespace ATLASStyler {
             zAxis = h2->GetZaxis();
             h2->SetStats(0);
             adjustDynamicCB(h2, pad); // Adjust color bar dynamically based on max value
-        }
-        else if (auto h = dynamic_cast<TH1*>(obj)) {
+        } else if (auto h = dynamic_cast<TH1*>(obj)) {
             xAxis = h->GetXaxis();
             yAxis = h->GetYaxis();
             h->SetMarkerStyle(20);
@@ -152,7 +199,37 @@ namespace ATLASStyler {
             h->SetLineColor(kBlack);
             h->SetLineWidth(2);
             h->SetStats(0);
-        } 
+        } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
+            xAxis = mg->GetXaxis();
+            yAxis = mg->GetYaxis();
+            TList* graph_list = mg->GetListOfGraphs();
+            if (!graph_list) return;
+
+            TIter next_graph(graph_list);
+            TGraph* sub_graph = nullptr;
+            int color_index = 0;
+
+            while ((sub_graph = static_cast<TGraph*>(next_graph()))) {
+                sub_graph->SetMarkerStyle(21);
+
+                std::string g_name = sub_graph->GetName();
+                int layer_id = 0; // Default fallback
+                
+                if (g_name.find("layer0") != std::string::npos) layer_id = 0;
+                else if (g_name.find("layer1") != std::string::npos) layer_id = 1;
+                else if (g_name.find("layer2") != std::string::npos) layer_id = 2;
+
+                Color_t assigned_color = ATLAS_PALETTE[0]; // Default to kBlack
+                if (layer_id >= 0 && layer_id < static_cast<int>(ATLAS_PALETTE.size())) {
+                    assigned_color = ATLAS_PALETTE[layer_id];
+                }
+
+                sub_graph->SetMarkerColor(assigned_color);
+                sub_graph->SetLineColor(assigned_color);
+
+                color_index++;
+            }
+        }
         else if (auto g = dynamic_cast<TGraph*>(obj)) {
             xAxis = g->GetXaxis();
             yAxis = g->GetYaxis();
@@ -203,15 +280,20 @@ namespace PlotStyler {
         canvas->SetTopMargin(0.08);
         canvas->SetBottomMargin(0.14);
 
-        applyATLASStyle(obj, canvas);
+        auto mg = dynamic_cast<TMultiGraph*>(obj);
+        if (mg) mg->SetTitle("");
 
-        obj->Draw("A PMC PLC");
+        obj->Draw("APZ");
+        
+        applyATLASStyle(obj, canvas);
 
         canvas->Modified();
         canvas->Update();
 
-        drawATLASLabel(0.05, 0.07, "Work in Progress"); 
-        drawPlotTitle(obj, 0.05, 0.07); 
+        drawATLASLabel(0.05, 0.07, "Work in Progress");
+        drawPlotTitle(obj, 0.05, 0.07);
+
+        if (mg) drawATLASLegend(mg, 0.19, 0.68);
     }
 
     void styleStripDistribution(TObject* obj, TCanvas* canvas) {
@@ -255,10 +337,16 @@ namespace PlotStyler {
         canvas->SetTopMargin(0.06);
         canvas->SetBottomMargin(0.14);
 
-        applyATLASStyle(obj, canvas);
+        if (auto h = dynamic_cast<TH1*>(obj)) {
+            h->SetTitle("");
+        } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
+            mg->SetTitle("");
+        }
 
         if (cl->InheritsFrom(TH2::Class())) {
             obj->Draw("COLZ");
+        } else if (cl->InheritsFrom(TMultiGraph::Class())) {
+            obj->Draw("AP"); 
         } else if (cl->InheritsFrom(TGraphErrors::Class())) {
             obj->Draw("APZ"); 
         } else if (cl->InheritsFrom(TGraph::Class())) {
@@ -267,12 +355,18 @@ namespace PlotStyler {
             obj->Draw("E1 X0");
         }
 
+        applyATLASStyle(obj, canvas);
+        
         canvas->Modified();
         canvas->Update();
 
         // Default positioning near the bottom left or top left
         drawATLASLabel(0.05, 0.07, "Work in Progress");
         drawPlotTitle(obj, 0.05, 0.07);
+
+        if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
+            drawATLASLegend(mg, 0.19, 0.68);
+        }
     }
 
     using PlotStylerFunc = std::function<void(TObject*, TCanvas*, TClass*)>;
@@ -335,8 +429,7 @@ namespace {
             if (obj->InheritsFrom(TMultiGraph::Class())) {
                 return PlotCategory::EfficiencyVsHV;
             } else if (obj->InheritsFrom(TGraph::Class())) {
-                std::cout << "[ATLAS Export] Detected efficiency graph: " << name << std::endl;
-                return PlotCategory::Efficiency;
+                return PlotCategory::Default; // Or custom Efficiency category
             }
         }
         // Cluster size plots
@@ -519,9 +612,7 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                 if (!layer_graph) continue;
 
                 TGraph* graph_clone = static_cast<TGraph*>(layer_graph->Clone());
-                graph_clone->SetMarkerColor(1 + layer);
-                graph_clone->SetLineColor(1 + layer);
-                graph_clone->SetMarkerStyle(20 + layer);
+                graph_clone->SetName(("graph_layer" + std::to_string(layer)).c_str());
 
                 global_multigraph->Add(graph_clone, "P");
                 graph_added = true;
