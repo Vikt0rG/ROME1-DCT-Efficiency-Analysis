@@ -67,6 +67,7 @@ namespace Utilities {
     std::string getTimestamp();
 }
 
+// ------------------------------------------------------------------------------------------
 /// @enum PlotCategory
 /// @brief Enum to represent different categories of plots that can be generated
 enum class PlotCategory {
@@ -84,8 +85,66 @@ enum class PlotCategory {
 };
 
 // ------------------------------------------------------------------------------------------
-/// @brief Namespace for plotting helper functions used in the DataPlotter class
+/// @namespace PlotterHelpers
+/// @brief Collection of helper functions for plotting and styling ROOT objects
 namespace PlotterHelpers {
+
+    // --------------------------------------------------------------------------------------
+    /// @namespace ATLASStyler
+    /// @brief Collection of helper functions for applying ATLAS styling to plots
+    namespace ATLASStyler {
+
+        /// @brief Helper function to draw the ATLAS label on a plot
+        /// @param x_offset The horizontal offset for the label position
+        /// @param y_offset The vertical offset for the label position
+        /// @param status The status text to display (e.g., "Work in Progress")
+        void drawATLASLabel(double x_offset, double y_offset, const std::string& status);
+
+        /// @brief Helper function to draw a title on a plot
+        /// @param obj The ROOT object (e.g., TGraph, TH1) to which the title will be applied
+        /// @param x_offset The horizontal offset for the title position
+        /// @param y_offset The vertical offset for the title position
+        void drawPlotTitle(TObject* obj, double x_offset, double y_offset);
+
+        /// @brief Helper function to draw a legend on a plot
+        /// @param mg A pointer to the TMultiGraph object for which the legend will be drawn
+        /// @param x_offset The horizontal offset for the legend position
+        /// @param y_offset The vertical offset for the legend position
+        void drawATLASLegend(TMultiGraph* mg, double x_offset, double y_offset);
+
+        /// @brief Helper function to adjust the color bar of a 2D histogram dynamically
+        /// based on the maximum value in the histogram
+        /// @param h2 A pointer to the TH2 histogram object
+        /// @param pad A pointer to the TPad object on which the histogram is drawn
+        void adjustDynamicCB(TH2* h2, TPad* pad);
+
+        /// @brief Helper function to apply ATLAS styling to a given plot object and canvas
+        /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
+        /// @param pad A pointer to the TPad object on which the object is drawn (optional)
+        void applyATLASStyle(TObject* obj, TPad* pad = nullptr);
+    }   // namespace ATLASStyler
+
+    // --------------------------------------------------------------------------------------
+    /// @namespace PlotStyler
+    /// @brief Namespace for functions that apply specific styling to different ROOT object types
+    namespace PlotStyler {
+
+        /// @brief Helper function to style efficiency vs HV plots
+        /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
+        /// @param canvas The TCanvas on which the object is drawn
+        void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas);
+
+        /// @brief Default styling function for generic plots
+        /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
+        /// @param canvas The TCanvas on which the object is drawn
+        /// @param class_type The TClass pointer representing the type of the ROOT object
+        void styleDefaultPlot(TObject* obj, TCanvas* canvas, TClass* class_type);
+
+        /// @brief Helper function to get a registry of plot styling functions for different
+        /// ROOT object types
+        /// @return A map of TClass pointers to corresponding styling functions
+        std::map<TClass*, std::function<void(TObject*, TCanvas*, TClass*)>> getPlotStyleRegistry();
+    }   // namespace PlotStyler
 
     /// @brief Helper function to automatically export all relevant plots from a ROOT file
     /// to a specified directory in PDF format, applying ATLAS styling
@@ -107,9 +166,6 @@ namespace PlotterHelpers {
         TDirectory* config_dir,
         const std::filesystem::path& config_output_path
     );
-
-    /// TODO: Add definitions of the nested namespaces
-
 }
 
 // ==========================================================================================

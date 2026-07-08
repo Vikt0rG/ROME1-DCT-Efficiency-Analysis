@@ -174,7 +174,7 @@ namespace ATLASStyler {
         }
     }
 
-    void applyATLASStyle(TObject* obj, TPad* pad = nullptr) {
+    void applyATLASStyle(TObject* obj, TPad* pad) {
         TAxis* xAxis = nullptr;
         TAxis* yAxis = nullptr;
         TAxis* zAxis = nullptr;
