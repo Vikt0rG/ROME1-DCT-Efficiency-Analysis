@@ -463,51 +463,27 @@ namespace {
 
     // Helper function to detect type and name of the object in the ROOT file and return a PlotCategory enum
     PlotCategory getPlotCategory(const TObject* obj) {
-        if (!obj) {
-            std::cerr << "Warning: Null object passed to getPlotCategory." << std::endl;
-            return PlotCategory::Default;
-        }
+        if (!obj) return PlotCategory::Default;
 
-        // Extract the name of the object for pattern matching
         std::string name = obj->GetName();
 
-        // Strip distribution plots
-        if (name.find("h1d_strip_eta") != std::string::npos) {
-            return PlotCategory::StripDistribution;
-        }
-        // dt vs strip plots
-        if (name.find("h2d_dt_strip") != std::string::npos) {
-            return PlotCategory::DtVsStrip;
-        }
-        // ToT vs strip plots
-        if (name.find("h2d_tot") != std::string::npos) {
-            return PlotCategory::ToTVsStrip;
-        }
-        // Multiplicity vs strip plots
-        if (name.find("h2d_mult") != std::string::npos) {
-            return PlotCategory::MultiplicityVsStrip;
-        }
-        // Delay vs strip plots
-        if (name.find("h2d_delay") != std::string::npos) {
-            return PlotCategory::DelayVsStrip;
-        }
+        // Data-driven mapping table
+        static const std::vector<std::tuple<std::string, TClass*, PlotCategory>> category_map = {
+            {"h1d_strip_eta",   TH1D::Class(),          PlotCategory::StripDistribution},
+            {"h2d_dt_strip",    TH2D::Class(),          PlotCategory::DtVsStrip},
+            {"h2d_tot",         TH2D::Class(),          PlotCategory::ToTVsStrip},
+            {"h2d_mult",        TH2D::Class(),          PlotCategory::MultiplicityVsStrip},
+            {"h2d_delay",       TH2D::Class(),          PlotCategory::DelayVsStrip},
+            {"eff",             TGraph::Class(),        PlotCategory::Efficiency},
+            {"track_eff",       TGraph::Class(),        PlotCategory::Efficiency},
+            {"eff",             TMultiGraph::Class(),   PlotCategory::EfficiencyVsHV},
+            {"track_eff",       TMultiGraph::Class(),   PlotCategory::EfficiencyVsHV}
+        };
 
-        // Efficiency plots
-        if (name.find("eff_") != std::string::npos || name.find("track_eff_") != std::string::npos) {
-            if (obj->InheritsFrom(TMultiGraph::Class())) {
-                return PlotCategory::EfficiencyVsHV;
-            } else if (obj->InheritsFrom(TGraph::Class())) {
-                return PlotCategory::Default; // Or custom Efficiency category
+        for (const auto& [token, cl, category] : category_map) {
+            if (name.find(token) != std::string::npos && obj->InheritsFrom(cl)) {
+                return category;
             }
-        }
-        // Cluster size plots
-        if (name.find("avg_cluster_size") != std::string::npos) {
-            return PlotCategory::Default; // Or custom Cluster category
-        }
-
-        // Noise Rate plots
-        if (name.find("noise_rate") != std::string::npos) {
-            return PlotCategory::Default; // Or custom Noise category
         }
 
         return PlotCategory::Default;
