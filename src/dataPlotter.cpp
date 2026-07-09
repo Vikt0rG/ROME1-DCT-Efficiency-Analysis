@@ -515,9 +515,12 @@ namespace {
 
     // Process a single directory recursively
     void scanDirectory(TDirectory* dir, const std::filesystem::path& current_output_path) {
+
+        // Fetch the global style registry for dispatching plot styling
+        static const auto style_registry = PlotStyler::getPlotStyleRegistry();
+
         TIter next(dir->GetListOfKeys());
         TKey* key = nullptr;
-
         while ((key = static_cast<TKey*>(next()))) {
             TClass* cl = TClass::GetClass(key->GetClassName());
             if (!cl) continue;
@@ -548,24 +551,12 @@ namespace {
                 std::string obj_name = obj->GetName();
                 PlotCategory category = getPlotCategory(obj);
 
-                // Dispatch layout and style to the correct engine
-                switch (category) {
-                    case PlotCategory::EfficiencyVsHV: {
-                        PlotStyler::styleEfficiencyVsHV(obj, canvas);
-                        break;
-                    }
-                    case PlotCategory::StripDistribution: {
-                        PlotStyler::styleStripDistribution(obj, canvas);
-                        break;
-                    }
-
-                    // Future categories can be clean extensions here
-                    // case PlotCategory::TimeResolution:
-                    //     PlotStyler::styleTimeResolution(obj, canvas);
-                    //     break;
-                    default:
-                        PlotStyler::styleDefaultPlot(obj, canvas, cl);
-                        break;
+                // Execute styling uniformly via polymorphic registry lookup
+                auto it = style_registry.find(category);
+                if (it != style_registry.end()) {
+                    it->second(obj, canvas, cl); // Dynamically dispatches styleEfficiencyVsHV, etc.
+                } else {
+                    PlotStyler::styleDefaultPlot(obj, canvas, cl); // Clean structural fallback
                 }
 
                 // Construct clean output file string and save
