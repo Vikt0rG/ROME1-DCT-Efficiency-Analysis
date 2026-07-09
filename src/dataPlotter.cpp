@@ -611,10 +611,21 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                 TGraph* layer_graph = dynamic_cast<TGraph*>(config_dir->Get(target_path.c_str()));
                 if (!layer_graph) continue;
 
-                TGraph* graph_clone = static_cast<TGraph*>(layer_graph->Clone());
-                graph_clone->SetName(("graph_layer" + std::to_string(layer)).c_str());
-
-                global_multigraph->Add(graph_clone, "P");
+                // Clone the graph to avoid ownership issues and add it to the global multigraph
+                TObject* raw_clone = layer_graph->Clone();
+                TGraphErrors* graph_error_clone = dynamic_cast<TGraphErrors*>(raw_clone);
+                if (graph_error_clone) {
+                    graph_error_clone->SetName(("graph_layer" + std::to_string(layer)).c_str());
+                    global_multigraph->Add(graph_error_clone, "P");
+                } else {
+                    TGraph* graph_plain_clone = dynamic_cast<TGraph*>(raw_clone);
+                    if (graph_plain_clone) {
+                        graph_plain_clone->SetName(("graph_layer" + std::to_string(layer)).c_str());
+                        global_multigraph->Add(graph_plain_clone, "P");
+                    } else {
+                        delete raw_clone;
+                    }
+                }
                 graph_added = true;
             }
 
