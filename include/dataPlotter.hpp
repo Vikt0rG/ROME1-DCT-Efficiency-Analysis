@@ -129,6 +129,8 @@ namespace PlotterHelpers {
     /// @brief Namespace for functions that apply specific styling to different ROOT object types
     namespace PlotStyler {
 
+        using PlotStylerFunc = std::function<void(TObject*, TCanvas*, TClass*)>;
+
         /// @brief Helper function to style efficiency vs HV plots
         /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
         /// @param canvas The TCanvas on which the object is drawn
@@ -143,7 +145,7 @@ namespace PlotterHelpers {
         /// @brief Helper function to get a registry of plot styling functions for different
         /// ROOT object types
         /// @return A map of TClass pointers to corresponding styling functions
-        std::map<TClass*, std::function<void(TObject*, TCanvas*, TClass*)>> getPlotStyleRegistry();
+        std::unordered_map<PlotCategory, PlotStylerFunc> getPlotStyleRegistry();
     }   // namespace PlotStyler
 
     /// @brief Helper function to automatically export all relevant plots from a ROOT file
