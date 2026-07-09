@@ -89,6 +89,13 @@ enum class PlotCategory {
 /// @brief Collection of helper functions for plotting and styling ROOT objects
 namespace PlotterHelpers {
 
+    /// @brief Helper function to compile plot labels from a given title string
+    /// @param metric_name Metric name string from which to derive plot labels
+    /// @return A tuple containing the plot title, x-axis label, and y-axis label
+    std::tuple<std::string, std::string, std::string> compilePlotLabels(
+        const std::string& metric_name
+    );
+
     // --------------------------------------------------------------------------------------
     /// @namespace ATLASStyler
     /// @brief Collection of helper functions for applying ATLAS styling to plots
@@ -104,7 +111,8 @@ namespace PlotterHelpers {
         /// @param obj The ROOT object (e.g., TGraph, TH1) to which the title will be applied
         /// @param x_offset The horizontal offset for the title position
         /// @param y_offset The vertical offset for the title position
-        void drawPlotTitle(TObject* obj, double x_offset, double y_offset);
+        /// @return A boolean indicating whether the title was successfully drawn
+        bool drawPlotTitle(TObject* obj, double x_offset, double y_offset);
 
         /// @brief Helper function to draw a legend on a plot
         /// @param mg A pointer to the TMultiGraph object for which the legend will be drawn

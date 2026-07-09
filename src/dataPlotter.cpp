@@ -31,6 +31,52 @@ std::string getTimestamp() {
 // ------------------------------------------------------------------------------------------
 namespace PlotterHelpers {
 
+std::tuple<std::string, std::string, std::string> compilePlotLabels(
+    const std::string& metric_name) 
+{
+
+    // Prepare output strings for title and axes' labels
+    std::string out_title = "";
+    std::string out_xaxis = "";
+    std::string out_yaxis = "";
+
+    std::string side = "";
+    std::string trigger = "";
+
+    // Resolve basic Y-axis and base metric type strings
+    if (metric_name.rfind("track_eff_", 0) == 0 || metric_name.rfind("eff_", 0) == 0) {
+        out_xaxis = "High Voltage [V]";
+        out_yaxis = "Efficiency";
+    } else if (metric_name.rfind("avg_cluster_size_", 0) == 0) {
+        out_xaxis = "High Voltage [V]";
+        out_yaxis = "#LTCluster Size#GT [Hits]";
+    } else if (metric_name.rfind("noise_rate_", 0) == 0) {
+        out_xaxis = "High Voltage [V]";
+        out_yaxis = "Noise Rate [Hz/cm^{2}]";
+    }
+
+    // Extract Attributes via substring checking
+    if (metric_name.find("eta1") != std::string::npos)       side = "#eta_{1}";
+    else if (metric_name.find("eta2") != std::string::npos)  side = "#eta_{2}";
+    else if (metric_name.find("or_") != std::string::npos)   side = "OR(#eta_{1}, #eta_{2})";
+    else if (metric_name.find("and_") != std::string::npos)  side = "AND(#eta_{1}, #eta_{2})";
+
+    // Extract Trigger Context Attributes
+    if (metric_name.find("external") != std::string::npos)   trigger = "External Trigger";
+    else if (metric_name.find("rpc") != std::string::npos)   trigger = "RPC Coincidence";
+
+    // Construct the unified canvas subtitle string
+    if (!side.empty()) {
+        out_title += side;
+    }
+    if (!trigger.empty()) {
+        if (!out_title.empty()) out_title += ": ";
+        out_title += trigger;
+    }
+
+    return std::make_tuple(out_title, out_xaxis, out_yaxis);
+}
+
 // --------------------------------------------------------------------------------------
 // Helper functions for applying ATLAS style to plots
 namespace ATLASStyler {
@@ -42,24 +88,21 @@ namespace ATLASStyler {
         kOrange + 7    // Burnt Orange
     };
 
-    void drawATLASLabel(double x_offset, double y_offset, const std::string& status) {
-        // Fallback defaults if no active canvas pad is found
+    void drawATLASLabel(double x_left, double y_top, const std::string& status) {
         double left_margin = 0.16;
         double top_margin = 0.06;
-
-        // Dynamically fetch the current margins set on the active canvas/pad
         if (gPad) {
             left_margin = gPad->GetLeftMargin();
             top_margin = gPad->GetTopMargin();
         }
 
-        // Convert relative offset into absolute Canvas NDC coordinates
-        double final_x = left_margin + x_offset;
-        double final_y = (1.0 - top_margin) - y_offset;
+        // Anchor exactly inside the active axis frame workspace
+        double final_x = left_margin + x_left;
+        double final_y = (1.0 - top_margin) - y_top;
 
         TLatex l;
         l.SetNDC();
-        l.SetTextFont(72); // Bold-Italic Helvetica for "ATLAS"
+        l.SetTextFont(72);  // Bold-Italic Helvetica for "ATLAS"
         l.SetTextColor(kBlack);
         l.SetTextSize(0.04);
         l.DrawLatex(final_x, final_y, "ATLAS");
@@ -67,60 +110,56 @@ namespace ATLASStyler {
         if (!status.empty()) {
             TLatex s;
             s.SetNDC();
-            s.SetTextFont(42); // Standard Helvetica for status text
+            s.SetTextFont(42);  // Regular Helvetica
             s.SetTextColor(kBlack);
             s.SetTextSize(0.04);
             
-            // Offset slightly to the right of "ATLAS"
+            // 0.13 NDC offset ensures "ATLAS" and Status don't overlap
             s.DrawLatex(final_x + 0.10, final_y, status.c_str()); 
         }
     }
 
-    void drawPlotTitle(TObject* obj, double x_offset = 0.05, double y_offset = 0.07) {
-        if (!obj || !gPad) return;
+    bool drawPlotTitle(TObject* obj, double x_left, double y_top) {
+        if (!obj || !gPad) return false;
 
-        // Get the object's title string safely
         std::string titleStr = obj->GetTitle();
-        if (titleStr.empty()) return;
+        if (titleStr.empty()) return false;
 
-        // Fetch live canvas boundaries
         double left_margin = gPad->GetLeftMargin();
         double top_margin = gPad->GetTopMargin();
 
-        // Align with the vertical level of drawATLASLabel
-        double final_x = left_margin + x_offset;
-        double final_y = (1.0 - top_margin) - y_offset - 0.05; // Slightly below the ATLAS label
+        double final_x = left_margin + x_left;
+        double final_y = (1.0 - top_margin) - y_top;
 
         TLatex t;
         t.SetNDC();
-        t.SetTextFont(42);         // Standard Helvetica
-        t.SetTextSize(0.04);       // Matches ATLAS label status size
+        t.SetTextFont(42);         
+        t.SetTextSize(0.04);       
         t.SetTextColor(kBlack);
-
         t.DrawLatex(final_x, final_y, titleStr.c_str());
 
-        // Strip the default top title box from printing
-        if (auto h = dynamic_cast<TH1*>(obj)) {
-            h->SetTitle("");
-        } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
-            mg->SetTitle("");
-        }
+        return true;
     }
 
-    void drawATLASLegend(TMultiGraph* mg, double x_left = 0.19, double y_top = 0.70) {
-        if (!mg) return;
+    void drawATLASLegend(TMultiGraph* mg, double x_left, double y_top) {
+        if (!mg || !gPad) return;
 
         TList* graph_list = mg->GetListOfGraphs();
         if (!graph_list || graph_list->GetSize() == 0) return;
 
-        // Calculate a dynamic height based on the number of active layers present
+        double left_margin = gPad->GetLeftMargin();
+        double top_margin = gPad->GetTopMargin();
+
+        double final_x_left = left_margin + x_left;
+        double final_y_top = (1.0 - top_margin) - y_top;
+
+        // Standard ATLAS entry row text scaling
         double entry_height = 0.04; 
         double total_height = graph_list->GetSize() * entry_height;
-        double x_right = x_left + 0.25;
-        double y_bottom = y_top - total_height;
+        double final_x_right = final_x_left + 0.25;
+        double final_y_bottom = final_y_top - total_height;
 
-        // Create a borderless, transparent legend box
-        TLegend* leg = new TLegend(x_left, y_bottom, x_right, y_top);
+        TLegend* leg = new TLegend(final_x_left, final_y_bottom, final_x_right, final_y_top);
         leg->SetBorderSize(0);
         leg->SetFillStyle(0);
         leg->SetTextFont(42);
@@ -133,12 +172,10 @@ namespace ATLASStyler {
             std::string g_name = sub_graph->GetName();
             std::string label = "Unknown Layer";
 
-            // Map the internal graph identity back to a beautiful display string
             if (g_name.find("layer0") != std::string::npos) label = "Layer 0";
             else if (g_name.find("layer1") != std::string::npos) label = "Layer 1";
             else if (g_name.find("layer2") != std::string::npos) label = "Layer 2";
 
-            // "p" draws just the marker point symbol next to the text label
             leg->AddEntry(sub_graph, label.c_str(), "pe");
         }
 
@@ -195,7 +232,7 @@ namespace ATLASStyler {
             xAxis = h->GetXaxis();
             yAxis = h->GetYaxis();
             h->SetMarkerStyle(20);
-            h->SetMarkerSize(1.2);
+            h->SetMarkerSize(1.0);
             h->SetLineColor(kBlack);
             h->SetLineWidth(2);
             h->SetStats(0);
@@ -210,7 +247,8 @@ namespace ATLASStyler {
             int color_index = 0;
 
             while ((sub_graph = static_cast<TGraph*>(next_graph()))) {
-                sub_graph->SetMarkerStyle(21);
+                sub_graph->SetMarkerStyle(5);
+                sub_graph->SetMarkerSize(1.0);
 
                 std::string g_name = sub_graph->GetName();
                 int layer_id = 0; // Default fallback
@@ -234,7 +272,7 @@ namespace ATLASStyler {
             xAxis = g->GetXaxis();
             yAxis = g->GetYaxis();
             g->SetMarkerStyle(20);
-            g->SetMarkerSize(1.2);
+            g->SetMarkerSize(1.0);
             g->SetLineColor(kBlack);
             g->SetLineWidth(2);
         }
@@ -275,38 +313,68 @@ namespace PlotStyler {
     using namespace ATLASStyler;
 
     void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas) {
+        // Margins
         canvas->SetLeftMargin(0.15);
         canvas->SetRightMargin(0.05);
-        canvas->SetTopMargin(0.08);
+        canvas->SetTopMargin(0.05);
         canvas->SetBottomMargin(0.14);
 
+        // Extract title and axis labels from the object's title string
+        auto [title, x_label, y_label] = compilePlotLabels(obj->GetTitle());
+        
+        // Draw first to generate internal axis frame
+        obj->Draw("APZ");
+        
         auto mg = dynamic_cast<TMultiGraph*>(obj);
         if (mg) mg->SetTitle("");
 
-        obj->Draw("APZ");
-        
+        // Set axis properties
+        if (mg && mg->GetHistogram()) {
+            TAxis* xAxis = mg->GetHistogram()->GetXaxis();
+            if (xAxis) {
+                double lower_bound = 4500.0;
+                double dynamic_upper_bound = xAxis->GetXmax();
+
+                double safety_buffer = (dynamic_upper_bound - lower_bound) * 0.05;
+                dynamic_upper_bound += safety_buffer;
+
+                xAxis->SetRangeUser(lower_bound, dynamic_upper_bound);
+                xAxis->SetTitle(x_label.c_str());
+            }
+
+            TAxis* yAxis = mg->GetHistogram()->GetYaxis();
+            if (yAxis) {
+                yAxis->SetRangeUser(0.0, 1.05);
+                yAxis->SetTitle(y_label.c_str());
+            }
+        }
+
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
+            named_obj->SetTitle(title.c_str());
+        }
+
         applyATLASStyle(obj, canvas);
 
         canvas->Modified();
         canvas->Update();
 
         drawATLASLabel(0.05, 0.07, "Work in Progress");
-        drawPlotTitle(obj, 0.05, 0.07);
+        bool title_drawn = drawPlotTitle(obj, 0.05, 0.12);
 
-        if (mg) drawATLASLegend(mg, 0.19, 0.68);
+        if (mg) drawATLASLegend(mg, 0.05, title_drawn ? 0.17 : 0.12);
     }
 
     void styleStripDistribution(TObject* obj, TCanvas* canvas) {
         canvas->SetLeftMargin(0.16);
         canvas->SetRightMargin(0.05);
-        canvas->SetTopMargin(0.06);
+        canvas->SetTopMargin(0.05);
         canvas->SetBottomMargin(0.14);
 
         applyATLASStyle(obj, canvas);
 
         if (auto h1 = dynamic_cast<TH1*>(obj)) {
             h1->SetLineColor(kBlack);
-            h1->SetLineWidth(1.8);
+            h1->SetLineWidth(2.0);
             h1->SetLineStyle(1);
 
             // Fill properties: Pick a base color (e.g., kBlue-9 or kAzure) and make it transparent
@@ -327,14 +395,14 @@ namespace PlotStyler {
         canvas->Update();
 
         drawATLASLabel(0.05, 0.07, "Work in Progress");
-        drawPlotTitle(obj, 0.05, 0.07);
+        drawPlotTitle(obj, 0.05, 0.12);
     }
 
     void styleDefaultPlot(TObject* obj, TCanvas* canvas, TClass* cl) {
         // Standard configurations for generic plots
         canvas->SetLeftMargin(0.16);
         canvas->SetRightMargin(cl->InheritsFrom(TH2::Class()) ? 0.14 : 0.05);
-        canvas->SetTopMargin(0.06);
+        canvas->SetTopMargin(0.05);
         canvas->SetBottomMargin(0.14);
 
         if (auto h = dynamic_cast<TH1*>(obj)) {
@@ -362,10 +430,10 @@ namespace PlotStyler {
 
         // Default positioning near the bottom left or top left
         drawATLASLabel(0.05, 0.07, "Work in Progress");
-        drawPlotTitle(obj, 0.05, 0.07);
+        bool title_drawn = drawPlotTitle(obj, 0.05, 0.12);
 
         if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
-            drawATLASLegend(mg, 0.19, 0.68);
+            drawATLASLegend(mg, 0.05, title_drawn ? 0.17 : 0.12);
         }
     }
 
@@ -598,7 +666,7 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
 
             TMultiGraph* global_multigraph = new TMultiGraph();
             global_multigraph->SetName((metric_name + "_global").c_str());
-            global_multigraph->SetTitle((metric_name + " Global Performance;HV;Value").c_str());
+            global_multigraph->SetTitle((metric_name).c_str());
 
             bool graph_added = false;
 
