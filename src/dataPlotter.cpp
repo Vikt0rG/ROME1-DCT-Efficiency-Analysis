@@ -36,19 +36,6 @@ PlotCategory getPlotCategory(const TObject* obj) {
 
     std::string name = obj->GetName();
 
-    // Data-driven mapping table
-    static const std::vector<std::tuple<std::string, TClass*, PlotCategory>> category_map = {
-        {"h1d_strip_eta",   TH1D::Class(),          PlotCategory::StripDistribution},
-        {"h2d_dt_strip",    TH2D::Class(),          PlotCategory::DtVsStrip},
-        {"h2d_tot",         TH2D::Class(),          PlotCategory::ToTVsStrip},
-        {"h2d_mult",        TH2D::Class(),          PlotCategory::MultiplicityVsStrip},
-        {"h2d_delay",       TH2D::Class(),          PlotCategory::DelayVsStrip},
-        {"eff",             TGraph::Class(),        PlotCategory::Efficiency},
-        {"track_eff",       TGraph::Class(),        PlotCategory::Efficiency},
-        {"eff",             TMultiGraph::Class(),   PlotCategory::EfficiencyVsHV},
-        {"track_eff",       TMultiGraph::Class(),   PlotCategory::EfficiencyVsHV}
-    };
-
     for (const auto& [token, cl, category] : category_map) {
         if (name.find(token) != std::string::npos && obj->InheritsFrom(cl)) {
             return category;
@@ -83,8 +70,8 @@ std::tuple<std::string, std::string, std::string> compilePlotLabels(
     }
 
     // Extract Attributes via substring checking
-    if (metric_name.find("eta1") != std::string::npos)       side = "#eta_{1}";
-    else if (metric_name.find("eta2") != std::string::npos)  side = "#eta_{2}";
+    if (metric_name.find("eta1") != std::string::npos)       side = "#eta_{1} Side";
+    else if (metric_name.find("eta2") != std::string::npos)  side = "#eta_{2} Side";
     else if (metric_name.find("or_") != std::string::npos)   side = "OR(#eta_{1}, #eta_{2})";
     else if (metric_name.find("and_") != std::string::npos)  side = "AND(#eta_{1}, #eta_{2})";
 
@@ -331,7 +318,8 @@ namespace ATLASStyler {
             zAxis->SetTitleSize(0.05);
         }
     }
-}
+
+}   // namespace ATLASStyler
 
 // --------------------------------------------------------------------------------------
 // Helper functions for styling plots based on their category
@@ -339,7 +327,7 @@ namespace PlotStyler {
 
     using namespace ATLASStyler;
 
-    void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas) {
+    void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
         // Margins
         canvas->SetLeftMargin(0.15);
         canvas->SetRightMargin(0.05);
@@ -391,7 +379,61 @@ namespace PlotStyler {
         if (mg) drawATLASLegend(mg, 0.05, title_drawn ? 0.17 : 0.12);
     }
 
-    void styleStripDistribution(TObject* obj, TCanvas* canvas) {
+    void styleMeanClusterSizeVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
+        // Margins
+        canvas->SetLeftMargin(0.15);
+        canvas->SetRightMargin(0.05);
+        canvas->SetTopMargin(0.05);
+        canvas->SetBottomMargin(0.14);
+
+        // Extract title and axis labels from the object's title string
+        auto [title, x_label, y_label] = compilePlotLabels(obj->GetTitle());
+        
+        // Draw first to generate internal axis frame
+        obj->Draw("APZ");
+        
+        auto mg = dynamic_cast<TMultiGraph*>(obj);
+        if (mg) mg->SetTitle("");
+
+        // Set axis properties
+        if (mg && mg->GetHistogram()) {
+            TAxis* xAxis = mg->GetHistogram()->GetXaxis();
+            if (xAxis) {
+                double lower_bound = 4500.0;
+                double dynamic_upper_bound = xAxis->GetXmax();
+                double safety_buffer = (dynamic_upper_bound - lower_bound) * 0.05;
+
+                xAxis->SetRangeUser(lower_bound, dynamic_upper_bound + safety_buffer);
+                xAxis->SetTitle(x_label.c_str());
+            }
+
+            TAxis* yAxis = mg->GetHistogram()->GetYaxis();
+            if (yAxis) {
+                double dynamic_ymin = yAxis->GetXmin();
+                double dynamic_ymax = yAxis->GetXmax();
+                double safety_buffer = (dynamic_ymax - dynamic_ymin) * 0.05;
+
+                yAxis->SetRangeUser(std::max(dynamic_ymin - safety_buffer, 0.0), dynamic_ymax + safety_buffer);
+                yAxis->SetTitle(y_label.c_str());
+            }
+        }
+
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
+            named_obj->SetTitle(title.c_str());
+        }
+
+        applyATLASStyle(obj, canvas);
+
+        canvas->Modified();
+        canvas->Update();
+
+        drawATLASLabel(0.05, 0.07, "Work in Progress");
+        bool title_drawn = drawPlotTitle(obj, 0.05, 0.12);
+
+        if (mg) drawATLASLegend(mg, 0.05, title_drawn ? 0.17 : 0.12);
+    }
+
+    void styleStripDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
         canvas->SetLeftMargin(0.16);
         canvas->SetRightMargin(0.05);
         canvas->SetTopMargin(0.05);
@@ -464,22 +506,13 @@ namespace PlotStyler {
         }
     }
 
-    using PlotStylerFunc = std::function<void(TObject*, TCanvas*, TClass*)>;
-
-    std::unordered_map<PlotCategory, PlotStylerFunc> getPlotStyleRegistry() {
-        std::unordered_map<PlotCategory, PlotStylerFunc> registry;
-
-        // Register style A: Efficiency curves
-        registry[PlotCategory::EfficiencyVsHV] = [](TObject* obj, TCanvas* canvas, TClass* cl) {
-            styleEfficiencyVsHV(obj, canvas);
-        };
-
-        // Register style B: Strip distributions
-        registry[PlotCategory::StripDistribution] = [](TObject* obj, TCanvas* canvas, TClass* cl) {
-            styleStripDistribution(obj, canvas);
-        };
-
-        return registry;
+    StylerFnPtr getCustomStyler(PlotCategory category) {
+        for (const auto& [cat, fn_ptr] : styler_map) {
+            if (cat == category) {
+                return fn_ptr;
+            }
+        }
+        return nullptr; // No spefialized styler; use fallback
     }
 
 }   // Styler namespace
@@ -490,12 +523,9 @@ namespace {
 
     // Process a single directory recursively
     void scanDirectory(TDirectory* dir, const std::filesystem::path& current_output_path) {
-
-        // Fetch the global style registry for dispatching plot styling
-        static const auto style_registry = PlotStyler::getPlotStyleRegistry();
-
         TIter next(dir->GetListOfKeys());
         TKey* key = nullptr;
+
         while ((key = static_cast<TKey*>(next()))) {
             TClass* cl = TClass::GetClass(key->GetClassName());
             if (!cl) continue;
@@ -526,12 +556,14 @@ namespace {
                 std::string obj_name = obj->GetName();
                 PlotCategory category = getPlotCategory(obj);
 
-                // Execute styling uniformly via polymorphic registry lookup
-                auto it = style_registry.find(category);
-                if (it != style_registry.end()) {
-                    it->second(obj, canvas, cl); // Dynamically dispatches styleEfficiencyVsHV, etc.
+                // Fetch the appropriate styler function from the registry
+                auto custom_styler = PlotStyler::getCustomStyler(category);
+
+                // Dispatch directly to the function pointer
+                if (custom_styler) {
+                    custom_styler(obj, canvas, cl); // Invoke the function pointer directly
                 } else {
-                    PlotStyler::styleDefaultPlot(obj, canvas, cl); // Clean structural fallback
+                    PlotStyler::styleDefaultPlot(obj, canvas, cl); // Fallback engine
                 }
 
                 // Construct clean output file string and save
@@ -593,8 +625,6 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                   << config_dir->GetName() << ". Skipping." << std::endl;
         return;
     }
-
-    static const auto style_registry = PlotStyler::getPlotStyleRegistry();
 
     // STEP 2: Iterate through analysis categories (e.g., efficiency_analysis)
     TIter next_analysis_dir(blueprint_dir->GetListOfKeys());
@@ -668,9 +698,10 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                 PlotCategory category = getPlotCategory(global_multigraph);
                 TClass* cl = TMultiGraph::Class();
 
-                auto it = style_registry.find(category);
-                if (it != style_registry.end()) {
-                    it->second(global_multigraph, canvas, cl);
+                auto custom_styler = PlotStyler::getCustomStyler(category);
+
+                if (custom_styler) {
+                    custom_styler(global_multigraph, canvas, cl);
                 } else {
                     PlotStyler::styleDefaultPlot(global_multigraph, canvas, cl);
                 }

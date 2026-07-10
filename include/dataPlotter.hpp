@@ -53,7 +53,7 @@ namespace Utilities {
         std::array<std::vector<double>, 3> y;
         std::array<std::vector<double>, 3> y_errors;
     };
-
+    
     /// @brief Utility function to parse measurement entries from provided configuration paths
     /// @param config_paths A vector of strings representing paths to YAML configuration files
     /// for different measurement entries
@@ -76,11 +76,8 @@ enum class PlotCategory {
     StripDistribution,
     DtVsStrip,
     ToT,
-    ToTVsStrip,
-    MultiplicityVsStrip,
-    DelayVsStrip,
-    ClusterSize,
-    MeanClusterSize,
+    MeanClusterSizeVsHV,
+    NoiseRateVsHV,
     Default
 };
 
@@ -88,6 +85,26 @@ enum class PlotCategory {
 /// @namespace PlotterHelpers
 /// @brief Collection of helper functions for plotting and styling ROOT objects
 namespace PlotterHelpers {
+
+    /// @brief Type alias for a function pointer that applies styling to a ROOT object
+    using StylerFnPtr = void(*)(TObject*, TCanvas*, TClass*);
+
+    /// @brief Data-driven mapping of metric name prefixes to corresponding plot categories
+    static const std::vector<std::tuple<std::string, TClass*, PlotCategory>> category_map = {
+        {"h1d_strip_eta",    TH1D::Class(),          PlotCategory::StripDistribution},
+        {"eff",              TGraph::Class(),        PlotCategory::Efficiency},
+        {"track_eff",        TGraph::Class(),        PlotCategory::Efficiency},
+        {"eff",              TMultiGraph::Class(),   PlotCategory::EfficiencyVsHV},
+        {"track_eff",        TMultiGraph::Class(),   PlotCategory::EfficiencyVsHV},
+        {"avg_cluster_size", TMultiGraph::Class(),   PlotCategory::MeanClusterSizeVsHV},
+        {"noise_rate",       TMultiGraph::Class(),   PlotCategory::NoiseRateVsHV}
+    };
+
+    /// @brief Helper function to determine the plot category based on a ROOT object
+    /// @param obj A pointer to the ROOT object (e.g., TGraph, TH1, TMultiGraph) to be
+    /// categorized
+    /// @return The corresponding PlotCategory enum value
+    PlotCategory getPlotCategory(const TObject* obj);
 
     /// @brief Helper function to compile plot labels from a given title string
     /// @param metric_name Metric name string from which to derive plot labels
@@ -137,12 +154,23 @@ namespace PlotterHelpers {
     /// @brief Namespace for functions that apply specific styling to different ROOT object types
     namespace PlotStyler {
 
-        using PlotStylerFunc = std::function<void(TObject*, TCanvas*, TClass*)>;
-
         /// @brief Helper function to style efficiency vs HV plots
         /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
         /// @param canvas The TCanvas on which the object is drawn
-        void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas);
+        /// @param class_type The TClass pointer representing the type of the ROOT object
+        void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas, TClass* class_type);
+
+        /// @brief Helper function to style mean cluster size vs HV plots
+        /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
+        /// @param canvas The TCanvas on which the object is drawn
+        /// @param class_type The TClass pointer representing the type of the ROOT object
+        void styleMeanClusterSizeVsHV(TObject* obj, TCanvas* canvas, TClass* class_type);
+
+        /// @brief Helper function to style strip distribution plots
+        /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
+        /// @param canvas The TCanvas on which the object is drawn
+        /// @param class_type The TClass pointer representing the type of the ROOT object
+        void styleStripDistribution(TObject* obj, TCanvas* canvas, TClass* class_type);
 
         /// @brief Default styling function for generic plots
         /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
@@ -150,10 +178,17 @@ namespace PlotterHelpers {
         /// @param class_type The TClass pointer representing the type of the ROOT object
         void styleDefaultPlot(TObject* obj, TCanvas* canvas, TClass* class_type);
 
-        /// @brief Helper function to get a registry of plot styling functions for different
-        /// ROOT object types
-        /// @return A map of TClass pointers to corresponding styling functions
-        std::unordered_map<PlotCategory, PlotStylerFunc> getPlotStyleRegistry();
+        /// @brief Data-driven mapping of plot categories to their corresponding styling functions
+        static const std::vector<std::pair<PlotCategory, StylerFnPtr>> styler_map = {
+            {PlotCategory::EfficiencyVsHV,      &styleEfficiencyVsHV},
+            {PlotCategory::MeanClusterSizeVsHV, &styleMeanClusterSizeVsHV},
+            {PlotCategory::NoiseRateVsHV,       &styleMeanClusterSizeVsHV},
+            {PlotCategory::StripDistribution,   &styleStripDistribution},
+
+            {PlotCategory::Default,             &styleDefaultPlot}
+            // Add new styles here
+        };
+
     }   // namespace PlotStyler
 
     /// @brief Helper function to automatically export all relevant plots from a ROOT file
@@ -176,7 +211,8 @@ namespace PlotterHelpers {
         TDirectory* config_dir,
         const std::filesystem::path& config_output_path
     );
-}
+
+}   // namespace PlotterHelpers
 
 // ==========================================================================================
 // DataPlotter Class: Plotting summary statistics
