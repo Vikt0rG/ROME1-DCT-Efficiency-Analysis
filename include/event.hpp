@@ -1,11 +1,9 @@
 #pragma once
 
-#include <iostream>
 #include "types.hpp"
 #include "cluster.hpp"
 #include "track.hpp"
 #include "constants.hpp"
-
 
 // ============================================================
 // Event Class: Container for hits, clusters, and tracks

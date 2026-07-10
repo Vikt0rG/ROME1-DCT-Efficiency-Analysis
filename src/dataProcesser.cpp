@@ -1,5 +1,14 @@
-#include "dataProcesser.hpp"
+#include <iostream>
+#include <fstream>
 
+#include <filesystem>
+
+#include <TFile.h>
+#include <TTree.h>
+#include <TH1F.h>
+
+#include "constants.hpp"
+#include "dataProcesser.hpp"
 
 // ==========================================================================================
 // DataProcesser class implementation for processing raw DCT data

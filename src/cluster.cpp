@@ -1,5 +1,7 @@
-#include "cluster.hpp"
+#include <iostream>
 
+#include "constants.hpp"
+#include "cluster.hpp"
 
 // ============================================================
 // Cluster class implementation

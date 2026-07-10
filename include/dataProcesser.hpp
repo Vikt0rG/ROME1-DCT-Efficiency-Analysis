@@ -1,20 +1,14 @@
 #pragma once
 
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-
-#include <TFile.h>
-#include <TTree.h>
-#include <TH1F.h>
-
-#include "types.hpp"
 #include "hit.hpp"
 #include "event.hpp"
 #include "cluster.hpp"
 #include "track.hpp"
-#include "constants.hpp"
 
+#include "types.hpp"
+
+class TFile;
+class TTree;
 
 // ==========================================================================================
 // DataProcesser Class: Main data processing section

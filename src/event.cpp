@@ -1,5 +1,6 @@
-#include "event.hpp"
+#include <iostream>
 
+#include "event.hpp"
 
 // ============================================================
 // Event class implementation

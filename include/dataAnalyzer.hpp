@@ -1,34 +1,13 @@
 #pragma once
 
-#include <algorithm>
-#include <filesystem>
-#include <iostream>
-
 #include <string>
 #include <array>
 #include <vector>
-#include <unordered_set>
+#include <filesystem>
 
-#include <TFile.h>
-#include <TTree.h>
-#include <TH1F.h>
-#include <TH2F.h>
-#include <TCanvas.h>
-#include <TTreeReader.h>
-#include <TTreeReaderValue.h>
-
-#include "utils.hpp"
 #include "types.hpp"
-#include "constants.hpp"
 
-#include "dataPlotter.hpp"
-#include "configParser.hpp"
-
-#include "event.hpp"
-#include "hit.hpp"
-#include "cluster.hpp"
-#include "track.hpp"
-
+class TFile;
 
 // ==========================================================================================
 // Analysis utility/helper namespace for plotting and calculating statistics

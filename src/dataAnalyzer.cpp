@@ -1,7 +1,28 @@
-#include "dataAnalyzer.hpp"
+#include <iostream>
+#include <algorithm>
+#include <unordered_set>
 
-/// TODO:
-// - Add noise rate calculations for each separate strip
+#include <TFile.h>
+#include <TTree.h>
+#include <TH1F.h>
+#include <TH2F.h>
+#include <TCanvas.h>
+#include <TTreeReader.h>
+#include <TTreeReaderValue.h>
+
+#include "configParser.hpp"
+#include "dataPlotter.hpp"
+#include "plotStyler.hpp"
+#include "plotBatchExporter.hpp"
+
+#include "utils.hpp"
+#include "constants.hpp"
+
+#include "hit.hpp"
+#include "event.hpp"
+#include "cluster.hpp"
+#include "track.hpp"
+#include "dataAnalyzer.hpp"
 
 // ==========================================================================================
 // Analysis utility/helper namespaces for plotting and calculating statistics
@@ -381,7 +402,7 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
     // Export per-file plots to PDF
     std::string root_file_path = input_file->GetName();
     std::string target_plots_dir = (_output_directory / "plots" / std::filesystem::path(input_file->GetName()).stem()).string();
-    PlotterHelpers::autoExportToATLASPDF(root_file_path, target_plots_dir);
+    PlotterHelpers::BatchExporter::autoExportToATLASPDF(root_file_path, target_plots_dir);
 }
 
 void DataAnalyzer::produceSummaryStats() {
