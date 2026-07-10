@@ -1,46 +1,15 @@
 #pragma once
 
-#include <iostream>
-#include <filesystem>
-#include <memory>
-#include <stdexcept>
-#include <string_view>
-
 #include <string>
 #include <vector>
 #include <array>
 #include <map>
-#include <unordered_map>
-#include <functional>
-
-#include <TDirectory.h>
-#include <TFile.h>
-#include <TTree.h>
-#include <TTreeReader.h>
-#include <TTreeReaderArray.h>
-#include <TTreeReaderValue.h>
-#include "TClass.h"
-#include "TKey.h"
-#include <TGraph.h>
-#include <TMultiGraph.h>
-#include "TGraphErrors.h"
-#include "TGraphAsymmErrors.h"
-#include "TH1.h"
-#include "TH2.h"
-#include "TCanvas.h"
-#include "TLegend.h"
-
-#include "TLatex.h"
-#include "TAxis.h"
-#include "TStyle.h"
-#include "TSystem.h"
+#include <filesystem>
 
 #include "types.hpp"
-#include "utils.hpp"
-#include "configParser.hpp"
 
 // ==========================================================================================
-// Plotting utility namespaces for creating graphs from the DataAnalyzer summary ROOT files
+// Utilities Namespace: General utility functions for plotting
 // ==========================================================================================
 /// @namespace Utilities
 /// @brief Namespace for general utility functions used across the plotting code
@@ -65,154 +34,7 @@ namespace Utilities {
     /// @brief Utility function to get a timestamp string for naming output files
     /// @return A string with the current timestamp in the format "DD-MM-YYYY_HH-MM-SS"
     std::string getTimestamp();
-}
-
-// ------------------------------------------------------------------------------------------
-/// @enum PlotCategory
-/// @brief Enum to represent different categories of plots that can be generated
-enum class PlotCategory {
-    Efficiency,
-    EfficiencyVsHV,
-    StripDistribution,
-    DtVsStrip,
-    ToT,
-    MeanClusterSizeVsHV,
-    NoiseRateVsHV,
-    Default
-};
-
-// ------------------------------------------------------------------------------------------
-/// @namespace PlotterHelpers
-/// @brief Collection of helper functions for plotting and styling ROOT objects
-namespace PlotterHelpers {
-
-    /// @brief Type alias for a function pointer that applies styling to a ROOT object
-    using StylerFnPtr = void(*)(TObject*, TCanvas*, TClass*);
-
-    /// @brief Data-driven mapping of metric name prefixes to corresponding plot categories
-    static const std::vector<std::tuple<std::string, TClass*, PlotCategory>> category_map = {
-        {"h1d_strip_eta",    TH1D::Class(),          PlotCategory::StripDistribution},
-        {"eff",              TGraph::Class(),        PlotCategory::Efficiency},
-        {"track_eff",        TGraph::Class(),        PlotCategory::Efficiency},
-        {"eff",              TMultiGraph::Class(),   PlotCategory::EfficiencyVsHV},
-        {"track_eff",        TMultiGraph::Class(),   PlotCategory::EfficiencyVsHV},
-        {"avg_cluster_size", TMultiGraph::Class(),   PlotCategory::MeanClusterSizeVsHV},
-        {"noise_rate",       TMultiGraph::Class(),   PlotCategory::NoiseRateVsHV}
-    };
-
-    /// @brief Helper function to determine the plot category based on a ROOT object
-    /// @param obj A pointer to the ROOT object (e.g., TGraph, TH1, TMultiGraph) to be
-    /// categorized
-    /// @return The corresponding PlotCategory enum value
-    PlotCategory getPlotCategory(const TObject* obj);
-
-    /// @brief Helper function to compile plot labels from a given title string
-    /// @param metric_name Metric name string from which to derive plot labels
-    /// @return A tuple containing the plot title, x-axis label, and y-axis label
-    std::tuple<std::string, std::string, std::string> compilePlotLabels(
-        const std::string& metric_name
-    );
-
-    // --------------------------------------------------------------------------------------
-    /// @namespace ATLASStyler
-    /// @brief Collection of helper functions for applying ATLAS styling to plots
-    namespace ATLASStyler {
-
-        /// @brief Helper function to draw the ATLAS label on a plot
-        /// @param x_offset The horizontal offset for the label position
-        /// @param y_offset The vertical offset for the label position
-        /// @param status The status text to display (e.g., "Work in Progress")
-        void drawATLASLabel(double x_offset, double y_offset, const std::string& status);
-
-        /// @brief Helper function to draw a title on a plot
-        /// @param obj The ROOT object (e.g., TGraph, TH1) to which the title will be applied
-        /// @param x_offset The horizontal offset for the title position
-        /// @param y_offset The vertical offset for the title position
-        /// @return A boolean indicating whether the title was successfully drawn
-        bool drawPlotTitle(TObject* obj, double x_offset, double y_offset);
-
-        /// @brief Helper function to draw a legend on a plot
-        /// @param mg A pointer to the TMultiGraph object for which the legend will be drawn
-        /// @param x_offset The horizontal offset for the legend position
-        /// @param y_offset The vertical offset for the legend position
-        void drawATLASLegend(TMultiGraph* mg, double x_offset, double y_offset);
-
-        /// @brief Helper function to adjust the color bar of a 2D histogram dynamically
-        /// based on the maximum value in the histogram
-        /// @param h2 A pointer to the TH2 histogram object
-        /// @param pad A pointer to the TPad object on which the histogram is drawn
-        void adjustDynamicCB(TH2* h2, TPad* pad);
-
-        /// @brief Helper function to apply ATLAS styling to a given plot object and canvas
-        /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
-        /// @param pad A pointer to the TPad object on which the object is drawn (optional)
-        void applyATLASStyle(TObject* obj, TPad* pad = nullptr);
-    }   // namespace ATLASStyler
-
-    // --------------------------------------------------------------------------------------
-    /// @namespace PlotStyler
-    /// @brief Namespace for functions that apply specific styling to different ROOT object types
-    namespace PlotStyler {
-
-        /// @brief Helper function to style efficiency vs HV plots
-        /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
-        /// @param canvas The TCanvas on which the object is drawn
-        /// @param class_type The TClass pointer representing the type of the ROOT object
-        void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas, TClass* class_type);
-
-        /// @brief Helper function to style mean cluster size vs HV plots
-        /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
-        /// @param canvas The TCanvas on which the object is drawn
-        /// @param class_type The TClass pointer representing the type of the ROOT object
-        void styleMeanClusterSizeVsHV(TObject* obj, TCanvas* canvas, TClass* class_type);
-
-        /// @brief Helper function to style strip distribution plots
-        /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
-        /// @param canvas The TCanvas on which the object is drawn
-        /// @param class_type The TClass pointer representing the type of the ROOT object
-        void styleStripDistribution(TObject* obj, TCanvas* canvas, TClass* class_type);
-
-        /// @brief Default styling function for generic plots
-        /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
-        /// @param canvas The TCanvas on which the object is drawn
-        /// @param class_type The TClass pointer representing the type of the ROOT object
-        void styleDefaultPlot(TObject* obj, TCanvas* canvas, TClass* class_type);
-
-        /// @brief Data-driven mapping of plot categories to their corresponding styling functions
-        static const std::vector<std::pair<PlotCategory, StylerFnPtr>> styler_map = {
-            {PlotCategory::EfficiencyVsHV,      &styleEfficiencyVsHV},
-            {PlotCategory::MeanClusterSizeVsHV, &styleMeanClusterSizeVsHV},
-            {PlotCategory::NoiseRateVsHV,       &styleMeanClusterSizeVsHV},
-            {PlotCategory::StripDistribution,   &styleStripDistribution},
-
-            {PlotCategory::Default,             &styleDefaultPlot}
-            // Add new styles here
-        };
-
-    }   // namespace PlotStyler
-
-    /// @brief Helper function to automatically export all relevant plots from a ROOT file
-    /// to a specified directory in PDF format, applying ATLAS styling
-    /// @param root_file_path The filesystem path to the input ROOT file
-    /// @param target_plots_dir The filesystem path to the directory where the PDF files
-    /// should be saved
-    void autoExportToATLASPDF(
-        const std::string& root_file_path,
-        const std::filesystem::path& target_plots_dir
-    );
-
-    /// @brief Helper function to build global TMultiGraph objects for all metrics across
-    /// all layers in a given configuration directory, and save them to the specified output path
-    /// @param config_dir A pointer to the TDirectory representing the configuration directory 
-    /// in the ROOT file
-    /// @param config_output_path The filesystem path to the directory where the output files
-    /// should be saved
-    void buildGlobalMultiGraphs(
-        TDirectory* config_dir,
-        const std::filesystem::path& config_output_path
-    );
-
-}   // namespace PlotterHelpers
+}   // namespace Utilities
 
 // ==========================================================================================
 // DataPlotter Class: Plotting summary statistics
