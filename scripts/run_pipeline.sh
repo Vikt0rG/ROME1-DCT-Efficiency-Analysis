@@ -126,14 +126,13 @@ echo "Output directory: $output_directory"
 # Step 0: Recompile main C++ analysis executable if not already compiled
 cd "$rootDir"
 if [ "$recompile" = true ]; then
-    echo "Recompilation requested. Cleaning previous builds..."
-    make clean
-    echo "Recompiling analysis executable..."
-    make -j$(nproc)
+    echo "Recompilation requested. Recompiling analysis executable..."
+    make rebuild
 else
     if [ ! -f "$rootDir/bin/analysis" ]; then
         echo "Analysis executable not found. Compiling..."
-        make -j$(nproc)
+        echo ""
+        make build
     else
         echo "Analysis executable already exists. Skipping compilation."
     fi
