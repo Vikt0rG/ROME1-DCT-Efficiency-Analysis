@@ -8,6 +8,11 @@ OBJ_DIR     := obj
 EXECUTABLE_NAME := analysis
 TEST_DATA_DIR   := $(DATA_DIR)/example/input/
 
+# Detect the number of CPU cores available for parallel compilation
+DETECTED_CORES := $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 2)
+NPROCS := $(shell if [ $(DETECTED_CORES) -gt 4 ]; then echo 4; else echo $(DETECTED_CORES); fi)
+MAKEFLAGS += -j$(NPROCS)
+
 # Map out all sources matching your exact new nested layout
 SRCS := $(SRC_DIR)/main.cpp \
         $(SRC_DIR)/core/hit.cpp \
@@ -78,7 +83,9 @@ clean:
 	@echo "Clean complete."
 	@echo ""
 
-rebuild: clean build
+rebuild:
+	@$(MAKE) MAKEFLAGS= clean
+	@$(MAKE) MAKEFLAGS= build
 
 help:
 	@echo "ROME1-DCT-Efficiency-Analysis Build System"
@@ -88,4 +95,4 @@ help:
 	@echo "  clean          - Remove build artifacts"
 	@echo "  help           - Show this help message"
 
-.PHONY: all build clean help
+.PHONY: all build clean rebuild help
