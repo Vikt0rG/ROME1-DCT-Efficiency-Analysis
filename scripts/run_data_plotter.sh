@@ -93,14 +93,13 @@ fi
 cd "$rootDir"
 if [ -z "$IN_PIPELINE" ]; then
     if [ "$recompile" = true ]; then
-        echo "Recompilation requested. Cleaning previous builds..."
-        make clean
-        echo "Recompiling analysis executable..."
-        make -j$(nproc)
+        echo "Recompilation requested. Recompiling analysis executable..."
+        make rebuild
     else
         if [ ! -f "$rootDir/bin/analysis" ]; then
             echo "Analysis executable not found. Compiling..."
-            make -j$(nproc)
+            echo ""
+            make build
         else
             echo "Analysis executable already exists. Skipping compilation."
         fi

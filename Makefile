@@ -1,21 +1,30 @@
 INCLUDE_DIR := include
-SRC_DIR := src
-UTILS_DIR := utils
-DATA_DIR := data
-BIN_DIR := bin
-OBJ_DIR := obj
+SRC_DIR     := src
+UTILS_DIR   := utils
+DATA_DIR    := data
+BIN_DIR     := bin
+OBJ_DIR     := obj
 
 EXECUTABLE_NAME := analysis
-TEST_DATA_DIR := $(DATA_DIR)/example/input/
+TEST_DATA_DIR   := $(DATA_DIR)/example/input/
 
-# Collect all source files from src/
-SRCS := $(wildcard $(SRC_DIR)/*.cpp) $(wildcard $(SRC_DIR)/*.cxx)
+# Map out all sources matching your exact new nested layout
+SRCS := $(SRC_DIR)/main.cpp \
+        $(SRC_DIR)/core/hit.cpp \
+        $(SRC_DIR)/core/cluster.cpp \
+        $(SRC_DIR)/core/track.cpp \
+        $(SRC_DIR)/core/event.cpp \
+        $(SRC_DIR)/analysis/dataProcesser.cpp \
+        $(SRC_DIR)/analysis/dataAnalyzer.cpp \
+        $(SRC_DIR)/plotting/dataPlotter.cpp \
+        $(SRC_DIR)/plotting/plotStyler.cpp \
+        $(SRC_DIR)/plotting/plotBatchExporter.cpp
 
-# Collect all header files from include/
-HEADERS := $(wildcard $(INCLUDE_DIR)/*.hpp)
+# Convert source paths to flat object targets (e.g., src/core/hit.cpp -> obj/hit.o)
+OBJS := $(patsubst %.cpp, $(OBJ_DIR)/%.o, $(notdir $(SRCS)))
 
-# Compiler: use the same C++ compiler that ROOT was built with
-CC = $(shell root-config --cxx)
+# Compiler configuration via ROOT settings
+CC := $(shell root-config --cxx)
 
 CONDA_PREFIX_CLEAN = $(strip $(CONDA_PREFIX))
 EXTRA_INCLUDES :=
@@ -23,48 +32,60 @@ EXTRA_LIBS :=
 
 ifneq ($(CONDA_PREFIX_CLEAN),)
     EXTRA_INCLUDES := -I$(CONDA_PREFIX_CLEAN)/include
-    EXTRA_LIBS := -L$(CONDA_PREFIX_CLEAN)/lib -Wl,-rpath,/$(CONDA_PREFIX_CLEAN)/lib
+    EXTRA_LIBS     := -L$(CONDA_PREFIX_CLEAN)/lib
+    LDFLAGS        += $(EXTRA_LIBS)
 endif
 
-# Compiler flags:
-# -g 						: debugging info
-# -Wall 					: compiler warnings
-# -O2 						: optimization level 2
-# -std=c++17 				: use C++ standard as the one from root-config
-# `root-config --cflags` 	: necessary ROOT include flags
-CFLAGS := -g -Wall -std=c++17 -O2 -I$(INCLUDE_DIR) -I$(UTILS_DIR) $(EXTRA_INCLUDES) $(shell root-config --cflags)
+CFLAGS  := -g -Wall -std=c++17 -O2 \
+           -I$(INCLUDE_DIR) \
+           -I$(INCLUDE_DIR)/core \
+           -I$(INCLUDE_DIR)/analysis \
+           -I$(INCLUDE_DIR)/plotting \
+           -I$(UTILS_DIR) \
+           $(EXTRA_INCLUDES) \
+           $(shell root-config --cflags)
 
-LDFLAGS := $(shell root-config --libs) -lyaml-cpp
+LDFLAGS := $(sort $(shell root-config --libs) -lyaml-cpp)
 
-# Default target
+# Tell Make where to search for raw source files dynamically across your subsystems
+vpath %.cpp $(SRC_DIR) $(SRC_DIR)/core $(SRC_DIR)/analysis $(SRC_DIR)/plotting
+
+# Default targets
 all: build
 
-build: $(SRCS) $(HEADERS)
-	@echo "Compiling DCT analysis source files..."
-	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) $(SRCS) -o $(BIN_DIR)/$(EXECUTABLE_NAME) $(LDFLAGS)
-	@echo "Build complete. Executable is at $(BIN_DIR)/$(EXECUTABLE_NAME)"
+# Link Step
+build: $(BIN_DIR)/$(EXECUTABLE_NAME)
 
-test: build
-	@echo "Running DCT analysis with test data..."
-	@echo "Input directory: $(TEST_DATA_DIR)"
-	@echo "Parameters: dt_max=-100, dt_min=-180"
-	./$(BIN_DIR)/$(EXECUTABLE_NAME) $(TEST_DATA_DIR) -100 -180
+$(BIN_DIR)/$(EXECUTABLE_NAME): $(OBJS)
+	@echo ""
+	@echo "Linking final executable..."
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDFLAGS)
+	@echo ""
+	@echo "Build complete. Executable is at $@"
+	@echo ""
+
+# Compilation Pattern Rule for flattening objects into /obj
+$(OBJ_DIR)/%.o: %.cpp
+	@echo "Compiling $<..."
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
+	@echo ""
 	@echo "Cleaning build artifacts..."
-	@if [ -d $(BIN_DIR) ]; then rm -rf $(BIN_DIR); fi
-	@if [ -d $(OBJ_DIR) ]; then rm -rf $(OBJ_DIR); fi
-	@rm -f output.root
+	rm -rf $(BIN_DIR) $(OBJ_DIR) output.root
 	@echo "Clean complete."
+	@echo ""
+
+rebuild: clean build
 
 help:
-	@echo "DCT Efficiency Analysis Build System"
+	@echo "ROME1-DCT-Efficiency-Analysis Build System"
 	@echo "===================================="
 	@echo "Available targets:"
 	@echo "  build          - Compile the executable (default)"
-	@echo "  test           - Build and run with test data"
 	@echo "  clean          - Remove build artifacts"
 	@echo "  help           - Show this help message"
 
-.PHONY: all build test clean help
+.PHONY: all build clean help
