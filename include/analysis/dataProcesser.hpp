@@ -1,11 +1,11 @@
 #pragma once
 
-#include "hit.hpp"
-#include "event.hpp"
-#include "cluster.hpp"
-#include "track.hpp"
+#include "core/hit.hpp"
+#include "core/event.hpp"
+#include "core/cluster.hpp"
+#include "core/track.hpp"
 
-#include "types.hpp"
+#include "core/types.hpp"
 
 class TFile;
 class TTree;

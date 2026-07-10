@@ -1,9 +1,9 @@
 #pragma once
 
-#include "types.hpp"
-#include "cluster.hpp"
-#include "track.hpp"
-#include "constants.hpp"
+#include "core/types.hpp"
+#include "core/cluster.hpp"
+#include "core/track.hpp"
+#include "core/constants.hpp"
 
 // ============================================================
 // Event Class: Container for hits, clusters, and tracks

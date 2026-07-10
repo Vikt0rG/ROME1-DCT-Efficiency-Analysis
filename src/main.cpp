@@ -1,9 +1,9 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "dataProcesser.hpp"
-#include "dataAnalyzer.hpp"
-#include "dataPlotter.hpp"
+#include "analysis/dataProcesser.hpp"
+#include "analysis/dataAnalyzer.hpp"
+#include "plotting/dataPlotter.hpp"
 
 int main(int argc, char** argv) {
 

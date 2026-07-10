@@ -18,11 +18,11 @@
 #include "utils.hpp"
 #include "constants.hpp"
 
-#include "hit.hpp"
-#include "event.hpp"
-#include "cluster.hpp"
-#include "track.hpp"
-#include "dataAnalyzer.hpp"
+#include "core/hit.hpp"
+#include "core/event.hpp"
+#include "core/cluster.hpp"
+#include "core/track.hpp"
+#include "analysis/dataAnalyzer.hpp"
 
 // ==========================================================================================
 // Analysis utility/helper namespaces for plotting and calculating statistics

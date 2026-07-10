@@ -6,7 +6,7 @@
 #include <map>
 #include <filesystem>
 
-#include "types.hpp"
+#include "core/types.hpp"
 
 // ==========================================================================================
 // Utilities Namespace: General utility functions for plotting

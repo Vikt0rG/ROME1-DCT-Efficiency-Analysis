@@ -7,8 +7,8 @@
 #include <TTree.h>
 #include <TH1F.h>
 
-#include "constants.hpp"
-#include "dataProcesser.hpp"
+#include "core/constants.hpp"
+#include "analysis/dataProcesser.hpp"
 
 // ==========================================================================================
 // DataProcesser class implementation for processing raw DCT data

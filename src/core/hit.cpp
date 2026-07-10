@@ -1,5 +1,5 @@
 #include "utils.hpp"
-#include "hit.hpp"
+#include "core/hit.hpp"
 
 // ==========================================================================================
 // Hit class implementation

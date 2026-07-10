@@ -26,9 +26,9 @@
 
 #include "utils.hpp"
 #include "configParser.hpp"
-#include "plotStyler.hpp"
-#include "plotBatchExporter.hpp"
-#include "dataPlotter.hpp"
+#include "plotting/plotStyler.hpp"
+#include "plotting/plotBatchExporter.hpp"
+#include "plotting/dataPlotter.hpp"
 
 // ==========================================================================================
 // Plotting utility functions for creating summaries from the DataAnalyzer summary ROOT files

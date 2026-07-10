@@ -16,7 +16,7 @@
 #include <TColor.h>
 #include <TVirtualPad.h>
 
-#include "plotStyler.hpp"
+#include "plotting/plotStyler.hpp"
 
 namespace PlotterHelpers {
 namespace PlotStyler {

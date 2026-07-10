@@ -1,7 +1,7 @@
 #pragma once
 
-#include "types.hpp"
-#include "hit.hpp"
+#include "core/types.hpp"
+#include "core/hit.hpp"
 
 // ============================================================
 // Cluster Class: Group of consecutive hits in space/time

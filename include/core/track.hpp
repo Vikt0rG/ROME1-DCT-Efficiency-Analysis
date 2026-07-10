@@ -1,8 +1,8 @@
 #pragma once
 
-#include "types.hpp"
-#include "hit.hpp"
-#include "constants.hpp"
+#include "core/types.hpp"
+#include "core/hit.hpp"
+#include "core/constants.hpp"
 
 // ==========================================================================================
 // Track Class: Hits aligned across detector layers

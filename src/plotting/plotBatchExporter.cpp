@@ -10,8 +10,8 @@
 #include <TGraphErrors.h>
 #include <TSystem.h>
 
-#include "plotStyler.hpp"
-#include "plotBatchExporter.hpp"
+#include "plotting/plotStyler.hpp"
+#include "plotting/plotBatchExporter.hpp"
 
 namespace PlotterHelpers {
 namespace BatchExporter {
