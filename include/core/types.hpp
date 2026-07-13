@@ -49,8 +49,8 @@ enum class ErrorMethod {
 // ==========================================================================================
 // Efficiency calculation related structures
 struct ErrorRange {
-    double low;
-    double high;
+    double low = 0.0;
+    double high = 0.0;
 };
 
 struct EfficiencyFlags {
@@ -61,77 +61,77 @@ struct EfficiencyFlags {
 };
 
 struct EfficiencyCounters {
-    int triggered_events_external;
-    int triggered_events_rpc[3];
-    
-    int eta1_efficiency_counter[3];
-    int eta2_efficiency_counter[3];
-    int eta_or_efficiency_counter[3];
-    int eta_and_efficiency_counter[3];
-    
-    int eta1_efficiency_counter_rpc[3];
-    int eta2_efficiency_counter_rpc[3];
-    int eta_or_efficiency_counter_rpc[3];
-    int eta_and_efficiency_counter_rpc[3];
+    int triggered_events_external = 0;
+    int triggered_events_rpc[3] = {0, 0, 0};
+
+    int eta1_efficiency_counter[3] = {0, 0, 0};
+    int eta2_efficiency_counter[3] = {0, 0, 0};
+    int eta_or_efficiency_counter[3] = {0, 0, 0};
+    int eta_and_efficiency_counter[3] = {0, 0, 0};
+
+    int eta1_efficiency_counter_rpc[3] = {0, 0, 0};
+    int eta2_efficiency_counter_rpc[3] = {0, 0, 0};
+    int eta_or_efficiency_counter_rpc[3] = {0, 0, 0};
+    int eta_and_efficiency_counter_rpc[3] = {0, 0, 0};
 };
 
 struct EfficiencyCountersTracks {
-    int track_triggered_events_external;
-    int track_triggered_events_rpc[3];
-    
-    int track_eta1_efficiency_counter[3];
-    int track_eta2_efficiency_counter[3];
-    int track_eta_or_efficiency_counter[3];
-    int track_eta_and_efficiency_counter[3];
-    
-    int track_eta1_efficiency_counter_rpc[3];
-    int track_eta2_efficiency_counter_rpc[3];
-    int track_eta_or_efficiency_counter_rpc[3];
-    int track_eta_and_efficiency_counter_rpc[3];
+    int track_triggered_events_external = 0;
+    int track_triggered_events_rpc[3] = {0, 0, 0};
+
+    int track_eta1_efficiency_counter[3] = {0, 0, 0};
+    int track_eta2_efficiency_counter[3] = {0, 0, 0};
+    int track_eta_or_efficiency_counter[3] = {0, 0, 0};
+    int track_eta_and_efficiency_counter[3] = {0, 0, 0};
+
+    int track_eta1_efficiency_counter_rpc[3] = {0, 0, 0};
+    int track_eta2_efficiency_counter_rpc[3] = {0, 0, 0};
+    int track_eta_or_efficiency_counter_rpc[3] = {0, 0, 0};
+    int track_eta_and_efficiency_counter_rpc[3] = {0, 0, 0};
 };
 
 struct EfficiencyResults {
-    double eta1_efficiency_external[3];
-    double eta2_efficiency_external[3];
-    double eta_or_efficiency_external[3];
-    double eta_and_efficiency_external[3];
-    
-    ErrorRange eta1_efficiency_external_error[3];
-    ErrorRange eta2_efficiency_external_error[3];
-    ErrorRange eta_or_efficiency_external_error[3];
-    ErrorRange eta_and_efficiency_external_error[3];
+    double eta1_efficiency_external[3] = {0.0, 0.0, 0.0};
+    double eta2_efficiency_external[3] = {0.0, 0.0, 0.0};
+    double eta_or_efficiency_external[3] = {0.0, 0.0, 0.0};
+    double eta_and_efficiency_external[3] = {0.0, 0.0, 0.0};
 
-    double eta1_efficiency_rpc[3];
-    double eta2_efficiency_rpc[3];
-    double eta_or_efficiency_rpc[3];
-    double eta_and_efficiency_rpc[3];
+    ErrorRange eta1_efficiency_external_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
+    ErrorRange eta2_efficiency_external_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
+    ErrorRange eta_or_efficiency_external_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
+    ErrorRange eta_and_efficiency_external_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
 
-    ErrorRange eta1_efficiency_rpc_error[3];
-    ErrorRange eta2_efficiency_rpc_error[3];
-    ErrorRange eta_or_efficiency_rpc_error[3];
-    ErrorRange eta_and_efficiency_rpc_error[3];
+    double eta1_efficiency_rpc[3] = {0.0, 0.0, 0.0};
+    double eta2_efficiency_rpc[3] = {0.0, 0.0, 0.0};
+    double eta_or_efficiency_rpc[3] = {0.0, 0.0, 0.0};
+    double eta_and_efficiency_rpc[3] = {0.0, 0.0, 0.0};
+
+    ErrorRange eta1_efficiency_rpc_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
+    ErrorRange eta2_efficiency_rpc_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
+    ErrorRange eta_or_efficiency_rpc_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
+    ErrorRange eta_and_efficiency_rpc_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
 };
 
 struct EfficiencyResultsTracks {
-    double track_eta1_efficiency_external[3];
-    double track_eta2_efficiency_external[3];
-    double track_eta_or_efficiency_external[3];
-    double track_eta_and_efficiency_external[3];
+    double track_eta1_efficiency_external[3] = {0.0, 0.0, 0.0};
+    double track_eta2_efficiency_external[3] = {0.0, 0.0, 0.0};
+    double track_eta_or_efficiency_external[3] = {0.0, 0.0, 0.0};
+    double track_eta_and_efficiency_external[3] = {0.0, 0.0, 0.0};
 
-    ErrorRange track_eta1_efficiency_external_error[3];
-    ErrorRange track_eta2_efficiency_external_error[3];
-    ErrorRange track_eta_or_efficiency_external_error[3];
-    ErrorRange track_eta_and_efficiency_external_error[3];
+    ErrorRange track_eta1_efficiency_external_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
+    ErrorRange track_eta2_efficiency_external_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
+    ErrorRange track_eta_or_efficiency_external_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
+    ErrorRange track_eta_and_efficiency_external_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
 
-    double track_eta1_efficiency_rpc[3];
-    double track_eta2_efficiency_rpc[3];
-    double track_eta_or_efficiency_rpc[3];
-    double track_eta_and_efficiency_rpc[3];
+    double track_eta1_efficiency_rpc[3] = {0.0, 0.0, 0.0};
+    double track_eta2_efficiency_rpc[3] = {0.0, 0.0, 0.0};
+    double track_eta_or_efficiency_rpc[3] = {0.0, 0.0, 0.0};
+    double track_eta_and_efficiency_rpc[3] = {0.0, 0.0, 0.0};
 
-    ErrorRange track_eta1_efficiency_rpc_error[3];
-    ErrorRange track_eta2_efficiency_rpc_error[3];
-    ErrorRange track_eta_or_efficiency_rpc_error[3];
-    ErrorRange track_eta_and_efficiency_rpc_error[3];
+    ErrorRange track_eta1_efficiency_rpc_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
+    ErrorRange track_eta2_efficiency_rpc_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
+    ErrorRange track_eta_or_efficiency_rpc_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
+    ErrorRange track_eta_and_efficiency_rpc_error[3] = {ErrorRange(), ErrorRange(), ErrorRange()};
 };
 
 // ==========================================================================================
