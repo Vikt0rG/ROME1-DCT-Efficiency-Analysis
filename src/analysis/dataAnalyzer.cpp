@@ -6,6 +6,7 @@
 #include <TTree.h>
 #include <TH1F.h>
 #include <TH2F.h>
+#include <TGraphAsymmErrors.h>
 #include <TCanvas.h>
 #include <TTreeReader.h>
 #include <TTreeReaderValue.h>
@@ -437,46 +438,8 @@ void DataAnalyzer::produceSummaryStats() {
     double scanned_hv = 0.0;
     double other_hv = 0.0;
 
-    // Efficiency scan relevant statistics
-    double eta1_efficiency_external_summary[3] = {0.0, 0.0, 0.0};
-    double eta2_efficiency_external_summary[3] = {0.0, 0.0, 0.0};
-    double eta_or_efficiency_external_summary[3] = {0.0, 0.0, 0.0};
-    double eta_and_efficiency_external_summary[3] = {0.0, 0.0, 0.0};
-
-    double eta1_efficiency_external_error_summary[3] = {0.0, 0.0, 0.0};
-    double eta2_efficiency_external_error_summary[3] = {0.0, 0.0, 0.0};
-    double eta_or_efficiency_external_error_summary[3] = {0.0, 0.0, 0.0};
-    double eta_and_efficiency_external_error_summary[3] = {0.0, 0.0, 0.0};
-
-    double eta1_efficiency_rpc_summary[3] = {0.0, 0.0, 0.0};
-    double eta2_efficiency_rpc_summary[3] = {0.0, 0.0, 0.0};
-    double eta_or_efficiency_rpc_summary[3] = {0.0, 0.0, 0.0};
-    double eta_and_efficiency_rpc_summary[3] = {0.0, 0.0, 0.0};
-
-    double eta1_efficiency_rpc_error_summary[3] = {0.0, 0.0, 0.0};
-    double eta2_efficiency_rpc_error_summary[3] = {0.0, 0.0, 0.0};
-    double eta_or_efficiency_rpc_error_summary[3] = {0.0, 0.0, 0.0};
-    double eta_and_efficiency_rpc_error_summary[3] = {0.0, 0.0, 0.0};
-
-    double track_eta1_efficiency_external_summary[3] = {0.0, 0.0, 0.0};
-    double track_eta2_efficiency_external_summary[3] = {0.0, 0.0, 0.0};
-    double track_eta_or_efficiency_external_summary[3] = {0.0, 0.0, 0.0};
-    double track_eta_and_efficiency_external_summary[3] = {0.0, 0.0, 0.0};
-
-    double track_eta1_efficiency_external_error_summary[3] = {0.0, 0.0, 0.0};
-    double track_eta2_efficiency_external_error_summary[3] = {0.0, 0.0, 0.0};
-    double track_eta_or_efficiency_external_error_summary[3] = {0.0, 0.0, 0.0};
-    double track_eta_and_efficiency_external_error_summary[3] = {0.0, 0.0, 0.0};
-
-    double track_eta1_efficiency_rpc_summary[3] = {0.0, 0.0, 0.0};
-    double track_eta2_efficiency_rpc_summary[3] = {0.0, 0.0, 0.0};
-    double track_eta_or_efficiency_rpc_summary[3] = {0.0, 0.0, 0.0};
-    double track_eta_and_efficiency_rpc_summary[3] = {0.0, 0.0, 0.0};
-
-    double track_eta1_efficiency_rpc_error_summary[3] = {0.0, 0.0, 0.0};
-    double track_eta2_efficiency_rpc_error_summary[3] = {0.0, 0.0, 0.0};
-    double track_eta_or_efficiency_rpc_error_summary[3] = {0.0, 0.0, 0.0};
-    double track_eta_and_efficiency_rpc_error_summary[3] = {0.0, 0.0, 0.0};
+    EfficiencyResults efficiency_results_summary;
+    EfficiencyResults efficiency_results_track_summary;
 
     // Noise scan relevant statistics
     double noise_rate = 0.0;
@@ -509,41 +472,41 @@ void DataAnalyzer::produceSummaryStats() {
     summary_tree->Branch("scanned_hv", &scanned_hv);
     summary_tree->Branch("other_hv", &other_hv);
 
-    summary_tree->Branch("eff_eta1_external", eta1_efficiency_external_summary, "eff_eta1_external[3]/D");
-    summary_tree->Branch("eff_eta2_external", eta2_efficiency_external_summary, "eff_eta2_external[3]/D");
-    summary_tree->Branch("eff_or_external", eta_or_efficiency_external_summary, "eff_or_external[3]/D");
-    summary_tree->Branch("eff_and_external", eta_and_efficiency_external_summary, "eff_and_external[3]/D");
-    summary_tree->Branch("eff_eta1_external_error", eta1_efficiency_external_error_summary, "eff_eta1_external_error[3]/D");
-    summary_tree->Branch("eff_eta2_external_error", eta2_efficiency_external_error_summary, "eff_eta2_external_error[3]/D");
-    summary_tree->Branch("eff_or_external_error", eta_or_efficiency_external_error_summary, "eff_or_external_error[3]/D");
-    summary_tree->Branch("eff_and_external_error", eta_and_efficiency_external_error_summary, "eff_and_external_error[3]/D");
+    summary_tree->Branch("eff_eta1_external", efficiency_results_summary.eta1_efficiency_external, "eff_eta1_external[3]/D");
+    summary_tree->Branch("eff_eta2_external", efficiency_results_summary.eta2_efficiency_external, "eff_eta2_external[3]/D");
+    summary_tree->Branch("eff_or_external", efficiency_results_summary.eta_or_efficiency_external, "eff_or_external[3]/D");
+    summary_tree->Branch("eff_and_external", efficiency_results_summary.eta_and_efficiency_external, "eff_and_external[3]/D");
+    summary_tree->Branch("eff_eta1_external_error", efficiency_results_summary.eta1_efficiency_external_error, "eff_eta1_external_error[3]/D");
+    summary_tree->Branch("eff_eta2_external_error", efficiency_results_summary.eta2_efficiency_external_error, "eff_eta2_external_error[3]/D");
+    summary_tree->Branch("eff_or_external_error", efficiency_results_summary.eta_or_efficiency_external_error, "eff_or_external_error[3]/D");
+    summary_tree->Branch("eff_and_external_error", efficiency_results_summary.eta_and_efficiency_external_error, "eff_and_external_error[3]/D");
 
-    summary_tree->Branch("eff_eta1_rpc", eta1_efficiency_rpc_summary, "eff_eta1_rpc[3]/D");
-    summary_tree->Branch("eff_eta2_rpc", eta2_efficiency_rpc_summary, "eff_eta2_rpc[3]/D");
-    summary_tree->Branch("eff_or_rpc", eta_or_efficiency_rpc_summary, "eff_or_rpc[3]/D");
-    summary_tree->Branch("eff_and_rpc", eta_and_efficiency_rpc_summary, "eff_and_rpc[3]/D");
-    summary_tree->Branch("eff_eta1_rpc_error", eta1_efficiency_rpc_error_summary, "eff_eta1_rpc_error[3]/D");
-    summary_tree->Branch("eff_eta2_rpc_error", eta2_efficiency_rpc_error_summary, "eff_eta2_rpc_error[3]/D");
-    summary_tree->Branch("eff_or_rpc_error", eta_or_efficiency_rpc_error_summary, "eff_or_rpc_error[3]/D");
-    summary_tree->Branch("eff_and_rpc_error", eta_and_efficiency_rpc_error_summary, "eff_and_rpc_error[3]/D");
+    summary_tree->Branch("eff_eta1_rpc", efficiency_results_summary.eta1_efficiency_rpc, "eff_eta1_rpc[3]/D");
+    summary_tree->Branch("eff_eta2_rpc", efficiency_results_summary.eta2_efficiency_rpc, "eff_eta2_rpc[3]/D");
+    summary_tree->Branch("eff_or_rpc", efficiency_results_summary.eta_or_efficiency_rpc, "eff_or_rpc[3]/D");
+    summary_tree->Branch("eff_and_rpc", efficiency_results_summary.eta_and_efficiency_rpc, "eff_and_rpc[3]/D");
+    summary_tree->Branch("eff_eta1_rpc_error", efficiency_results_summary.eta1_efficiency_rpc_error, "eff_eta1_rpc_error[3]/D");
+    summary_tree->Branch("eff_eta2_rpc_error", efficiency_results_summary.eta2_efficiency_rpc_error, "eff_eta2_rpc_error[3]/D");
+    summary_tree->Branch("eff_or_rpc_error", efficiency_results_summary.eta_or_efficiency_rpc_error, "eff_or_rpc_error[3]/D");
+    summary_tree->Branch("eff_and_rpc_error", efficiency_results_summary.eta_and_efficiency_rpc_error, "eff_and_rpc_error[3]/D");
 
-    summary_tree->Branch("track_eff_eta1_external", track_eta1_efficiency_external_summary, "track_eff_eta1_external[3]/D");
-    summary_tree->Branch("track_eff_eta2_external", track_eta2_efficiency_external_summary, "track_eff_eta2_external[3]/D");
-    summary_tree->Branch("track_eff_or_external", track_eta_or_efficiency_external_summary, "track_eff_or_external[3]/D");
-    summary_tree->Branch("track_eff_and_external", track_eta_and_efficiency_external_summary, "track_eff_and_external[3]/D");
-    summary_tree->Branch("track_eff_eta1_external_error", track_eta1_efficiency_external_error_summary, "track_eff_eta1_external_error[3]/D");
-    summary_tree->Branch("track_eff_eta2_external_error", track_eta2_efficiency_external_error_summary, "track_eff_eta2_external_error[3]/D");
-    summary_tree->Branch("track_eff_or_external_error", track_eta_or_efficiency_external_error_summary, "track_eff_or_external_error[3]/D");
-    summary_tree->Branch("track_eff_and_external_error", track_eta_and_efficiency_external_error_summary, "track_eff_and_external_error[3]/D");
+    summary_tree->Branch("track_eff_eta1_external", efficiency_results_track_summary.eta1_efficiency_external, "track_eff_eta1_external[3]/D");
+    summary_tree->Branch("track_eff_eta2_external", efficiency_results_track_summary.eta2_efficiency_external, "track_eff_eta2_external[3]/D");
+    summary_tree->Branch("track_eff_or_external", efficiency_results_track_summary.eta_or_efficiency_external, "track_eff_or_external[3]/D");
+    summary_tree->Branch("track_eff_and_external", efficiency_results_track_summary.eta_and_efficiency_external, "track_eff_and_external[3]/D");
+    summary_tree->Branch("track_eff_eta1_external_error", efficiency_results_track_summary.eta1_efficiency_external_error, "track_eff_eta1_external_error[3]/D");
+    summary_tree->Branch("track_eff_eta2_external_error", efficiency_results_track_summary.eta2_efficiency_external_error, "track_eff_eta2_external_error[3]/D");
+    summary_tree->Branch("track_eff_or_external_error", efficiency_results_track_summary.eta_or_efficiency_external_error, "track_eff_or_external_error[3]/D");
+    summary_tree->Branch("track_eff_and_external_error", efficiency_results_track_summary.eta_and_efficiency_external_error, "track_eff_and_external_error[3]/D");
 
-    summary_tree->Branch("track_eff_eta1_rpc", track_eta1_efficiency_rpc_summary, "track_eff_eta1_rpc[3]/D");
-    summary_tree->Branch("track_eff_eta2_rpc", track_eta2_efficiency_rpc_summary, "track_eff_eta2_rpc[3]/D");
-    summary_tree->Branch("track_eff_or_rpc", track_eta_or_efficiency_rpc_summary, "track_eff_or_rpc[3]/D");
-    summary_tree->Branch("track_eff_and_rpc", track_eta_and_efficiency_rpc_summary, "track_eff_and_rpc[3]/D");
-    summary_tree->Branch("track_eff_eta1_rpc_error", track_eta1_efficiency_rpc_error_summary, "track_eff_eta1_rpc_error[3]/D");
-    summary_tree->Branch("track_eff_eta2_rpc_error", track_eta2_efficiency_rpc_error_summary, "track_eff_eta2_rpc_error[3]/D");
-    summary_tree->Branch("track_eff_or_rpc_error", track_eta_or_efficiency_rpc_error_summary, "track_eff_or_rpc_error[3]/D");
-    summary_tree->Branch("track_eff_and_rpc_error", track_eta_and_efficiency_rpc_error_summary, "track_eff_and_rpc_error[3]/D");
+    summary_tree->Branch("track_eff_eta1_rpc", efficiency_results_track_summary.eta1_efficiency_rpc, "track_eff_eta1_rpc[3]/D");
+    summary_tree->Branch("track_eff_eta2_rpc", efficiency_results_track_summary.eta2_efficiency_rpc, "track_eff_eta2_rpc[3]/D");
+    summary_tree->Branch("track_eff_or_rpc", efficiency_results_track_summary.eta_or_efficiency_rpc, "track_eff_or_rpc[3]/D");
+    summary_tree->Branch("track_eff_and_rpc", efficiency_results_track_summary.eta_and_efficiency_rpc, "track_eff_and_rpc[3]/D");
+    summary_tree->Branch("track_eff_eta1_rpc_error", efficiency_results_track_summary.eta1_efficiency_rpc_error, "track_eff_eta1_rpc_error[3]/D");
+    summary_tree->Branch("track_eff_eta2_rpc_error", efficiency_results_track_summary.eta2_efficiency_rpc_error, "track_eff_eta2_rpc_error[3]/D");
+    summary_tree->Branch("track_eff_or_rpc_error", efficiency_results_track_summary.eta_or_efficiency_rpc_error, "track_eff_or_rpc_error[3]/D");
+    summary_tree->Branch("track_eff_and_rpc_error", efficiency_results_track_summary.eta_and_efficiency_rpc_error, "track_eff_and_rpc_error[3]/D");
 
     summary_tree->Branch("avg_cluster_size_eta1", &avg_cluster_size_eta1);
     summary_tree->Branch("avg_cluster_size_eta2", &avg_cluster_size_eta2);
@@ -599,69 +562,98 @@ void DataAnalyzer::produceSummaryStats() {
         // Extract efficiency values from histograms for this measurement entry
         for (int layer = 0; layer < 3; ++layer) {
 
-            // External trigger only
-            std::string hist_path = "efficiencies_histograms/external_trigger/eff_external_trigger_layer" + std::to_string(layer);
-            TH1* hist = dynamic_cast<TH1*>(input_file->Get(hist_path.c_str()));
-            if (!hist) {
-                continue;
+            // Helper lambda to safely read points and asymmetric errors out of a TGraphAsymmErrors object
+            auto extractGraphData = [](TGraphAsymmErrors* graph, double effs[4], ErrorRange errs[4]) {
+                for (int i = 0; i < 4; ++i) {
+                    double dummy_x = 0.0;
+                    // GetPoint stores the Y value directly inside the target efficiency index array
+                    graph->GetPoint(i, dummy_x, effs[i]);
+                    
+                    // Extract the separate low and high bounds for the ErrorRange struct
+                    errs[i].low  = graph->GetErrorYlow(i);
+                    errs[i].high = graph->GetErrorYhigh(i);
+                }
+            };
+
+            // ------------------------------------------------------------------------------
+            // 1. External trigger only
+            std::string path_ext = "efficiencies_histograms/external_trigger/eff_external_trigger_layer" + std::to_string(layer);
+            TGraphAsymmErrors* graph_ext = dynamic_cast<TGraphAsymmErrors*>(input_file->Get(path_ext.c_str()));
+            if (graph_ext) {
+                double effs[4];
+                ErrorRange errs[4];
+                extractGraphData(graph_ext, effs, errs);
+
+                stats.efficiency_results.eta1_efficiency_external[layer] = effs[0];
+                stats.efficiency_results.eta2_efficiency_external[layer] = effs[1];
+                stats.efficiency_results.eta_or_efficiency_external[layer] = effs[2];
+                stats.efficiency_results.eta_and_efficiency_external[layer] = effs[3];
+
+                stats.efficiency_results.eta1_efficiency_external_error[layer] = errs[0];
+                stats.efficiency_results.eta2_efficiency_external_error[layer] = errs[1];
+                stats.efficiency_results.eta_or_efficiency_external_error[layer] = errs[2];
+                stats.efficiency_results.eta_and_efficiency_external_error[layer] = errs[3];
             }
-            stats.efficiency_results.eta1_efficiency_external[layer] = hist->GetBinContent(1);
-            stats.efficiency_results.eta2_efficiency_external[layer] = hist->GetBinContent(2);
-            stats.efficiency_results.eta_or_efficiency_external[layer] = hist->GetBinContent(3);
-            stats.efficiency_results.eta_and_efficiency_external[layer] = hist->GetBinContent(4);
 
-            stats.efficiency_results.eta1_efficiency_external_error[layer] = hist->GetBinError(1);
-            stats.efficiency_results.eta2_efficiency_external_error[layer] = hist->GetBinError(2);
-            stats.efficiency_results.eta_or_efficiency_external_error[layer] = hist->GetBinError(3);
-            stats.efficiency_results.eta_and_efficiency_external_error[layer] = hist->GetBinError(4);
+            // ------------------------------------------------------------------------------
+            // 2. External trigger + RPC
+            std::string path_rpc = "efficiencies_histograms/external_plus_rpc_trigger/eff_rpc_layer" + std::to_string(layer);
+            TGraphAsymmErrors* graph_rpc = dynamic_cast<TGraphAsymmErrors*>(input_file->Get(path_rpc.c_str()));
+            if (graph_rpc) {
+                double effs[4];
+                ErrorRange errs[4];
+                extractGraphData(graph_rpc, effs, errs);
 
-            // External trigger + RPC
-            std::string hist_path_rpc = "efficiencies_histograms/external_plus_rpc_trigger/eff_rpc_layer" + std::to_string(layer);
-            TH1* hist_rpc = dynamic_cast<TH1*>(input_file->Get(hist_path_rpc.c_str()));
-            if (!hist_rpc) {
-                continue;
+                stats.efficiency_results.eta1_efficiency_rpc[layer] = effs[0];
+                stats.efficiency_results.eta2_efficiency_rpc[layer] = effs[1];
+                stats.efficiency_results.eta_or_efficiency_rpc[layer] = effs[2];
+                stats.efficiency_results.eta_and_efficiency_rpc[layer] = effs[3];
+
+                stats.efficiency_results.eta1_efficiency_rpc_error[layer] = errs[0];
+                stats.efficiency_results.eta2_efficiency_rpc_error[layer] = errs[1];
+                stats.efficiency_results.eta_or_efficiency_rpc_error[layer] = errs[2];
+                stats.efficiency_results.eta_and_efficiency_rpc_error[layer] = errs[3];
             }
-            stats.efficiency_results.eta1_efficiency_rpc[layer] = hist_rpc->GetBinContent(1);
-            stats.efficiency_results.eta2_efficiency_rpc[layer] = hist_rpc->GetBinContent(2);
-            stats.efficiency_results.eta_or_efficiency_rpc[layer] = hist_rpc->GetBinContent(3);
-            stats.efficiency_results.eta_and_efficiency_rpc[layer] = hist_rpc->GetBinContent(4);
 
-            stats.efficiency_results.eta1_efficiency_rpc_error[layer] = hist_rpc->GetBinError(1);
-            stats.efficiency_results.eta2_efficiency_rpc_error[layer] = hist_rpc->GetBinError(2);
-            stats.efficiency_results.eta_or_efficiency_rpc_error[layer] = hist_rpc->GetBinError(3);
-            stats.efficiency_results.eta_and_efficiency_rpc_error[layer] = hist_rpc->GetBinError(4);
+            // ------------------------------------------------------------------------------
+            // 3. Track external trigger only
+            std::string path_track = "efficiencies_histograms/track_external_trigger/track_eff_external_trigger_layer" + std::to_string(layer);
+            TGraphAsymmErrors* graph_track = dynamic_cast<TGraphAsymmErrors*>(input_file->Get(path_track.c_str()));
+            if (graph_track) {
+                double effs[4];
+                ErrorRange errs[4];
+                extractGraphData(graph_track, effs, errs);
 
-            // Track external trigger only
-            std::string hist_path_track = "efficiencies_histograms/track_external_trigger/track_eff_external_trigger_layer" + std::to_string(layer);
-            TH1* hist_track = dynamic_cast<TH1*>(input_file->Get(hist_path_track.c_str()));
-            if (!hist_track) {
-                continue;
+                stats.efficiency_results_tracks.eta1_efficiency_external[layer] = effs[0];
+                stats.efficiency_results_tracks.eta2_efficiency_external[layer] = effs[1];
+                stats.efficiency_results_tracks.eta_or_efficiency_external[layer] = effs[2];
+                stats.efficiency_results_tracks.eta_and_efficiency_external[layer] = effs[3];
+
+                stats.efficiency_results_tracks.eta1_efficiency_external_error[layer] = errs[0];
+                stats.efficiency_results_tracks.eta2_efficiency_external_error[layer] = errs[1];
+                stats.efficiency_results_tracks.eta_or_efficiency_external_error[layer] = errs[2];
+                stats.efficiency_results_tracks.eta_and_efficiency_external_error[layer] = errs[3];
             }
-            stats.efficiency_results_tracks.track_eta1_efficiency_external[layer] = hist_track->GetBinContent(1);
-            stats.efficiency_results_tracks.track_eta2_efficiency_external[layer] = hist_track->GetBinContent(2);
-            stats.efficiency_results_tracks.track_eta_or_efficiency_external[layer] = hist_track->GetBinContent(3);
-            stats.efficiency_results_tracks.track_eta_and_efficiency_external[layer] = hist_track->GetBinContent(4);
 
-            stats.efficiency_results_tracks.track_eta1_efficiency_external_error[layer] = hist_track->GetBinError(1);
-            stats.efficiency_results_tracks.track_eta2_efficiency_external_error[layer] = hist_track->GetBinError(2);
-            stats.efficiency_results_tracks.track_eta_or_efficiency_external_error[layer] = hist_track->GetBinError(3);
-            stats.efficiency_results_tracks.track_eta_and_efficiency_external_error[layer] = hist_track->GetBinError(4);
+            // ------------------------------------------------------------------------------
+            // 4. Track external trigger + RPC
+            std::string path_track_rpc = "efficiencies_histograms/track_external_plus_rpc_trigger/track_eff_rpc_layer" + std::to_string(layer);
+            TGraphAsymmErrors* graph_track_rpc = dynamic_cast<TGraphAsymmErrors*>(input_file->Get(path_track_rpc.c_str()));
+            if (graph_track_rpc) {
+                double effs[4];
+                ErrorRange errs[4];
+                extractGraphData(graph_track_rpc, effs, errs);
 
-            // Track external trigger + RPC
-            std::string hist_path_track_rpc = "efficiencies_histograms/track_external_plus_rpc_trigger/track_eff_rpc_layer" + std::to_string(layer);
-            TH1* hist_track_rpc = dynamic_cast<TH1*>(input_file->Get(hist_path_track_rpc.c_str()));
-            if (!hist_track_rpc) {
-                continue;
+                stats.efficiency_results_tracks.eta1_efficiency_rpc[layer] = effs[0];
+                stats.efficiency_results_tracks.eta2_efficiency_rpc[layer] = effs[1];
+                stats.efficiency_results_tracks.eta_or_efficiency_rpc[layer] = effs[2];
+                stats.efficiency_results_tracks.eta_and_efficiency_rpc[layer] = effs[3];
+
+                stats.efficiency_results_tracks.eta1_efficiency_rpc_error[layer] = errs[0];
+                stats.efficiency_results_tracks.eta2_efficiency_rpc_error[layer] = errs[1];
+                stats.efficiency_results_tracks.eta_or_efficiency_rpc_error[layer] = errs[2];
+                stats.efficiency_results_tracks.eta_and_efficiency_rpc_error[layer] = errs[3];
             }
-            stats.efficiency_results_tracks.track_eta1_efficiency_rpc[layer] = hist_track_rpc->GetBinContent(1);
-            stats.efficiency_results_tracks.track_eta2_efficiency_rpc[layer] = hist_track_rpc->GetBinContent(2);
-            stats.efficiency_results_tracks.track_eta_or_efficiency_rpc[layer] = hist_track_rpc->GetBinContent(3);
-            stats.efficiency_results_tracks.track_eta_and_efficiency_rpc[layer] = hist_track_rpc->GetBinContent(4);
-
-            stats.efficiency_results_tracks.track_eta1_efficiency_rpc_error[layer] = hist_track_rpc->GetBinError(1);
-            stats.efficiency_results_tracks.track_eta2_efficiency_rpc_error[layer] = hist_track_rpc->GetBinError(2);
-            stats.efficiency_results_tracks.track_eta_or_efficiency_rpc_error[layer] = hist_track_rpc->GetBinError(3);
-            stats.efficiency_results_tracks.track_eta_and_efficiency_rpc_error[layer] = hist_track_rpc->GetBinError(4);
         }
 
 
@@ -855,58 +847,70 @@ void DataAnalyzer::produceSummaryStats() {
             }
         }
 
+        // ----------------------------------------------------------------------------------
+        // Fill the summary tree with the extracted statistics for this measurement entry
+
+        // Cluster size
         avg_cluster_size_eta1 = stats.avg_cluster_size_eta1;
         avg_cluster_size_eta2 = stats.avg_cluster_size_eta2;
+
+        // Layer-specific cluster size and efficiency results
         for (int layer = 0; layer < 3; ++layer) {
             avg_cluster_size_eta1_layers[layer] = stats.avg_cluster_size_eta1_layers[layer];
             avg_cluster_size_eta2_layers[layer] = stats.avg_cluster_size_eta2_layers[layer];
-            eta1_efficiency_external_summary[layer] = stats.efficiency_results.eta1_efficiency_external[layer];
-            eta2_efficiency_external_summary[layer] = stats.efficiency_results.eta2_efficiency_external[layer];
-            eta_or_efficiency_external_summary[layer] = stats.efficiency_results.eta_or_efficiency_external[layer];
-            eta_and_efficiency_external_summary[layer] = stats.efficiency_results.eta_and_efficiency_external[layer];
 
-            eta1_efficiency_external_error_summary[layer] = stats.efficiency_results.eta1_efficiency_external_error[layer];
-            eta2_efficiency_external_error_summary[layer] = stats.efficiency_results.eta2_efficiency_external_error[layer];
-            eta_or_efficiency_external_error_summary[layer] = stats.efficiency_results.eta_or_efficiency_external_error[layer];
-            eta_and_efficiency_external_error_summary[layer] = stats.efficiency_results.eta_and_efficiency_external_error[layer];
+            efficiency_results_summary.eta1_efficiency_external[layer] = stats.efficiency_results.eta1_efficiency_external[layer];
+            efficiency_results_summary.eta2_efficiency_external[layer] = stats.efficiency_results.eta2_efficiency_external[layer];
+            efficiency_results_summary.eta_or_efficiency_external[layer] = stats.efficiency_results.eta_or_efficiency_external[layer];
+            efficiency_results_summary.eta_and_efficiency_external[layer] = stats.efficiency_results.eta_and_efficiency_external[layer];
 
-            eta1_efficiency_rpc_summary[layer] = stats.efficiency_results.eta1_efficiency_rpc[layer];
-            eta2_efficiency_rpc_summary[layer] = stats.efficiency_results.eta2_efficiency_rpc[layer];
-            eta_or_efficiency_rpc_summary[layer] = stats.efficiency_results.eta_or_efficiency_rpc[layer];
-            eta_and_efficiency_rpc_summary[layer] = stats.efficiency_results.eta_and_efficiency_rpc[layer];
+            efficiency_results_summary.eta1_efficiency_external_error[layer] = stats.efficiency_results.eta1_efficiency_external_error[layer];
+            efficiency_results_summary.eta2_efficiency_external_error[layer] = stats.efficiency_results.eta2_efficiency_external_error[layer];
+            efficiency_results_summary.eta_or_efficiency_external_error[layer] = stats.efficiency_results.eta_or_efficiency_external_error[layer];
+            efficiency_results_summary.eta_and_efficiency_external_error[layer] = stats.efficiency_results.eta_and_efficiency_external_error[layer];
 
-            eta1_efficiency_rpc_error_summary[layer] = stats.efficiency_results.eta1_efficiency_rpc_error[layer];
-            eta2_efficiency_rpc_error_summary[layer] = stats.efficiency_results.eta2_efficiency_rpc_error[layer];
-            eta_or_efficiency_rpc_error_summary[layer] = stats.efficiency_results.eta_or_efficiency_rpc_error[layer];
-            eta_and_efficiency_rpc_error_summary[layer] = stats.efficiency_results.eta_and_efficiency_rpc_error[layer];
+            efficiency_results_summary.eta1_efficiency_rpc[layer] = stats.efficiency_results.eta1_efficiency_rpc[layer];
+            efficiency_results_summary.eta2_efficiency_rpc[layer] = stats.efficiency_results.eta2_efficiency_rpc[layer];
+            efficiency_results_summary.eta_or_efficiency_rpc[layer] = stats.efficiency_results.eta_or_efficiency_rpc[layer];
+            efficiency_results_summary.eta_and_efficiency_rpc[layer] = stats.efficiency_results.eta_and_efficiency_rpc[layer];
 
-            track_eta1_efficiency_external_summary[layer] = stats.efficiency_results_tracks.track_eta1_efficiency_external[layer];
-            track_eta2_efficiency_external_summary[layer] = stats.efficiency_results_tracks.track_eta2_efficiency_external[layer];
-            track_eta_or_efficiency_external_summary[layer] = stats.efficiency_results_tracks.track_eta_or_efficiency_external[layer];
-            track_eta_and_efficiency_external_summary[layer] = stats.efficiency_results_tracks.track_eta_and_efficiency_external[layer];
+            efficiency_results_summary.eta1_efficiency_rpc_error[layer] = stats.efficiency_results.eta1_efficiency_rpc_error[layer];
+            efficiency_results_summary.eta2_efficiency_rpc_error[layer] = stats.efficiency_results.eta2_efficiency_rpc_error[layer];
+            efficiency_results_summary.eta_or_efficiency_rpc_error[layer] = stats.efficiency_results.eta_or_efficiency_rpc_error[layer];
+            efficiency_results_summary.eta_and_efficiency_rpc_error[layer] = stats.efficiency_results.eta_and_efficiency_rpc_error[layer];
 
-            track_eta1_efficiency_external_error_summary[layer] = stats.efficiency_results_tracks.track_eta1_efficiency_external_error[layer];
-            track_eta2_efficiency_external_error_summary[layer] = stats.efficiency_results_tracks.track_eta2_efficiency_external_error[layer];
-            track_eta_or_efficiency_external_error_summary[layer] = stats.efficiency_results_tracks.track_eta_or_efficiency_external_error[layer];
-            track_eta_and_efficiency_external_error_summary[layer] = stats.efficiency_results_tracks.track_eta_and_efficiency_external_error[layer];
+            efficiency_results_track_summary.eta1_efficiency_external[layer] = stats.efficiency_results_tracks.eta1_efficiency_external[layer];
+            efficiency_results_track_summary.eta2_efficiency_external[layer] = stats.efficiency_results_tracks.eta2_efficiency_external[layer];
+            efficiency_results_track_summary.eta_or_efficiency_external[layer] = stats.efficiency_results_tracks.eta_or_efficiency_external[layer];
+            efficiency_results_track_summary.eta_and_efficiency_external[layer] = stats.efficiency_results_tracks.eta_and_efficiency_external[layer];
 
-            track_eta1_efficiency_rpc_summary[layer] = stats.efficiency_results_tracks.track_eta1_efficiency_rpc[layer];
-            track_eta2_efficiency_rpc_summary[layer] = stats.efficiency_results_tracks.track_eta2_efficiency_rpc[layer];
-            track_eta_or_efficiency_rpc_summary[layer] = stats.efficiency_results_tracks.track_eta_or_efficiency_rpc[layer];
-            track_eta_and_efficiency_rpc_summary[layer] = stats.efficiency_results_tracks.track_eta_and_efficiency_rpc[layer];
+            efficiency_results_track_summary.eta1_efficiency_external_error[layer] = stats.efficiency_results_tracks.eta1_efficiency_external_error[layer];
+            efficiency_results_track_summary.eta2_efficiency_external_error[layer] = stats.efficiency_results_tracks.eta2_efficiency_external_error[layer];
+            efficiency_results_track_summary.eta_or_efficiency_external_error[layer] = stats.efficiency_results_tracks.eta_or_efficiency_external_error[layer];
+            efficiency_results_track_summary.eta_and_efficiency_external_error[layer] = stats.efficiency_results_tracks.eta_and_efficiency_external_error[layer];
 
-            track_eta1_efficiency_rpc_error_summary[layer] = stats.efficiency_results_tracks.track_eta1_efficiency_rpc_error[layer];
-            track_eta2_efficiency_rpc_error_summary[layer] = stats.efficiency_results_tracks.track_eta2_efficiency_rpc_error[layer];
-            track_eta_or_efficiency_rpc_error_summary[layer] = stats.efficiency_results_tracks.track_eta_or_efficiency_rpc_error[layer];
-            track_eta_and_efficiency_rpc_error_summary[layer] = stats.efficiency_results_tracks.track_eta_and_efficiency_rpc_error[layer];
+            efficiency_results_track_summary.eta1_efficiency_rpc[layer] = stats.efficiency_results_tracks.eta1_efficiency_rpc[layer];
+            efficiency_results_track_summary.eta2_efficiency_rpc[layer] = stats.efficiency_results_tracks.eta2_efficiency_rpc[layer];
+            efficiency_results_track_summary.eta_or_efficiency_rpc[layer] = stats.efficiency_results_tracks.eta_or_efficiency_rpc[layer];
+            efficiency_results_track_summary.eta_and_efficiency_rpc[layer] = stats.efficiency_results_tracks.eta_and_efficiency_rpc[layer];
+
+            efficiency_results_track_summary.eta1_efficiency_rpc_error[layer] = stats.efficiency_results_tracks.eta1_efficiency_rpc_error[layer];
+            efficiency_results_track_summary.eta2_efficiency_rpc_error[layer] = stats.efficiency_results_tracks.eta2_efficiency_rpc_error[layer];
+            efficiency_results_track_summary.eta_or_efficiency_rpc_error[layer] = stats.efficiency_results_tracks.eta_or_efficiency_rpc_error[layer];
+            efficiency_results_track_summary.eta_and_efficiency_rpc_error[layer] = stats.efficiency_results_tracks.eta_and_efficiency_rpc_error[layer];
 
             noise_rate_eta1[layer] = stats.noise_rate_eta1[layer];
             noise_rate_eta2[layer] = stats.noise_rate_eta2[layer];
         }
+
+        // Noise rate
         noise_rate = stats.noise_rate;
+
+        // Fill the summary tree with the extracted statistics for this measurement entry
         summary_tree->Fill();
         scan.data.push_back(stats);
 
+        // Clean up and close the input ROOT file for this measurement entry
         input_file->Close();
         delete input_file;
     }

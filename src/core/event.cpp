@@ -8,7 +8,7 @@
 // Event class implementation
 // ============================================================
 // Constructor and destructor for Event class
-Event::Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool use_external_trigger) 
+Event::Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCounters& counters_tracks, bool use_external_trigger) 
     : _event_number(event_number)
     , _hits(std::move(hits_in))
     , _efficiency_counters(counters)
@@ -519,17 +519,17 @@ void Event::updateEfficiencyCounters() {
 
     // External trigger efficiency counter update
     _efficiency_counters.triggered_events_external++;
-    _efficiency_counters_tracks.track_triggered_events_external++;
+    _efficiency_counters_tracks.triggered_events_external++;
     for (int layer = 0; layer < 3; layer++) {
         if (_efficiency_flags.eta1_layer[layer]) _efficiency_counters.eta1_efficiency_counter[layer]++;
         if (_efficiency_flags.eta2_layer[layer]) _efficiency_counters.eta2_efficiency_counter[layer]++;
         if (_efficiency_flags.eta1_layer[layer] || _efficiency_flags.eta2_layer[layer]) _efficiency_counters.eta_or_efficiency_counter[layer]++;
         if (_efficiency_flags.eta1_layer[layer] && _efficiency_flags.eta2_layer[layer]) _efficiency_counters.eta_and_efficiency_counter[layer]++;
 
-        if (_efficiency_flags.eta1_layer_track[layer]) _efficiency_counters_tracks.track_eta1_efficiency_counter[layer]++;
-        if (_efficiency_flags.eta2_layer_track[layer]) _efficiency_counters_tracks.track_eta2_efficiency_counter[layer]++;
-        if (_efficiency_flags.eta1_layer_track[layer] || _efficiency_flags.eta2_layer_track[layer]) _efficiency_counters_tracks.track_eta_or_efficiency_counter[layer]++;
-        if (_efficiency_flags.eta1_layer_track[layer] && _efficiency_flags.eta2_layer_track[layer]) _efficiency_counters_tracks.track_eta_and_efficiency_counter[layer]++;
+        if (_efficiency_flags.eta1_layer_track[layer]) _efficiency_counters_tracks.eta1_efficiency_counter[layer]++;
+        if (_efficiency_flags.eta2_layer_track[layer]) _efficiency_counters_tracks.eta2_efficiency_counter[layer]++;
+        if (_efficiency_flags.eta1_layer_track[layer] || _efficiency_flags.eta2_layer_track[layer]) _efficiency_counters_tracks.eta_or_efficiency_counter[layer]++;
+        if (_efficiency_flags.eta1_layer_track[layer] && _efficiency_flags.eta2_layer_track[layer]) _efficiency_counters_tracks.eta_and_efficiency_counter[layer]++;
     }
 
     // External trigger + RPC as a trigger efficiency counting
@@ -554,11 +554,11 @@ void Event::updateEfficiencyCounters() {
             if (_efficiency_flags.eta1_layer[layer] && _efficiency_flags.eta2_layer[layer]) _efficiency_counters.eta_and_efficiency_counter_rpc[layer]++;
         }
         if (rpc_triggered_track) {
-            _efficiency_counters_tracks.track_triggered_events_rpc[layer]++;
-            if (_efficiency_flags.eta1_layer_track[layer]) _efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]++;
-            if (_efficiency_flags.eta2_layer_track[layer]) _efficiency_counters_tracks.track_eta2_efficiency_counter_rpc[layer]++;
-            if (_efficiency_flags.eta1_layer_track[layer] || _efficiency_flags.eta2_layer_track[layer]) _efficiency_counters_tracks.track_eta_or_efficiency_counter_rpc[layer]++;
-            if (_efficiency_flags.eta1_layer_track[layer] && _efficiency_flags.eta2_layer_track[layer]) _efficiency_counters_tracks.track_eta_and_efficiency_counter_rpc[layer]++;
+            _efficiency_counters_tracks.triggered_events_rpc[layer]++;
+            if (_efficiency_flags.eta1_layer_track[layer]) _efficiency_counters_tracks.eta1_efficiency_counter_rpc[layer]++;
+            if (_efficiency_flags.eta2_layer_track[layer]) _efficiency_counters_tracks.eta2_efficiency_counter_rpc[layer]++;
+            if (_efficiency_flags.eta1_layer_track[layer] || _efficiency_flags.eta2_layer_track[layer]) _efficiency_counters_tracks.eta_or_efficiency_counter_rpc[layer]++;
+            if (_efficiency_flags.eta1_layer_track[layer] && _efficiency_flags.eta2_layer_track[layer]) _efficiency_counters_tracks.eta_and_efficiency_counter_rpc[layer]++;
         }
     }
 }

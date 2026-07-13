@@ -35,13 +35,13 @@ private:
 
     // Reference to shared efficiency counters (for updating throughout event lifetime)
     EfficiencyCounters& _efficiency_counters;
-    EfficiencyCountersTracks& _efficiency_counters_tracks;
+    EfficiencyCounters& _efficiency_counters_tracks;
 
     bool _use_external_trigger;
 
 public:
     // Constructor and destructor
-    Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCountersTracks& counters_tracks, bool use_external_trigger);
+    Event(int event_number, std::vector<Hit>&& hits_in, EfficiencyCounters& counters, EfficiencyCounters& counters_tracks, bool use_external_trigger);
     ~Event();
 
     // Extract trigger information

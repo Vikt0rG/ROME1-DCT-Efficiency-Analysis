@@ -109,7 +109,7 @@ namespace PlotStyler {
                 s.SetTextFont(42);  // Regular Helvetica
                 s.SetTextColor(kBlack);
                 s.SetTextSize(0.04);
-                
+
                 // 0.13 NDC offset ensures "ATLAS" and Status don't overlap
                 s.DrawLatex(final_x + 0.10, final_y, status.c_str()); 
             }
@@ -129,8 +129,8 @@ namespace PlotStyler {
 
             TLatex t;
             t.SetNDC();
-            t.SetTextFont(42);         
-            t.SetTextSize(0.04);       
+            t.SetTextFont(42);
+            t.SetTextSize(0.04);
             t.SetTextColor(kBlack);
             t.DrawLatex(final_x, final_y, titleStr.c_str());
 
@@ -330,13 +330,19 @@ namespace PlotStyler {
                 double safety_buffer = (dynamic_upper_bound - lower_bound) * 0.05;
                 dynamic_upper_bound += safety_buffer;
 
+                xAxis->SetLimits(xAxis->GetXmin(), dynamic_upper_bound);
                 xAxis->SetRangeUser(lower_bound, dynamic_upper_bound);
                 xAxis->SetTitle(x_label.c_str());
             }
 
             TAxis* yAxis = mg->GetHistogram()->GetYaxis();
             if (yAxis) {
-                yAxis->SetRangeUser(0.0, 1.05);
+                double dynamic_ymin = yAxis->GetXmin();
+                double dynamic_ymax = yAxis->GetXmax();
+                double safety_buffer = (dynamic_ymax - dynamic_ymin) * 0.05;
+
+                yAxis->SetLimits(yAxis->GetXmin(), dynamic_ymax + safety_buffer);
+                yAxis->SetRangeUser(std::max(dynamic_ymin - safety_buffer, 0.0), dynamic_ymax + safety_buffer);
                 yAxis->SetTitle(y_label.c_str());
             }
         }

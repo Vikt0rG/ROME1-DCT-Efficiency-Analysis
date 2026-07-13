@@ -334,5 +334,5 @@ void DataPlotter::exportPlotsToATLASPDF() {
 
     file->Close();
     delete file;
-    std::cout << "[ATLAS Export] Completed rendering all intrinsic metrics successfully." << std::endl;
+    std::cout << "[ATLAS Export] Completed rendering all global metrics successfully." << std::endl;
 }
