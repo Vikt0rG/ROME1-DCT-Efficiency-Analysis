@@ -1,4 +1,6 @@
 #include <iostream>
+#include <climits>
+#include <algorithm>
 
 #include "core/event.hpp"
 

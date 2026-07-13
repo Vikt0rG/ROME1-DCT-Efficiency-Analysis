@@ -1,5 +1,9 @@
 #pragma once
 
+#include <vector>
+#include <array>
+#include <tuple>
+
 #include "core/types.hpp"
 #include "core/hit.hpp"
 #include "core/constants.hpp"

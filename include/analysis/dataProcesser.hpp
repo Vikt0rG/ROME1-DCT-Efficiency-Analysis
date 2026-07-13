@@ -1,10 +1,13 @@
 #pragma once
 
+#include <array>
+#include <vector>
+#include <string>
+
 #include "core/hit.hpp"
 #include "core/event.hpp"
 #include "core/cluster.hpp"
 #include "core/track.hpp"
-
 #include "core/types.hpp"
 
 class TFile;
