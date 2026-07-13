@@ -101,6 +101,8 @@ def parse_args():
                         help="Max time window (default: -100)")
     parser.add_argument("--dt-min", type=int, default=-180,
                         help="Min time window (default: -180)")
+    parser.add_argument("-e", "--error-type", type=str, default="Binomial",
+                        help="Error type for efficiency calculation (default: Binomial). Valid options: '0/Binomial/binomial', '1/ClopperPearson/clopper_pearson/cp'.")
     parser.add_argument("-d", "--data-dir", type=str, default=None, required=True,
                         help="Specify data directory (the one containing raw/txt/root subdirectories)")
     parser.add_argument("--no-external", action="store_true",
@@ -129,7 +131,7 @@ def main():
     target_root_dir = os.path.join(args.data_dir, "root")
 
     bin_to_txt = os.path.join(root_dir, "scripts", "bin_to_txt.sh")
-    analysis_bin = os.path.join(root_dir, "bin", "analysis")    
+    processing_bin = os.path.join(root_dir, "bin", "analysis")    
 
     # Step 2: Ensure output directories exist
     os.makedirs(target_bin_dir, exist_ok=True)
@@ -321,7 +323,7 @@ def main():
                 if os.path.exists(expected_txt) and expected_txt not in txt_paths:
                     txt_paths.append(expected_txt)
 
-            # Step 7: Run analysis and write ROOT output
+            # Step 7: Run data processing and write ROOT output
             root_path = os.path.join(target_root_dir, f"{name}.root")
             if os.path.exists(root_path) and not args.force:
                 continue
@@ -336,10 +338,10 @@ def main():
                 continue
 
             command = "process"
-            analysis_cmd = [analysis_bin, command, existing_txt[0], str(args.dt_max), str(args.dt_min)]
-            if args.no_external: analysis_cmd.append("--no-external")
+            processing_cmd = [processing_bin, command, existing_txt[0], str(args.dt_max), str(args.dt_min), args.error_type]
+            if args.no_external: processing_cmd.append("--no-external")
 
-            subprocess.run(analysis_cmd, check=True, cwd=root_dir)
+            subprocess.run(processing_cmd, check=True, cwd=root_dir)
 
             output_root = os.path.join(root_dir, "output.root")
             if not os.path.exists(output_root):

@@ -1,26 +1,27 @@
 #!/bin/bash
 usage() {
-    echo "Usage: $0 -c|--config <config_file> --dt-max <dt_max> --dt-min <dt_min> -d|--data-dir <data_directory> [--no-external] [-r|--recompile] [-f|--force]"
+    echo "Usage: $0 -c|--config <config_file> --dt-max <dt_max> --dt-min <dt_min> -e|--error-type <error_type> -d|--data-dir <data_directory> [--no-external] [-r|--recompile] [-f|--force]"
     echo "Use -h or --help for more information."
     exit 1
 }
 
 # Check for help flag first
 if [[ "$@" == *"--help"* ]] || [[ "$@" == *"-h"* ]]; then
-    echo "Script usage: $0 -c | --config <config_file> --dt-max <dt_max> --dt-min <dt_min> -d | --data-dir <data_directory>"
+    echo "Script usage: $0 -c | --config <config_file> --dt-max <dt_max> --dt-min <dt_min> -e | --error-type <error_type> -d | --data-dir <data_directory>"
     echo ""
     echo "REQUIRED ARGUMENTS:"
-    echo "  -c | --config PATH        Path to the YAML config file"
-    echo "  --dt-max VALUE            Maximum time difference"
-    echo "  --dt-min VALUE            Minimum time difference"
-    echo "  -d | --data-dir PATH      Path to the data (where raw/txt/root subdirectories are located) directory"
+    echo "  -c | --config <config_file>           Path to the YAML config file"
+    echo "  --dt-max <dt_max>                     Maximum time difference"
+    echo "  --dt-min <dt_min>                     Minimum time difference"
+    echo "  -e | --error-type <error_type>        Specify the error type for efficiency calculations (default: 'Binomial'). Valid options: '0/Binomial/binomial', '1/ClopperPearson/clopper_pearson/cp'."
+    echo "  -d | --data-dir <data_directory>      Path to the data (where raw/txt/root subdirectories are located) directory"
     echo ""
     echo "OPTIONS:"
-    echo "  -p | --plotter            Run the data plotter after analysis"
-    echo "  --no-external             Disable external trigger usage in analysis"
-    echo "  -r | --recompile          Force recompilation of the main analysis executable before running"
-    echo "  -f | --force              Force overwrite of existing output directory"
-    echo "  -h | --help               Display this help message"
+    echo "  -p | --plotter                        Run the data plotter after analysis"
+    echo "  --no-external                         Disable external trigger usage in analysis"
+    echo "  -r | --recompile                      Force recompilation of the main analysis executable before running"
+    echo "  -f | --force                          Force overwrite of existing output directory"
+    echo "  -h | --help                           Display this help message"
     exit 0
 fi
 
@@ -53,6 +54,10 @@ while [[ "$#" -gt 0 ]]; do
              dt_min="$2"
              shift 2
              ;;
+        -e|--error-type)
+            error_type="$2"
+            shift 2
+            ;;
         -d|--data-dir)
             data_directory="$2"
             shift 2
@@ -84,7 +89,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Validate required arguments
-if [ -z "$config_file" ] || [ -z "$dt_max" ] || [ -z "$dt_min" ] || [ -z "$data_directory" ]; then
+if [ -z "$config_file" ] || [ -z "$dt_max" ] || [ -z "$dt_min" ] || [ -z "$data_directory" ] || [ -z "$error_type" ]; then
     echo "ERROR: Missing one of the required arguments."
     usage
 fi
@@ -145,7 +150,7 @@ export ROOT_DIR="$rootDir"
 # Step 1: Process data from the config file (convert binary to txt and process txt to produce processed root files)
 echo ""
 echo "Processing data from config file: $config_file"
-python3 "$rootDir/scripts/processMeasurements.py" "--config" "$config_file" "--dt-max" "$dt_max" "--dt-min" "$dt_min" "--data-dir" "$data_directory" $no_external $force
+python3 "$rootDir/scripts/processMeasurements.py" "--config" "$config_file" "--dt-max" "$dt_max" "--dt-min" "$dt_min" "--error-type" "$error_type" "--data-dir" "$data_directory" $no_external $force
 
 # Step 2: Run the analysis on the processed data
 echo ""

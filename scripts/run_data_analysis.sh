@@ -1,6 +1,6 @@
 #!/bin/bash
 usage() {
-    echo "Usage: $0 --config <config_file> --output-dir <output_directory> [--recompile]"
+    echo "Usage: $0 --config <config_file> --output-dir <output_directory> [--recompile] [--help]"
     echo "Use -h or --help for more information."
     exit 1
 }

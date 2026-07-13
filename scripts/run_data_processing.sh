@@ -1,6 +1,6 @@
 #!/bin/bash
 usage() {
-    echo "Usage: $0 <input> [OPTIONS]"
+    echo "Usage: $0 -i | --input <input> [OPTIONS]"
     echo "Use --help for more information."
     exit 1
 }
@@ -9,27 +9,28 @@ usage() {
 
 # Check for help flag first
 if [[ "$@" == *"--help"* ]]; then
-    echo "Script usage: $0 <input> [OPTIONS]"
+    echo "Script usage: $0 -i | --input <input> [OPTIONS]"
     echo ""
     echo "REQUIRED ARGUMENTS:"
-    echo "  <input>             Path to the raw data (file or directory) to analyze"
+    echo "  -i | --input <input>                  Path to the raw data (file or directory) to analyze"
     echo ""
     echo "OPTIONS:"
-    echo "  -s, --self          Used self-trigger firmware during acquisition"
-    echo "  --dt-max VALUE      Maximum time window for efficiency (default: -100)"
-    echo "  --dt-min VALUE      Minimum time window for efficiency (default: -180)"
-    echo "  --no-external       Disable external trigger usage in analysis"
-    echo "  --old-data-type     Whether to use old data type (default: false)"
-    echo "  --recompile         Force recompilation of the main analysis executable before running"
-    echo "  -h, --help          Display this help message"
+    echo "  -s | --self                           Used self-trigger firmware during acquisition"
+    echo "  --dt-max <dt_max>                     Maximum time window for efficiency (default: -100)"
+    echo "  --dt-min <dt_min>                     Minimum time window for efficiency (default: -180)"
+    echo "  -e | --error-type <error_type>        Specify the error type for efficiency calculations (default: 'binomial'). Valid options: 'binomial', 'clopper-pearson'."
+    echo "  --no-external                         Disable external trigger usage in analysis"
+    echo "  --old-data-type                       Whether to use old data type (default: false)"
+    echo "  -r | --recompile                      Force recompilation of the main analysis executable before running"
+    echo "  -h | --help                           Display this help message"
     echo ""
     echo "EXAMPLES:"
-    echo "  $0 /root/data/raw/raw_data.txt --dt-max -120 --dt-min -200"
+    echo "  $0 -i /root/data/raw/raw_data.txt --dt-max -120 --dt-min -200"
     exit 0
 fi
 
 # Check for required arguments
-if [ "$#" -lt 1 ]; then
+if [ "$#" -lt 2 ]; then
     echo "ERROR: Missing required arguments."
     usage
 fi
@@ -44,6 +45,7 @@ fi
 # Initialize time window parameters with defaults
 dt_max="-100"
 dt_min="-180"
+error_type="Binomial"
 recompile=false
 
 # Process flags and optional arguments
@@ -62,6 +64,10 @@ while [[ "$#" -gt 0 ]]; do
              dt_min="$2"
              shift 2
              ;;
+        -e|--error-type)
+            error_type="$2"
+            shift 2
+            ;;
         --no-external)
             no_external="--no-external"
             shift
@@ -112,11 +118,11 @@ if [ -d "$input" ]; then
     echo "Input is a directory. Processing all .txt files in $input..."
     for file in "$input"/*.txt; do
         echo "Processing file: $file"
-        "$rootDir/bin/analysis" process "$file" "$dt_max" "$dt_min" $no_external $old_data_type $reject_background $use_self_trigger
+        "$rootDir/bin/analysis" process --input "$file" --dt-max "$dt_max" --dt-min "$dt_min" --error-type "$error_type" $no_external $old_data_type $reject_background $use_self_trigger
         mv ./output.root "$outputDir"
     done
 else
     echo "Input is a single file. Processing $input..."
-    "$rootDir/bin/analysis" process "$input" "$dt_max" "$dt_min" $no_external $old_data_type $reject_background $use_self_trigger
+    "$rootDir/bin/analysis" process --input "$input" --dt-max "$dt_max" --dt-min "$dt_min" --error-type "$error_type" $no_external $old_data_type $reject_background $use_self_trigger
     mv ./output.root "$outputDir"
 fi

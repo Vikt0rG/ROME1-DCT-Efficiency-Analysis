@@ -9,8 +9,8 @@ int main(int argc, char** argv) {
 
     if (argc < 2) {
         std::cerr << "Usage:\n"
-                  << "  " << argv[0] << " process <input_file> <dt_max> <dt_min> <error_method> [--no-external] [--use-old-data]\n"
-                  << "  " << argv[0] << " analyze --config <config_file>" << std::endl
+                  << "  " << argv[0] << " process --input <input_file> --dt-max <dt_max> --dt-min <dt_min> [--error-type <error_type>] [--no-external] [--use-old-data]\n"
+                  << "  " << argv[0] << " analyze --config <config_file> [--error-type <error_type>]" << std::endl
                   << "  " << argv[0] << " plotter --config <config_file>" << std::endl;
         return 1;
     }
@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
     // Command 1: Process input data and produce output ROOT file with trees
     if (command == "process") {
         if (argc < 6) {
-            std::cerr << "Usage: " << argv[0] << " process <input_file> <dt_max> <dt_min> <error_method> [--no-external] [--use-old-data]" << std::endl;
+            std::cerr << "Usage: " << argv[0] << " process --input <input_file> --dt-max <dt_max> --dt-min <dt_min> [--error-type <error_type>] [--no-external] [--use-old-data]" << std::endl;
             return 1;
         }
 
@@ -37,18 +37,45 @@ int main(int argc, char** argv) {
         try {
             dt_max = std::stoi(argv[3]);
             dt_min = std::stoi(argv[4]);
-            int error_method_int = std::stoi(argv[5]);
-            switch (error_method_int) {
-                case 0:
-                    error_method = ErrorMethod::Binomial;
-                    break;
-                case 1:
-                    error_method = ErrorMethod::ClopperPearson;
-                    break;
-                default:
-                    std::cerr << "Error: Invalid error method. Use 0 for Binomial or 1 for Clopper-Pearson." << std::endl;
-                    return 1;
+            
+            // Fetch the argument (assuming it's argv[5])
+            std::string error_method_arg = argv[5];
+            int error_method_int = -1;
+            bool is_numeric = true;
+
+            try {
+                size_t processed = 0;
+                error_method_int = std::stoi(error_method_arg, &processed);
+                if (processed != error_method_arg.length()) {
+                    is_numeric = false;
+                }
+            } catch (const std::exception&) {
+                is_numeric = false;
             }
+
+            if (is_numeric) {
+                switch (error_method_int) {
+                    case 0:
+                        error_method = ErrorMethod::Binomial;
+                        break;
+                    case 1:
+                        error_method = ErrorMethod::ClopperPearson;
+                        break;
+                    default:
+                        std::cerr << "Error: Invalid error method integer. Use a valid error ID." << std::endl;
+                        return 1;
+                }
+            } else {
+                if (error_method_arg == "Binomial" || error_method_arg == "binomial") {
+                    error_method = ErrorMethod::Binomial;
+                } else if (error_method_arg == "ClopperPearson" || error_method_arg == "clopper_pearson" || error_method_arg == "cp") {
+                    error_method = ErrorMethod::ClopperPearson;
+                } else {
+                    std::cerr << "Error: Invalid error method string name: '" << error_method_arg << "'." << std::endl;
+                    return 1;
+                }
+            }
+
         } catch (const std::exception&) {
             std::cerr << "Error: dt_max and dt_min must be valid integers" << std::endl;
             return 1;
