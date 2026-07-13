@@ -29,7 +29,8 @@ public:
     /// @param dt_min Minimum of the time window (ticks) for efficiency calculation
     /// @param format Format of the input data (filedump packets or decoded words)
     /// @param use_external_trigger_arg Whether to use external trigger signals for efficiency calculation
-    DataProcesser(const std::string& input_path, const int dt_max, const int dt_min, InputFormat format, bool use_external_trigger_arg);
+    DataProcesser(const std::string& input_path, const int dt_max, const int dt_min,
+        ErrorMethod error_method, InputFormat format, bool use_external_trigger_arg);
     ~DataProcesser();
     
     // Setup
@@ -116,7 +117,7 @@ public:
 
     // Analysis
     void updateEfficiencies();
-    void createHistograms();
+    void createEfficiencyGraphs();
 
     // Cleanup
     void clearRawDataVectors();
@@ -128,6 +129,7 @@ private:
     const std::string _input_path;
     const int _dt_max = 20;
     const int _dt_min = 0;
+    ErrorMethod _error_method = ErrorMethod::Binomial;
     const InputFormat _format;
     const bool _use_external_trigger = false;
     TFile* _output_file = nullptr;

@@ -4,7 +4,7 @@
 #include <vector>
 
 // ==========================================================================================
-// Common types and structures used across the project
+// Common types, structures and enums used across the project
 
 /// @struct DCTWord
 /// @brief Represents a single DCT word with its decoded fields.
@@ -35,8 +35,24 @@ struct SelectionMask {
         : name(n), mask(std::move(m)) {}
 };
 
+/// @enum ErrorMethod
+/// @brief Enum to specify the method for calculating efficiency errors.
+///
+/// `Binomial`: Uses the standard binomial error formula.
+///
+/// `ClopperPearson`: Uses the Clopper-Pearson method for confidence intervals.
+enum class ErrorMethod {
+    Binomial = 0,
+    ClopperPearson = 1
+};
+
 // ==========================================================================================
 // Efficiency calculation related structures
+struct ErrorRange {
+    double low;
+    double high;
+};
+
 struct EfficiencyFlags {
     bool eta1_layer[3] = {false, false, false};         // Layer 0, 1, 2 for η1 side
     bool eta2_layer[3] = {false, false, false};         // Layer 0, 1, 2 for η2 side
@@ -80,20 +96,20 @@ struct EfficiencyResults {
     double eta_or_efficiency_external[3];
     double eta_and_efficiency_external[3];
     
-    double eta1_efficiency_external_error[3];
-    double eta2_efficiency_external_error[3];
-    double eta_or_efficiency_external_error[3];
-    double eta_and_efficiency_external_error[3];
+    ErrorRange eta1_efficiency_external_error[3];
+    ErrorRange eta2_efficiency_external_error[3];
+    ErrorRange eta_or_efficiency_external_error[3];
+    ErrorRange eta_and_efficiency_external_error[3];
 
     double eta1_efficiency_rpc[3];
     double eta2_efficiency_rpc[3];
     double eta_or_efficiency_rpc[3];
     double eta_and_efficiency_rpc[3];
 
-    double eta1_efficiency_rpc_error[3];
-    double eta2_efficiency_rpc_error[3];
-    double eta_or_efficiency_rpc_error[3];
-    double eta_and_efficiency_rpc_error[3];
+    ErrorRange eta1_efficiency_rpc_error[3];
+    ErrorRange eta2_efficiency_rpc_error[3];
+    ErrorRange eta_or_efficiency_rpc_error[3];
+    ErrorRange eta_and_efficiency_rpc_error[3];
 };
 
 struct EfficiencyResultsTracks {
@@ -102,20 +118,20 @@ struct EfficiencyResultsTracks {
     double track_eta_or_efficiency_external[3];
     double track_eta_and_efficiency_external[3];
 
-    double track_eta1_efficiency_external_error[3];
-    double track_eta2_efficiency_external_error[3];
-    double track_eta_or_efficiency_external_error[3];
-    double track_eta_and_efficiency_external_error[3];
+    ErrorRange track_eta1_efficiency_external_error[3];
+    ErrorRange track_eta2_efficiency_external_error[3];
+    ErrorRange track_eta_or_efficiency_external_error[3];
+    ErrorRange track_eta_and_efficiency_external_error[3];
 
     double track_eta1_efficiency_rpc[3];
     double track_eta2_efficiency_rpc[3];
     double track_eta_or_efficiency_rpc[3];
     double track_eta_and_efficiency_rpc[3];
 
-    double track_eta1_efficiency_rpc_error[3];
-    double track_eta2_efficiency_rpc_error[3];
-    double track_eta_or_efficiency_rpc_error[3];
-    double track_eta_and_efficiency_rpc_error[3];
+    ErrorRange track_eta1_efficiency_rpc_error[3];
+    ErrorRange track_eta2_efficiency_rpc_error[3];
+    ErrorRange track_eta_or_efficiency_rpc_error[3];
+    ErrorRange track_eta_and_efficiency_rpc_error[3];
 };
 
 // ==========================================================================================

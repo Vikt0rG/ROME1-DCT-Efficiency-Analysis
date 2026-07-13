@@ -6,7 +6,9 @@
 
 #include <TFile.h>
 #include <TTree.h>
-#include <TH1F.h>
+#include <TEfficiency.h>
+#include "TGraphAsymmErrors.h"
+#include <TAxis.h>
 
 #include "core/constants.hpp"
 #include "analysis/dataProcesser.hpp"
@@ -19,12 +21,14 @@ DataProcesser::DataProcesser(
     const std::string& input_path,
     const int dt_max,
     const int dt_min,
+    ErrorMethod error_method,
     InputFormat format,
     bool use_external_trigger_arg
 ) 
     : _input_path(input_path)
     , _dt_max(dt_max)
     , _dt_min(dt_min)
+    , _error_method(error_method)
     , _format(format)
     , _use_external_trigger(use_external_trigger_arg) {
     setupOutputFile();
@@ -130,6 +134,35 @@ void DataProcesser::setupBranches() {
 // ------------------------------------------------------------------------------------------
 // Efficiency calculation helper functions
 
+// Calculate efficiency error based on the selected method (Binomial or Clopper-Pearson)
+ErrorRange calculateEfficiencyError(int passed, int total, ErrorMethod method) {
+    if (total <= 0 || passed < 0 || passed > total) return ErrorRange{0.0, 0.0};
+
+    switch (method) {
+        case ErrorMethod::Binomial: {
+            double eff = static_cast<double>(passed) / total;
+            double err = sqrt(eff * (1 - eff) / total);
+            return ErrorRange{err, err}; // Symmetric error range
+        } 
+        case ErrorMethod::ClopperPearson: {
+            // 0.6827 aligns with the standard 1-sigma standard deviation
+            double lower = TEfficiency::ClopperPearson(total, passed, 0.6827, false);
+            double upper = TEfficiency::ClopperPearson(total, passed, 0.6827, true);
+            double eff = static_cast<double>(passed) / total;
+
+            // Symmetric approximation of asymmetric bounds for your single-value error property
+            double err_down = eff - lower;
+            double err_up   = upper - eff;
+            
+            return ErrorRange{err_down, err_up}; // Asymmetric error range
+        }
+        default:
+            std::cerr << "Unknown error method specified." << std::endl;
+            break;
+    }
+    return ErrorRange{0.0, 0.0};
+}
+
 // Efficiency live calculation based on reconstructed tracks
 void DataProcesser::updateEfficiencies() {
     // External trigger only efficiency results
@@ -140,10 +173,10 @@ void DataProcesser::updateEfficiencies() {
             efficiency_results.eta_or_efficiency_external[layer] = static_cast<double>(efficiency_counters.eta_or_efficiency_counter[layer]) / efficiency_counters.triggered_events_external;
             efficiency_results.eta_and_efficiency_external[layer] = static_cast<double>(efficiency_counters.eta_and_efficiency_counter[layer]) / efficiency_counters.triggered_events_external;
 
-            efficiency_results.eta1_efficiency_external_error[layer] = sqrt(efficiency_results.eta1_efficiency_external[layer] * (1 - efficiency_results.eta1_efficiency_external[layer]) / efficiency_counters.triggered_events_external);
-            efficiency_results.eta2_efficiency_external_error[layer] = sqrt(efficiency_results.eta2_efficiency_external[layer] * (1 - efficiency_results.eta2_efficiency_external[layer]) / efficiency_counters.triggered_events_external);
-            efficiency_results.eta_or_efficiency_external_error[layer] = sqrt(efficiency_results.eta_or_efficiency_external[layer] * (1 - efficiency_results.eta_or_efficiency_external[layer]) / efficiency_counters.triggered_events_external);
-            efficiency_results.eta_and_efficiency_external_error[layer] = sqrt(efficiency_results.eta_and_efficiency_external[layer] * (1 - efficiency_results.eta_and_efficiency_external[layer]) / efficiency_counters.triggered_events_external);
+            efficiency_results.eta1_efficiency_external_error[layer] = calculateEfficiencyError(efficiency_counters.eta1_efficiency_counter[layer], efficiency_counters.triggered_events_external, _error_method);
+            efficiency_results.eta2_efficiency_external_error[layer] = calculateEfficiencyError(efficiency_counters.eta2_efficiency_counter[layer], efficiency_counters.triggered_events_external, _error_method);
+            efficiency_results.eta_or_efficiency_external_error[layer] = calculateEfficiencyError(efficiency_counters.eta_or_efficiency_counter[layer], efficiency_counters.triggered_events_external, _error_method);
+            efficiency_results.eta_and_efficiency_external_error[layer] = calculateEfficiencyError(efficiency_counters.eta_and_efficiency_counter[layer], efficiency_counters.triggered_events_external, _error_method);
         }
     }
     if (efficiency_counters_tracks.track_triggered_events_external > 0) {
@@ -153,10 +186,10 @@ void DataProcesser::updateEfficiencies() {
             efficiency_results_tracks.track_eta_or_efficiency_external[layer] = static_cast<double>(efficiency_counters_tracks.track_eta_or_efficiency_counter[layer]) / efficiency_counters_tracks.track_triggered_events_external;
             efficiency_results_tracks.track_eta_and_efficiency_external[layer] = static_cast<double>(efficiency_counters_tracks.track_eta_and_efficiency_counter[layer]) / efficiency_counters_tracks.track_triggered_events_external;
 
-            efficiency_results_tracks.track_eta1_efficiency_external_error[layer] = sqrt(efficiency_results_tracks.track_eta1_efficiency_external[layer] * (1 - efficiency_results_tracks.track_eta1_efficiency_external[layer]) / efficiency_counters_tracks.track_triggered_events_external);
-            efficiency_results_tracks.track_eta2_efficiency_external_error[layer] = sqrt(efficiency_results_tracks.track_eta2_efficiency_external[layer] * (1 - efficiency_results_tracks.track_eta2_efficiency_external[layer]) / efficiency_counters_tracks.track_triggered_events_external);
-            efficiency_results_tracks.track_eta_or_efficiency_external_error[layer] = sqrt(efficiency_results_tracks.track_eta_or_efficiency_external[layer] * (1 - efficiency_results_tracks.track_eta_or_efficiency_external[layer]) / efficiency_counters_tracks.track_triggered_events_external);
-            efficiency_results_tracks.track_eta_and_efficiency_external_error[layer] = sqrt(efficiency_results_tracks.track_eta_and_efficiency_external[layer] * (1 - efficiency_results_tracks.track_eta_and_efficiency_external[layer]) / efficiency_counters_tracks.track_triggered_events_external);
+            efficiency_results_tracks.track_eta1_efficiency_external_error[layer] = calculateEfficiencyError(efficiency_counters_tracks.track_eta1_efficiency_counter[layer], efficiency_counters_tracks.track_triggered_events_external, _error_method);
+            efficiency_results_tracks.track_eta2_efficiency_external_error[layer] = calculateEfficiencyError(efficiency_counters_tracks.track_eta2_efficiency_counter[layer], efficiency_counters_tracks.track_triggered_events_external, _error_method);
+            efficiency_results_tracks.track_eta_or_efficiency_external_error[layer] = calculateEfficiencyError(efficiency_counters_tracks.track_eta_or_efficiency_counter[layer], efficiency_counters_tracks.track_triggered_events_external, _error_method);
+            efficiency_results_tracks.track_eta_and_efficiency_external_error[layer] = calculateEfficiencyError(efficiency_counters_tracks.track_eta_and_efficiency_counter[layer], efficiency_counters_tracks.track_triggered_events_external, _error_method);
         }
     }
     // External trigger + RPC as a trigger efficiency results
@@ -167,10 +200,10 @@ void DataProcesser::updateEfficiencies() {
             efficiency_results.eta_or_efficiency_rpc[layer] = static_cast<double>(efficiency_counters.eta_or_efficiency_counter_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer];
             efficiency_results.eta_and_efficiency_rpc[layer] = static_cast<double>(efficiency_counters.eta_and_efficiency_counter_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer];
 
-            efficiency_results.eta1_efficiency_rpc_error[layer] = sqrt(efficiency_results.eta1_efficiency_rpc[layer] * (1 - efficiency_results.eta1_efficiency_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer]);
-            efficiency_results.eta2_efficiency_rpc_error[layer] = sqrt(efficiency_results.eta2_efficiency_rpc[layer] * (1 - efficiency_results.eta2_efficiency_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer]);
-            efficiency_results.eta_or_efficiency_rpc_error[layer] = sqrt(efficiency_results.eta_or_efficiency_rpc[layer] * (1 - efficiency_results.eta_or_efficiency_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer]);
-            efficiency_results.eta_and_efficiency_rpc_error[layer] = sqrt(efficiency_results.eta_and_efficiency_rpc[layer] * (1 - efficiency_results.eta_and_efficiency_rpc[layer]) / efficiency_counters.triggered_events_rpc[layer]);
+            efficiency_results.eta1_efficiency_rpc_error[layer] = calculateEfficiencyError(efficiency_counters.eta1_efficiency_counter_rpc[layer], efficiency_counters.triggered_events_rpc[layer], _error_method);
+            efficiency_results.eta2_efficiency_rpc_error[layer] = calculateEfficiencyError(efficiency_counters.eta2_efficiency_counter_rpc[layer], efficiency_counters.triggered_events_rpc[layer], _error_method);
+            efficiency_results.eta_or_efficiency_rpc_error[layer] = calculateEfficiencyError(efficiency_counters.eta_or_efficiency_counter_rpc[layer], efficiency_counters.triggered_events_rpc[layer], _error_method);
+            efficiency_results.eta_and_efficiency_rpc_error[layer] = calculateEfficiencyError(efficiency_counters.eta_and_efficiency_counter_rpc[layer], efficiency_counters.triggered_events_rpc[layer], _error_method);
         }
         if (efficiency_counters_tracks.track_triggered_events_rpc[layer] > 0) {
             efficiency_results_tracks.track_eta1_efficiency_rpc[layer] = static_cast<double>(efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer];
@@ -178,133 +211,155 @@ void DataProcesser::updateEfficiencies() {
             efficiency_results_tracks.track_eta_or_efficiency_rpc[layer] = static_cast<double>(efficiency_counters_tracks.track_eta_or_efficiency_counter_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer];
             efficiency_results_tracks.track_eta_and_efficiency_rpc[layer] = static_cast<double>(efficiency_counters_tracks.track_eta_and_efficiency_counter_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer];
 
-            efficiency_results_tracks.track_eta1_efficiency_rpc_error[layer] = sqrt(efficiency_results_tracks.track_eta1_efficiency_rpc[layer] * (1 - efficiency_results_tracks.track_eta1_efficiency_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer]);
-            efficiency_results_tracks.track_eta2_efficiency_rpc_error[layer] = sqrt(efficiency_results_tracks.track_eta2_efficiency_rpc[layer] * (1 - efficiency_results_tracks.track_eta2_efficiency_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer]);
-            efficiency_results_tracks.track_eta_or_efficiency_rpc_error[layer] = sqrt(efficiency_results_tracks.track_eta_or_efficiency_rpc[layer] * (1 - efficiency_results_tracks.track_eta_or_efficiency_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer]);
-            efficiency_results_tracks.track_eta_and_efficiency_rpc_error[layer] = sqrt(efficiency_results_tracks.track_eta_and_efficiency_rpc[layer] * (1 - efficiency_results_tracks.track_eta_and_efficiency_rpc[layer]) / efficiency_counters_tracks.track_triggered_events_rpc[layer]);
+            efficiency_results_tracks.track_eta1_efficiency_rpc_error[layer] = calculateEfficiencyError(efficiency_counters_tracks.track_eta1_efficiency_counter_rpc[layer], efficiency_counters_tracks.track_triggered_events_rpc[layer], _error_method);
+            efficiency_results_tracks.track_eta2_efficiency_rpc_error[layer] = calculateEfficiencyError(efficiency_counters_tracks.track_eta2_efficiency_counter_rpc[layer], efficiency_counters_tracks.track_triggered_events_rpc[layer], _error_method);
+            efficiency_results_tracks.track_eta_or_efficiency_rpc_error[layer] = calculateEfficiencyError(efficiency_counters_tracks.track_eta_or_efficiency_counter_rpc[layer], efficiency_counters_tracks.track_triggered_events_rpc[layer], _error_method);
+            efficiency_results_tracks.track_eta_and_efficiency_rpc_error[layer] = calculateEfficiencyError(efficiency_counters_tracks.track_eta_and_efficiency_counter_rpc[layer], efficiency_counters_tracks.track_triggered_events_rpc[layer], _error_method);
         }
     }
 }
 
 // ------------------------------------------------------------------------------------------
-// Histogram creation utility function
+// Graph creation utility function: Use Asymmetric error bars for efficiency graphs
 
-// Utility function to create efficiency histograms in nested directories
-void DataProcesser::createHistograms() {
+void DataProcesser::createEfficiencyGraphs() {
     if (!_output_file) return;
 
-    // External trigger only efficiency histograms
+    auto buildGraph = [](const char* name, const char* title, const double effs[4], const ErrorRange errs[4]) {
+        TGraphAsymmErrors* graph = new TGraphAsymmErrors(4);
+        graph->SetName(name);
+        graph->SetTitle(title);
+
+        for (int i = 0; i < 4; i++) {
+            int x_pos = i + 1; // Categories map cleanly to 1, 2, 3, 4
+            graph->SetPoint(i, x_pos, effs[i]);
+            // SetPointError(index, x_low, x_high, y_low, y_high)
+            graph->SetPointError(i, 0.0, 0.0, errs[i].low, errs[i].high);
+        }
+
+        TAxis* xAxis = graph->GetXaxis();
+        if (xAxis) {
+            xAxis->SetLimits(0.5, 4.5);
+            xAxis->SetBinLabel(1, "eta1");
+            xAxis->SetBinLabel(2, "eta2");
+            xAxis->SetBinLabel(3, "OR");
+            xAxis->SetBinLabel(4, "AND");
+        }
+        return graph;
+    };
+
+    // --------------------------------------------------------------------------------------
+    // 1. External trigger only efficiency histograms
     _output_file->mkdir("efficiencies_histograms/external_trigger");
     _output_file->cd("efficiencies_histograms/external_trigger");
 
     for (int layer = 0; layer < 3; layer++) {
-        TH1F* hist_eff_external_trigger = new TH1F(
+        double effs[4] = {
+            efficiency_results.eta1_efficiency_external[layer],
+            efficiency_results.eta2_efficiency_external[layer],
+            efficiency_results.eta_or_efficiency_external[layer],
+            efficiency_results.eta_and_efficiency_external[layer]
+        };
+        ErrorRange errs[4] = {
+            efficiency_results.eta1_efficiency_external_error[layer],
+            efficiency_results.eta2_efficiency_external_error[layer],
+            efficiency_results.eta_or_efficiency_external_error[layer],
+            efficiency_results.eta_and_efficiency_external_error[layer]
+        };
+
+        TGraphAsymmErrors* graph = buildGraph(
             Form("eff_external_trigger_layer%d", layer),
             Form("Layer %d Efficiency (External Trigger)", layer),
-            4, 0.5, 4.5
+            effs, errs
         );
-        hist_eff_external_trigger->GetXaxis()->SetBinLabel(1, "eta1");
-        hist_eff_external_trigger->GetXaxis()->SetBinLabel(2, "eta2");
-        hist_eff_external_trigger->GetXaxis()->SetBinLabel(3, "OR");
-        hist_eff_external_trigger->GetXaxis()->SetBinLabel(4, "AND");
-
-        hist_eff_external_trigger->SetBinContent(1, efficiency_results.eta1_efficiency_external[layer]);
-        hist_eff_external_trigger->SetBinError(1, efficiency_results.eta1_efficiency_external_error[layer]);
-        hist_eff_external_trigger->SetBinContent(2, efficiency_results.eta2_efficiency_external[layer]);
-        hist_eff_external_trigger->SetBinError(2, efficiency_results.eta2_efficiency_external_error[layer]);
-        hist_eff_external_trigger->SetBinContent(3, efficiency_results.eta_or_efficiency_external[layer]);
-        hist_eff_external_trigger->SetBinError(3, efficiency_results.eta_or_efficiency_external_error[layer]);
-        hist_eff_external_trigger->SetBinContent(4, efficiency_results.eta_and_efficiency_external[layer]);
-        hist_eff_external_trigger->SetBinError(4, efficiency_results.eta_and_efficiency_external_error[layer]);
-
-        hist_eff_external_trigger->Write();
+        graph->Write();
     }
 
-    // External trigger + RPC as trigger efficiency histograms
+    // --------------------------------------------------------------------------------------
+    // 2. External trigger + RPC as trigger efficiency histograms
     _output_file->cd();
     _output_file->mkdir("efficiencies_histograms/external_plus_rpc_trigger");
     _output_file->cd("efficiencies_histograms/external_plus_rpc_trigger");
     
     for (int layer = 0; layer < 3; layer++) {
-        TH1F* hist_eff_rpc_trigger = new TH1F(
+        double effs[4] = {
+            efficiency_results.eta1_efficiency_rpc[layer],
+            efficiency_results.eta2_efficiency_rpc[layer],
+            efficiency_results.eta_or_efficiency_rpc[layer],
+            efficiency_results.eta_and_efficiency_rpc[layer]
+        };
+        ErrorRange errs[4] = {
+            efficiency_results.eta1_efficiency_rpc_error[layer],
+            efficiency_results.eta2_efficiency_rpc_error[layer],
+            efficiency_results.eta_or_efficiency_rpc_error[layer],
+            efficiency_results.eta_and_efficiency_rpc_error[layer]
+        };
+
+        TGraphAsymmErrors* graph = buildGraph(
             Form("eff_rpc_layer%d", layer),
             Form("Layer %d Efficiency (External and RPC Trigger)", layer),
-            4, 0.5, 4.5
+            effs, errs
         );
-        hist_eff_rpc_trigger->GetXaxis()->SetBinLabel(1, "eta1");
-        hist_eff_rpc_trigger->GetXaxis()->SetBinLabel(2, "eta2");
-        hist_eff_rpc_trigger->GetXaxis()->SetBinLabel(3, "OR");
-        hist_eff_rpc_trigger->GetXaxis()->SetBinLabel(4, "AND");
-
-        hist_eff_rpc_trigger->SetBinContent(1, efficiency_results.eta1_efficiency_rpc[layer]);
-        hist_eff_rpc_trigger->SetBinError(1, efficiency_results.eta1_efficiency_rpc_error[layer]);
-        hist_eff_rpc_trigger->SetBinContent(2, efficiency_results.eta2_efficiency_rpc[layer]);
-        hist_eff_rpc_trigger->SetBinError(2, efficiency_results.eta2_efficiency_rpc_error[layer]);
-        hist_eff_rpc_trigger->SetBinContent(3, efficiency_results.eta_or_efficiency_rpc[layer]);
-        hist_eff_rpc_trigger->SetBinError(3, efficiency_results.eta_or_efficiency_rpc_error[layer]);
-        hist_eff_rpc_trigger->SetBinContent(4, efficiency_results.eta_and_efficiency_rpc[layer]);
-        hist_eff_rpc_trigger->SetBinError(4, efficiency_results.eta_and_efficiency_rpc_error[layer]);
-
-        hist_eff_rpc_trigger->Write();
+        graph->Write();
     }
 
-    // Track-based external trigger efficiency histograms
+    // --------------------------------------------------------------------------------------
+    // 3. Track-based external trigger efficiency histograms
     _output_file->cd();
     _output_file->mkdir("efficiencies_histograms/track_external_trigger");
     _output_file->cd("efficiencies_histograms/track_external_trigger");
 
     for (int layer = 0; layer < 3; layer++) {
-        TH1F* hist_track_eff_external_trigger = new TH1F(
+        double effs[4] = {
+            efficiency_results_tracks.track_eta1_efficiency_external[layer],
+            efficiency_results_tracks.track_eta2_efficiency_external[layer],
+            efficiency_results_tracks.track_eta_or_efficiency_external[layer],
+            efficiency_results_tracks.track_eta_and_efficiency_external[layer]
+        };
+        ErrorRange errs[4] = {
+            efficiency_results_tracks.track_eta1_efficiency_external_error[layer],
+            efficiency_results_tracks.track_eta2_efficiency_external_error[layer],
+            efficiency_results_tracks.track_eta_or_efficiency_external_error[layer],
+            efficiency_results_tracks.track_eta_and_efficiency_external_error[layer]
+        };
+
+        TGraphAsymmErrors* graph = buildGraph(
             Form("track_eff_external_trigger_layer%d", layer),
             Form("Layer %d Efficiency (Track and External Trigger)", layer),
-            4, 0.5, 4.5
+            effs, errs
         );
-        hist_track_eff_external_trigger->GetXaxis()->SetBinLabel(1, "eta1");
-        hist_track_eff_external_trigger->GetXaxis()->SetBinLabel(2, "eta2");
-        hist_track_eff_external_trigger->GetXaxis()->SetBinLabel(3, "OR");
-        hist_track_eff_external_trigger->GetXaxis()->SetBinLabel(4, "AND");
-
-        hist_track_eff_external_trigger->SetBinContent(1, efficiency_results_tracks.track_eta1_efficiency_external[layer]);
-        hist_track_eff_external_trigger->SetBinError(1, efficiency_results_tracks.track_eta1_efficiency_external_error[layer]);
-        hist_track_eff_external_trigger->SetBinContent(2, efficiency_results_tracks.track_eta2_efficiency_external[layer]);
-        hist_track_eff_external_trigger->SetBinError(2, efficiency_results_tracks.track_eta2_efficiency_external_error[layer]);
-        hist_track_eff_external_trigger->SetBinContent(3, efficiency_results_tracks.track_eta_or_efficiency_external[layer]);
-        hist_track_eff_external_trigger->SetBinError(3, efficiency_results_tracks.track_eta_or_efficiency_external_error[layer]);
-        hist_track_eff_external_trigger->SetBinContent(4, efficiency_results_tracks.track_eta_and_efficiency_external[layer]);
-        hist_track_eff_external_trigger->SetBinError(4, efficiency_results_tracks.track_eta_and_efficiency_external_error[layer]);
-
-        hist_track_eff_external_trigger->Write();
+        graph->Write();
     }
 
-    // Track-based external trigger + RPC as trigger efficiency histograms
+
+    // --------------------------------------------------------------------------------------
+    // 4. Track-based external trigger + RPC as trigger efficiency histograms
     _output_file->cd();
     _output_file->mkdir("efficiencies_histograms/track_external_plus_rpc_trigger");
     _output_file->cd("efficiencies_histograms/track_external_plus_rpc_trigger");
 
     for (int layer = 0; layer < 3; layer++) {
-        TH1F* hist_track_eff_rpc_trigger = new TH1F(
+        double effs[4] = {
+            efficiency_results_tracks.track_eta1_efficiency_rpc[layer],
+            efficiency_results_tracks.track_eta2_efficiency_rpc[layer],
+            efficiency_results_tracks.track_eta_or_efficiency_rpc[layer],
+            efficiency_results_tracks.track_eta_and_efficiency_rpc[layer]
+        };
+        ErrorRange errs[4] = {
+            efficiency_results_tracks.track_eta1_efficiency_rpc_error[layer],
+            efficiency_results_tracks.track_eta2_efficiency_rpc_error[layer],
+            efficiency_results_tracks.track_eta_or_efficiency_rpc_error[layer],
+            efficiency_results_tracks.track_eta_and_efficiency_rpc_error[layer]
+        };
+
+        TGraphAsymmErrors* graph = buildGraph(
             Form("track_eff_rpc_layer%d", layer),
             Form("Layer %d Efficiency (Track and RPC Trigger)", layer),
-            4, 0.5, 4.5
+            effs, errs
         );
-        hist_track_eff_rpc_trigger->GetXaxis()->SetBinLabel(1, "eta1");
-        hist_track_eff_rpc_trigger->GetXaxis()->SetBinLabel(2, "eta2");
-        hist_track_eff_rpc_trigger->GetXaxis()->SetBinLabel(3, "OR");
-        hist_track_eff_rpc_trigger->GetXaxis()->SetBinLabel(4, "AND");
-
-        hist_track_eff_rpc_trigger->SetBinContent(1, efficiency_results_tracks.track_eta1_efficiency_rpc[layer]);
-        hist_track_eff_rpc_trigger->SetBinError(1, efficiency_results_tracks.track_eta1_efficiency_rpc_error[layer]);
-        hist_track_eff_rpc_trigger->SetBinContent(2, efficiency_results_tracks.track_eta2_efficiency_rpc[layer]);
-        hist_track_eff_rpc_trigger->SetBinError(2, efficiency_results_tracks.track_eta2_efficiency_rpc_error[layer]);
-        hist_track_eff_rpc_trigger->SetBinContent(3, efficiency_results_tracks.track_eta_or_efficiency_rpc[layer]);
-        hist_track_eff_rpc_trigger->SetBinError(3, efficiency_results_tracks.track_eta_or_efficiency_rpc_error[layer]);
-        hist_track_eff_rpc_trigger->SetBinContent(4, efficiency_results_tracks.track_eta_and_efficiency_rpc[layer]);
-        hist_track_eff_rpc_trigger->SetBinError(4, efficiency_results_tracks.track_eta_and_efficiency_rpc_error[layer]);
-
-        hist_track_eff_rpc_trigger->Write();
+        graph->Write();
     }
 
-    // Return to root directory
     _output_file->cd();
 }
 

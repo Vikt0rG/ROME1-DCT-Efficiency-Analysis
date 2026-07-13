@@ -9,7 +9,7 @@ int main(int argc, char** argv) {
 
     if (argc < 2) {
         std::cerr << "Usage:\n"
-                  << "  " << argv[0] << " process <input_file> <dt_max> <dt_min> [--no-external] [--use-old-data]\n"
+                  << "  " << argv[0] << " process <input_file> <dt_max> <dt_min> <error_method> [--no-external] [--use-old-data]\n"
                   << "  " << argv[0] << " analyze --config <config_file>" << std::endl
                   << "  " << argv[0] << " plotter --config <config_file>" << std::endl;
         return 1;
@@ -19,14 +19,15 @@ int main(int argc, char** argv) {
 
     // Command 1: Process input data and produce output ROOT file with trees
     if (command == "process") {
-        if (argc < 5) {
-            std::cerr << "Usage: " << argv[0] << " process <input_file> <dt_max> <dt_min> [--no-external] [--use-old-data]" << std::endl;
+        if (argc < 6) {
+            std::cerr << "Usage: " << argv[0] << " process <input_file> <dt_max> <dt_min> <error_method> [--no-external] [--use-old-data]" << std::endl;
             return 1;
         }
 
         std::string input = argv[2];
         int dt_max = 0;
         int dt_min = 0;
+        ErrorMethod error_method = ErrorMethod::Binomial;
 
         if (std::filesystem::exists(input) && std::filesystem::is_directory(input)) {
             std::cerr << "Error: Input path is a directory. Please provide a single file as input." << std::endl;
@@ -36,6 +37,18 @@ int main(int argc, char** argv) {
         try {
             dt_max = std::stoi(argv[3]);
             dt_min = std::stoi(argv[4]);
+            int error_method_int = std::stoi(argv[5]);
+            switch (error_method_int) {
+                case 0:
+                    error_method = ErrorMethod::Binomial;
+                    break;
+                case 1:
+                    error_method = ErrorMethod::ClopperPearson;
+                    break;
+                default:
+                    std::cerr << "Error: Invalid error method. Use 0 for Binomial or 1 for Clopper-Pearson." << std::endl;
+                    return 1;
+            }
         } catch (const std::exception&) {
             std::cerr << "Error: dt_max and dt_min must be valid integers" << std::endl;
             return 1;
@@ -53,7 +66,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        DataProcesser processor(input, dt_max, dt_min, input_format, use_external_trigger);
+        DataProcesser processor(input, dt_max, dt_min, error_method, input_format, use_external_trigger);
         processor.setupOutputFile();
         processor.setupBranches();
 
