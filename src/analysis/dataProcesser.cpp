@@ -250,10 +250,10 @@ void DataProcesser::createEfficiencyGraphs() {
         frame->SetDirectory(nullptr);
 
         TAxis* xAxis = frame->GetXaxis();
-        xAxis->SetBinLabel(1, "eta1");
-        xAxis->SetBinLabel(2, "eta2");
-        xAxis->SetBinLabel(3, "OR");
-        xAxis->SetBinLabel(4, "AND");
+        xAxis->SetBinLabel(1, "#eta_{1}");
+        xAxis->SetBinLabel(2, "#eta_{2}");
+        xAxis->SetBinLabel(3, "OR(#eta_{1}, #eta_{2})");
+        xAxis->SetBinLabel(4, "AND(#eta_{1}, #eta_{2})");
         xAxis->SetNdivisions(-4);
 
         double y_range = y_max - y_min;
