@@ -471,14 +471,13 @@ namespace PlotStyler {
 
         if (cl->InheritsFrom(TH2::Class())) {
             obj->Draw("COLZ");
-        } else if (cl->InheritsFrom(TMultiGraph::Class())) {
+        } else if (cl->InheritsFrom(TMultiGraph::Class()) || cl->InheritsFrom(TGraphAsymmErrors::Class())) {
             obj->Draw("AP");
-        } else if (cl->InheritsFrom(TGraphAsymmErrors::Class())) {
-            obj->Draw("APZ");
+            gStyle->SetEndErrorSize(8);
         } else if (cl->InheritsFrom(TGraphErrors::Class())) {
-            obj->Draw("APZ"); 
+            obj->Draw("APZ");
         } else if (cl->InheritsFrom(TGraph::Class())) {
-            obj->Draw("AP"); 
+            obj->Draw("AP");
         } else {
             obj->Draw("E1 X0");
         }
