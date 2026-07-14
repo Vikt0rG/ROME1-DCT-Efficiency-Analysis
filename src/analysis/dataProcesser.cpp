@@ -10,6 +10,7 @@
 #include <TEfficiency.h>
 #include "TGraphAsymmErrors.h"
 #include <TAxis.h>
+#include <TPad.h>
 
 #include "core/constants.hpp"
 #include "analysis/dataProcesser.hpp"
@@ -269,6 +270,7 @@ void DataProcesser::createEfficiencyGraphs() {
         if (final_ymax > 1.1) final_ymax = 1.1; 
 
         frame->GetYaxis()->SetRangeUser(final_ymin, final_ymax);
+        frame->GetYaxis()->SetTitle("Efficiency");
 
         graph->SetHistogram(frame);
         
