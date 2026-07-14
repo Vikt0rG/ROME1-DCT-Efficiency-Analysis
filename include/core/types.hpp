@@ -97,6 +97,28 @@ struct EfficiencyResults {
     ErrorRange eta_and_efficiency_rpc_error[3] = {};
 };
 
+struct ClusterSizeResults {
+    double avg_cluster_size_eta1 = 0.0;
+    double avg_cluster_size_eta2 = 0.0;
+    double avg_cluster_size_eta1_layers[3] = {};
+    double avg_cluster_size_eta2_layers[3] = {};
+    
+    ErrorRange avg_cluster_size_eta1_error = {};
+    ErrorRange avg_cluster_size_eta2_error = {};
+    ErrorRange avg_cluster_size_eta1_layers_error[3] = {};
+    ErrorRange avg_cluster_size_eta2_layers_error[3] = {};
+};
+
+struct NoiseRateResults {
+    double noise_rate = 0.0;
+    double noise_rate_eta1[3] = {};
+    double noise_rate_eta2[3] = {};
+
+    ErrorRange noise_rate_error = {};
+    ErrorRange noise_rate_eta1_error[3] = {};
+    ErrorRange noise_rate_eta2_error[3] = {};
+};
+
 // ==========================================================================================
 // Measurement configuration and summary structures for the measurement analysis part
 
@@ -132,24 +154,13 @@ struct MeasurementMetadata {
 /// @param efficiency_results Calculated efficiency results for the measurement entry
 /// @param efficiency_results_tracks Calculated track-based efficiency results for the
 /// measurement entry
-/// @param avg_cluster_size_eta1 Average cluster size for η1 side
-/// @param avg_cluster_size_eta2 Average cluster size for η2 side
-/// @param avg_cluster_size_eta1_layers Average cluster size for η1 side, broken down by layer
-/// @param avg_cluster_size_eta2_layers Average cluster size for η2 side, broken down by layer
-/// @param noise_rate Overall noise rate for the measurement entry
-/// @param noise_rate_eta1 Noise rate for η1 side, broken down by layer
-/// @param noise_rate_eta2 Noise rate for η2 side, broken down by layer
+/// @param cluster_size_results Calculated cluster size results for the measurement entry
+/// @param noise_rate_results Calculated noise rate results for the measurement entry
 struct MeasurementData {
     EfficiencyResults efficiency_results;
     EfficiencyResults efficiency_results_tracks;
-
-    double avg_cluster_size_eta1 = 0.0;
-    double avg_cluster_size_eta2 = 0.0;
-    double avg_cluster_size_eta1_layers[3] = {};
-    double avg_cluster_size_eta2_layers[3] = {};
-    double noise_rate = 0.0;
-    double noise_rate_eta1[3] = {};
-    double noise_rate_eta2[3] = {};
+    ClusterSizeResults cluster_size_results;
+    NoiseRateResults noise_rate_results;
 };
 
 
