@@ -9,6 +9,7 @@
 #include <TH2.h>
 #include <TGraph.h>
 #include <TGraphErrors.h>
+#include <TGraphAsymmErrors.h>
 #include <TMultiGraph.h>
 #include <TLatex.h>
 #include <TLegend.h>
@@ -25,13 +26,13 @@ namespace PlotStyler {
 
     /// @brief Data-driven mapping of metric name prefixes to corresponding plot categories
     static const std::vector<std::tuple<std::string, TClass*, PlotCategory>> category_map = {
-        {"h1d_strip_eta",    TH1D::Class(),          PlotCategory::StripDistribution},
-        {"eff",              TGraph::Class(),        PlotCategory::Efficiency},
-        {"track_eff",        TGraph::Class(),        PlotCategory::Efficiency},
-        {"eff",              TMultiGraph::Class(),   PlotCategory::EfficiencyVsHV},
-        {"track_eff",        TMultiGraph::Class(),   PlotCategory::EfficiencyVsHV},
-        {"avg_cluster_size", TMultiGraph::Class(),   PlotCategory::MeanClusterSizeVsHV},
-        {"noise_rate",       TMultiGraph::Class(),   PlotCategory::NoiseRateVsHV}
+        {"h1d_strip_eta",    TH1D::Class(),                 PlotCategory::StripDistribution},
+        {"eff",              TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
+        {"track_eff",        TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
+        {"eff",              TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
+        {"track_eff",        TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
+        {"avg_cluster_size", TMultiGraph::Class(),          PlotCategory::MeanClusterSizeVsHV},
+        {"noise_rate",       TMultiGraph::Class(),          PlotCategory::NoiseRateVsHV}
     };
 
     PlotCategory getPlotCategory(const TObject* obj) {
@@ -454,19 +455,26 @@ namespace PlotStyler {
         // Standard configurations for generic plots
         canvas->SetLeftMargin(0.16);
         canvas->SetRightMargin(cl->InheritsFrom(TH2::Class()) ? 0.14 : 0.05);
-        canvas->SetTopMargin(0.05);
+        canvas->SetTopMargin(0.06);
         canvas->SetBottomMargin(0.14);
 
         if (auto h = dynamic_cast<TH1*>(obj)) {
             h->SetTitle("");
         } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
             mg->SetTitle("");
+        } else if (auto gr = dynamic_cast<TGraph*>(obj)) {
+            if (gr->GetHistogram()) {
+                gr->GetHistogram()->SetTitle("");
+                gr->GetHistogram()->SetStats(0);
+            }
         }
 
         if (cl->InheritsFrom(TH2::Class())) {
             obj->Draw("COLZ");
         } else if (cl->InheritsFrom(TMultiGraph::Class())) {
-            obj->Draw("AP"); 
+            obj->Draw("AP");
+        } else if (cl->InheritsFrom(TGraphAsymmErrors::Class())) {
+            obj->Draw("APZ");
         } else if (cl->InheritsFrom(TGraphErrors::Class())) {
             obj->Draw("APZ"); 
         } else if (cl->InheritsFrom(TGraph::Class())) {
