@@ -1,6 +1,8 @@
 #include <cmath>
 #include <utility>
 
+#include <iostream>
+
 #include <TObject.h>
 #include <TCanvas.h>
 #include <TClass.h>
@@ -16,6 +18,7 @@
 #include <TStyle.h>
 #include <TColor.h>
 #include <TVirtualPad.h>
+#include <TMath.h>
 
 #include "plotting/plotStyler.hpp"
 
@@ -321,29 +324,85 @@ namespace PlotStyler {
         auto mg = dynamic_cast<TMultiGraph*>(obj);
         if (mg) mg->SetTitle("");
 
-        // Set axis properties
+        // Set axis ranges and labels
         if (mg && mg->GetHistogram()) {
             TAxis* xAxis = mg->GetHistogram()->GetXaxis();
             if (xAxis) {
-                double lower_bound = 4500.0;
-                double dynamic_upper_bound = xAxis->GetXmax();
+                double floor_limit = 4500.0;
+                double dynamic_lower_bound = floor_limit;
+                double dynamic_upper_bound = floor_limit;
 
-                double safety_buffer = (dynamic_upper_bound - lower_bound) * 0.05;
-                dynamic_upper_bound += safety_buffer;
+                if (mg->GetListOfGraphs()) {
+                    double true_min_x = INT_MAX;
+                    double true_max_x = INT_MIN;
 
-                xAxis->SetLimits(xAxis->GetXmin(), dynamic_upper_bound);
-                xAxis->SetRangeUser(lower_bound, dynamic_upper_bound);
+                    TIter next(mg->GetListOfGraphs());
+                    TObject* gr_obj = nullptr;
+                    while ((gr_obj = next())) {
+                        auto* gr = dynamic_cast<TGraph*>(gr_obj);
+                        if (gr && gr->GetN() > 0) {
+                            double gr_min = TMath::MinElement(gr->GetN(), gr->GetX());
+                            double gr_max = TMath::MaxElement(gr->GetN(), gr->GetX());
+
+                            if (gr_min > floor_limit && gr_min < true_min_x) {
+                                true_min_x = gr_min;
+                            }
+                            if (gr_max > gr_min && gr_max > true_max_x) {
+                                true_max_x = gr_max;
+                            }
+                        }
+                    }
+
+                    if (true_max_x < INT_MAX && true_min_x > INT_MIN) {
+                        double safety_buffer = (true_max_x - true_min_x) * 0.05;
+
+                        dynamic_lower_bound = true_min_x - safety_buffer;
+                        dynamic_upper_bound = true_max_x + safety_buffer;
+                    }
+                }
+
+                xAxis->SetLimits(dynamic_lower_bound, dynamic_upper_bound);
+                xAxis->SetRangeUser(dynamic_lower_bound, dynamic_upper_bound);
                 xAxis->SetTitle(x_label.c_str());
             }
 
             TAxis* yAxis = mg->GetHistogram()->GetYaxis();
             if (yAxis) {
-                double dynamic_ymin = yAxis->GetXmin();
-                double dynamic_ymax = yAxis->GetXmax();
-                double safety_buffer = (dynamic_ymax - dynamic_ymin) * 0.05;
+                double floor_limit = 0.0;
+                double dynamic_ymin = floor_limit;
+                double dynamic_ymax = floor_limit;
 
-                yAxis->SetLimits(yAxis->GetXmin(), dynamic_ymax + safety_buffer);
-                yAxis->SetRangeUser(std::max(dynamic_ymin - safety_buffer, 0.0), dynamic_ymax + safety_buffer);
+                if (mg->GetListOfGraphs()) {
+                    double true_min_y = INT_MAX;
+                    double true_max_y = INT_MIN;
+
+                    TIter next(mg->GetListOfGraphs());
+                    TObject* gr_obj = nullptr;
+                    while ((gr_obj = next())) {
+                        auto* gr = dynamic_cast<TGraph*>(gr_obj);
+                        if (gr && gr->GetN() > 0) {
+                            double gr_min = TMath::MinElement(gr->GetN(), gr->GetY());
+                            double gr_max = TMath::MaxElement(gr->GetN(), gr->GetY());
+
+                            if (gr_min > floor_limit && gr_min < true_min_y) {
+                                true_min_y = gr_min;
+                            }
+                            if (gr_max > gr_min && gr_max > true_max_y) {
+                                true_max_y = gr_max;
+                            }
+                        }
+                    }
+
+                    if (true_max_y < INT_MAX && true_min_y > INT_MIN) {
+                        double safety_buffer = (true_max_y - true_min_y) * 0.05;
+
+                        dynamic_ymin = std::max(true_min_y - safety_buffer, 0.0);
+                        dynamic_ymax = true_max_y + safety_buffer;
+                    }
+                }
+
+                yAxis->SetLimits(dynamic_ymin, dynamic_ymax);
+                yAxis->SetRangeUser(dynamic_ymin, dynamic_ymax);
                 yAxis->SetTitle(y_label.c_str());
             }
         }
@@ -379,25 +438,85 @@ namespace PlotStyler {
         auto mg = dynamic_cast<TMultiGraph*>(obj);
         if (mg) mg->SetTitle("");
 
-        // Set axis properties
+        // Set axis ranges and labels
         if (mg && mg->GetHistogram()) {
             TAxis* xAxis = mg->GetHistogram()->GetXaxis();
             if (xAxis) {
-                double lower_bound = 4500.0;
-                double dynamic_upper_bound = xAxis->GetXmax();
-                double safety_buffer = (dynamic_upper_bound - lower_bound) * 0.05;
+                double floor_limit = 4500.0;
+                double dynamic_lower_bound = floor_limit;
+                double dynamic_upper_bound = floor_limit;
 
-                xAxis->SetRangeUser(lower_bound, dynamic_upper_bound + safety_buffer);
+                if (mg->GetListOfGraphs()) {
+                    double true_min_x = INT_MAX;
+                    double true_max_x = INT_MIN;
+
+                    TIter next(mg->GetListOfGraphs());
+                    TObject* gr_obj = nullptr;
+                    while ((gr_obj = next())) {
+                        auto* gr = dynamic_cast<TGraph*>(gr_obj);
+                        if (gr && gr->GetN() > 0) {
+                            double gr_min = TMath::MinElement(gr->GetN(), gr->GetX());
+                            double gr_max = TMath::MaxElement(gr->GetN(), gr->GetX());
+
+                            if (gr_min > floor_limit && gr_min < true_min_x) {
+                                true_min_x = gr_min;
+                            }
+                            if (gr_max > gr_min && gr_max > true_max_x) {
+                                true_max_x = gr_max;
+                            }
+                        }
+                    }
+
+                    if (true_max_x < INT_MAX && true_min_x > INT_MIN) {
+                        double safety_buffer = (true_max_x - true_min_x) * 0.05;
+
+                        dynamic_lower_bound = true_min_x - safety_buffer;
+                        dynamic_upper_bound = true_max_x + safety_buffer;
+                    }
+                }
+
+                xAxis->SetLimits(dynamic_lower_bound, dynamic_upper_bound);
+                xAxis->SetRangeUser(dynamic_lower_bound, dynamic_upper_bound);
                 xAxis->SetTitle(x_label.c_str());
             }
 
             TAxis* yAxis = mg->GetHistogram()->GetYaxis();
             if (yAxis) {
-                double dynamic_ymin = yAxis->GetXmin();
-                double dynamic_ymax = yAxis->GetXmax();
-                double safety_buffer = (dynamic_ymax - dynamic_ymin) * 0.05;
+                double floor_limit = 0.0;
+                double dynamic_ymin = floor_limit;
+                double dynamic_ymax = floor_limit;
 
-                yAxis->SetRangeUser(std::max(dynamic_ymin - safety_buffer, 0.0), dynamic_ymax + safety_buffer);
+                if (mg->GetListOfGraphs()) {
+                    double true_min_y = INT_MAX;
+                    double true_max_y = INT_MIN;
+
+                    TIter next(mg->GetListOfGraphs());
+                    TObject* gr_obj = nullptr;
+                    while ((gr_obj = next())) {
+                        auto* gr = dynamic_cast<TGraph*>(gr_obj);
+                        if (gr && gr->GetN() > 0) {
+                            double gr_min = TMath::MinElement(gr->GetN(), gr->GetY());
+                            double gr_max = TMath::MaxElement(gr->GetN(), gr->GetY());
+
+                            if (gr_min > floor_limit && gr_min < true_min_y) {
+                                true_min_y = gr_min;
+                            }
+                            if (gr_max > gr_min && gr_max > true_max_y) {
+                                true_max_y = gr_max;
+                            }
+                        }
+                    }
+
+                    if (true_max_y < INT_MAX && true_min_y > INT_MIN) {
+                        double safety_buffer = (true_max_y - true_min_y) * 0.05;
+
+                        dynamic_ymin = std::max(true_min_y - safety_buffer, 0.0);
+                        dynamic_ymax = true_max_y + safety_buffer;
+                    }
+                }
+
+                yAxis->SetLimits(dynamic_ymin, dynamic_ymax);
+                yAxis->SetRangeUser(dynamic_ymin, dynamic_ymax);
                 yAxis->SetTitle(y_label.c_str());
             }
         }
