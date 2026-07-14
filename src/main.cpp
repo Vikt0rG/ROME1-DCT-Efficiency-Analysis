@@ -1,11 +1,16 @@
 #include <iostream>
 #include <stdexcept>
 
+#include <TError.h>
+
 #include "analysis/dataProcesser.hpp"
 #include "analysis/dataAnalyzer.hpp"
 #include "plotting/dataPlotter.hpp"
 
 int main(int argc, char** argv) {
+
+    // Suppress ROOT info messages to avoid cluttering the output
+    gErrorIgnoreLevel = kWarning;
 
     if (argc < 2) {
         std::cerr << "Usage:\n"
