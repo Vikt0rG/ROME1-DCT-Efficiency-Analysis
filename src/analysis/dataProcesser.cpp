@@ -231,21 +231,44 @@ void DataProcesser::createEfficiencyGraphs() {
         graph->SetName(name);
         graph->SetTitle(title);
 
+        double y_min = INT_MAX;
+        double y_max = INT_MIN;
+
         for (int i = 0; i < 4; i++) {
             int x_pos = i + 1;
             graph->SetPoint(i, x_pos, effs[i]);
             graph->SetPointError(i, 0.0, 0.0, errs[i].low, errs[i].high);
+
+            double point_min = effs[i] - errs[i].low;
+            double point_max = effs[i] + errs[i].high;
+
+            if (point_min < y_min) y_min = point_min;
+            if (point_max > y_max) y_max = point_max;
         }
 
         TH1F* frame = new TH1F(Form("frame_%s", name), title, 4, 0.5, 4.5);
+        frame->SetDirectory(nullptr);
 
         TAxis* xAxis = frame->GetXaxis();
         xAxis->SetBinLabel(1, "eta1");
         xAxis->SetBinLabel(2, "eta2");
         xAxis->SetBinLabel(3, "OR");
         xAxis->SetBinLabel(4, "AND");
-
         xAxis->SetNdivisions(-4);
+
+        double y_range = y_max - y_min;
+        if (y_range <= 0.0) {
+            y_range = 0.1;
+        }
+        double y_pad = y_range * 0.1;
+
+        double final_ymin = y_min - y_pad;
+        double final_ymax = y_max + y_pad;
+
+        if (final_ymin < 0.0) final_ymin = 0.0;
+        if (final_ymax > 1.1) final_ymax = 1.1; 
+
+        frame->GetYaxis()->SetRangeUser(final_ymin, final_ymax);
 
         graph->SetHistogram(frame);
         
