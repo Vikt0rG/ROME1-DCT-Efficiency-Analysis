@@ -93,12 +93,6 @@ namespace PlotStyler {
     /// @param class_type The TClass pointer representing the type of the ROOT object
     void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas, TClass* class_type);
 
-    /// @brief Helper function to style mean cluster size vs HV plots
-    /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
-    /// @param canvas The TCanvas on which the object is drawn
-    /// @param class_type The TClass pointer representing the type of the ROOT object
-    void styleMeanClusterSizeVsHV(TObject* obj, TCanvas* canvas, TClass* class_type);
-
     /// @brief Helper function to style strip distribution plots
     /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
     /// @param canvas The TCanvas on which the object is drawn
