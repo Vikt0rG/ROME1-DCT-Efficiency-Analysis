@@ -277,8 +277,8 @@ void DataProcesser::createEfficiencyGraphs() {
 
     // --------------------------------------------------------------------------------------
     // 1. External trigger only efficiency histograms
-    _output_file->mkdir("efficiencies_histograms/external_trigger");
-    _output_file->cd("efficiencies_histograms/external_trigger");
+    _output_file->mkdir("efficiency_graphs/external_trigger");
+    _output_file->cd("efficiency_graphs/external_trigger");
 
     for (int layer = 0; layer < 3; layer++) {
         double effs[4] = {
@@ -305,8 +305,8 @@ void DataProcesser::createEfficiencyGraphs() {
     // --------------------------------------------------------------------------------------
     // 2. External trigger + RPC as trigger efficiency histograms
     _output_file->cd();
-    _output_file->mkdir("efficiencies_histograms/external_plus_rpc_trigger");
-    _output_file->cd("efficiencies_histograms/external_plus_rpc_trigger");
+    _output_file->mkdir("efficiency_graphs/external_plus_rpc_trigger");
+    _output_file->cd("efficiency_graphs/external_plus_rpc_trigger");
     
     for (int layer = 0; layer < 3; layer++) {
         double effs[4] = {
@@ -333,8 +333,8 @@ void DataProcesser::createEfficiencyGraphs() {
     // --------------------------------------------------------------------------------------
     // 3. Track-based external trigger efficiency histograms
     _output_file->cd();
-    _output_file->mkdir("efficiencies_histograms/track_external_trigger");
-    _output_file->cd("efficiencies_histograms/track_external_trigger");
+    _output_file->mkdir("efficiency_graphs/track_external_trigger");
+    _output_file->cd("efficiency_graphs/track_external_trigger");
 
     for (int layer = 0; layer < 3; layer++) {
         double effs[4] = {
@@ -362,8 +362,8 @@ void DataProcesser::createEfficiencyGraphs() {
     // --------------------------------------------------------------------------------------
     // 4. Track-based external trigger + RPC as trigger efficiency histograms
     _output_file->cd();
-    _output_file->mkdir("efficiencies_histograms/track_external_plus_rpc_trigger");
-    _output_file->cd("efficiencies_histograms/track_external_plus_rpc_trigger");
+    _output_file->mkdir("efficiency_graphs/track_external_plus_rpc_trigger");
+    _output_file->cd("efficiency_graphs/track_external_plus_rpc_trigger");
 
     for (int layer = 0; layer < 3; layer++) {
         double effs[4] = {

@@ -317,10 +317,10 @@ namespace PlotStyler {
 
         // Extract title and axis labels from the object's title string
         auto [title, x_label, y_label] = compilePlotLabels(obj->GetTitle());
-        
+
         // Draw first to generate internal axis frame
         obj->Draw("APZ");
-        
+
         auto mg = dynamic_cast<TMultiGraph*>(obj);
         if (mg) mg->SetTitle("");
 

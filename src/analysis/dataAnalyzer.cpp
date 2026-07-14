@@ -577,7 +577,7 @@ void DataAnalyzer::produceSummaryStats() {
 
             // ------------------------------------------------------------------------------
             // 1. External trigger only
-            std::string path_ext = "efficiencies_histograms/external_trigger/eff_external_trigger_layer" + std::to_string(layer);
+            std::string path_ext = "efficiency_graphs/external_trigger/eff_external_trigger_layer" + std::to_string(layer);
             TGraphAsymmErrors* graph_ext = dynamic_cast<TGraphAsymmErrors*>(input_file->Get(path_ext.c_str()));
             if (graph_ext) {
                 double effs[4];
@@ -597,7 +597,7 @@ void DataAnalyzer::produceSummaryStats() {
 
             // ------------------------------------------------------------------------------
             // 2. External trigger + RPC
-            std::string path_rpc = "efficiencies_histograms/external_plus_rpc_trigger/eff_rpc_layer" + std::to_string(layer);
+            std::string path_rpc = "efficiency_graphs/external_plus_rpc_trigger/eff_rpc_layer" + std::to_string(layer);
             TGraphAsymmErrors* graph_rpc = dynamic_cast<TGraphAsymmErrors*>(input_file->Get(path_rpc.c_str()));
             if (graph_rpc) {
                 double effs[4];
@@ -617,7 +617,7 @@ void DataAnalyzer::produceSummaryStats() {
 
             // ------------------------------------------------------------------------------
             // 3. Track external trigger only
-            std::string path_track = "efficiencies_histograms/track_external_trigger/track_eff_external_trigger_layer" + std::to_string(layer);
+            std::string path_track = "efficiency_graphs/track_external_trigger/track_eff_external_trigger_layer" + std::to_string(layer);
             TGraphAsymmErrors* graph_track = dynamic_cast<TGraphAsymmErrors*>(input_file->Get(path_track.c_str()));
             if (graph_track) {
                 double effs[4];
@@ -637,7 +637,7 @@ void DataAnalyzer::produceSummaryStats() {
 
             // ------------------------------------------------------------------------------
             // 4. Track external trigger + RPC
-            std::string path_track_rpc = "efficiencies_histograms/track_external_plus_rpc_trigger/track_eff_rpc_layer" + std::to_string(layer);
+            std::string path_track_rpc = "efficiency_graphs/track_external_plus_rpc_trigger/track_eff_rpc_layer" + std::to_string(layer);
             TGraphAsymmErrors* graph_track_rpc = dynamic_cast<TGraphAsymmErrors*>(input_file->Get(path_track_rpc.c_str()));
             if (graph_track_rpc) {
                 double effs[4];

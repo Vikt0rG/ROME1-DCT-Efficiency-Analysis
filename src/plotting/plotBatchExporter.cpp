@@ -31,7 +31,13 @@ namespace {
                 TDirectory* subDir = dynamic_cast<TDirectory*>(key->ReadObj());
                 if (subDir) {
                     std::string sub_dir_name = key->GetName();
-                    std::filesystem::path next_output_path = current_output_path / sub_dir_name;
+                    std::filesystem::path next_output_path;
+                    if (sub_dir_name == "analysis") {
+                        next_output_path = current_output_path;
+                    } else {
+                        next_output_path = current_output_path / sub_dir_name;
+                        std::filesystem::create_directories(next_output_path);
+                    }
                     std::cout << "[ATLAS Export] Entering subdirectory: " << sub_dir_name << std::endl;
                     std::filesystem::create_directories(next_output_path);
                     scanDirectory(subDir, next_output_path);
@@ -142,11 +148,11 @@ namespace {
             while ((metric_key = static_cast<TKey*>(next_metric_key()))) {
                 std::string metric_name = metric_key->GetName();
 
-                TCanvas* canvas = new TCanvas("c_global", "", 800, 600);
+                TCanvas* canvas = new TCanvas("c", "", 800, 600);
                 canvas->cd();
 
                 TMultiGraph* global_multigraph = new TMultiGraph();
-                global_multigraph->SetName((metric_name + "_global").c_str());
+                global_multigraph->SetName((metric_name).c_str());
                 global_multigraph->SetTitle((metric_name).c_str());
 
                 bool graph_added = false;
@@ -191,7 +197,7 @@ namespace {
                         PlotterHelpers::PlotStyler::styleDefaultPlot(global_multigraph, canvas, cl);
                     }
 
-                    std::filesystem::path export_file = config_output_path / analysis_subdir_name / (metric_name + "_global.pdf");
+                    std::filesystem::path export_file = config_output_path / analysis_subdir_name / (metric_name + ".pdf");
                     std::filesystem::create_directories(export_file.parent_path());
                     
                     canvas->SaveAs(export_file.string().c_str());
