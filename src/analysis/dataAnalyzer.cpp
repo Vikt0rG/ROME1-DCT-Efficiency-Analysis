@@ -440,26 +440,8 @@ void DataAnalyzer::produceSummaryStats() {
 
     EfficiencyResults efficiency_results_summary;
     EfficiencyResults efficiency_results_track_summary;
-
-    // Noise scan relevant statistics
-    double noise_rate = 0.0;
-    double noise_rate_eta1[3] = {0.0, 0.0, 0.0};
-    double noise_rate_eta2[3] = {0.0, 0.0, 0.0};
-
-    double noise_rate_error = 0.0;
-    double noise_rate_eta1_error[3] = {0.0, 0.0, 0.0};
-    double noise_rate_eta2_error[3] = {0.0, 0.0, 0.0};
-
-    // Both scans relevant statistics
-    double avg_cluster_size_eta1 = 0.0;
-    double avg_cluster_size_eta2 = 0.0;
-    double avg_cluster_size_eta1_layers[3] = {0.0, 0.0, 0.0};
-    double avg_cluster_size_eta2_layers[3] = {0.0, 0.0, 0.0};
-
-    double avg_cluster_size_eta1_error = 0.0;
-    double avg_cluster_size_eta2_error = 0.0;
-    double avg_cluster_size_eta1_layers_error[3] = {0.0, 0.0, 0.0};
-    double avg_cluster_size_eta2_layers_error[3] = {0.0, 0.0, 0.0};
+    ClusterSizeResults cluster_size_results_summary;
+    NoiseRateResults noise_rate_results_summary;
 
     // Set up branches for the summary tree
     summary_tree->Branch("name", &entry_name);
@@ -508,21 +490,21 @@ void DataAnalyzer::produceSummaryStats() {
     summary_tree->Branch("track_eff_or_rpc_error", efficiency_results_track_summary.eta_or_efficiency_rpc_error, "track_eff_or_rpc_error[3]/D");
     summary_tree->Branch("track_eff_and_rpc_error", efficiency_results_track_summary.eta_and_efficiency_rpc_error, "track_eff_and_rpc_error[3]/D");
 
-    summary_tree->Branch("avg_cluster_size_eta1", &avg_cluster_size_eta1);
-    summary_tree->Branch("avg_cluster_size_eta2", &avg_cluster_size_eta2);
-    summary_tree->Branch("avg_cluster_size_eta1_layers", avg_cluster_size_eta1_layers, "avg_cluster_size_eta1_layers[3]/D");
-    summary_tree->Branch("avg_cluster_size_eta2_layers", avg_cluster_size_eta2_layers, "avg_cluster_size_eta2_layers[3]/D");
-    summary_tree->Branch("avg_cluster_size_eta1_error", &avg_cluster_size_eta1_error);
-    summary_tree->Branch("avg_cluster_size_eta2_error", &avg_cluster_size_eta2_error);
-    summary_tree->Branch("avg_cluster_size_eta1_layers_error", avg_cluster_size_eta1_layers_error, "avg_cluster_size_eta1_layers_error[3]/D");
-    summary_tree->Branch("avg_cluster_size_eta2_layers_error", avg_cluster_size_eta2_layers_error, "avg_cluster_size_eta2_layers_error[3]/D");
+    summary_tree->Branch("avg_cluster_size_eta1", &cluster_size_results_summary.avg_cluster_size_eta1);
+    summary_tree->Branch("avg_cluster_size_eta2", &cluster_size_results_summary.avg_cluster_size_eta2);
+    summary_tree->Branch("avg_cluster_size_eta1_layers", cluster_size_results_summary.avg_cluster_size_eta1_layers, "avg_cluster_size_eta1_layers[3]/D");
+    summary_tree->Branch("avg_cluster_size_eta2_layers", cluster_size_results_summary.avg_cluster_size_eta2_layers, "avg_cluster_size_eta2_layers[3]/D");
+    summary_tree->Branch("avg_cluster_size_eta1_error", &cluster_size_results_summary.avg_cluster_size_eta1_error, "avg_cluster_size_eta1_error[2]/D");
+    summary_tree->Branch("avg_cluster_size_eta2_error", &cluster_size_results_summary.avg_cluster_size_eta2_error, "avg_cluster_size_eta2_error[2]/D");
+    summary_tree->Branch("avg_cluster_size_eta1_layers_error", cluster_size_results_summary.avg_cluster_size_eta1_layers_error, "avg_cluster_size_eta1_layers_error[3]/D");
+    summary_tree->Branch("avg_cluster_size_eta2_layers_error", cluster_size_results_summary.avg_cluster_size_eta2_layers_error, "avg_cluster_size_eta2_layers_error[3]/D");
 
-    summary_tree->Branch("noise_rate", &noise_rate);
-    summary_tree->Branch("noise_rate_eta1", noise_rate_eta1, "noise_rate_eta1[3]/D");
-    summary_tree->Branch("noise_rate_eta2", noise_rate_eta2, "noise_rate_eta2[3]/D");
-    summary_tree->Branch("noise_rate_error", &noise_rate_error, "noise_rate_error[3]/D");
-    summary_tree->Branch("noise_rate_eta1_error", noise_rate_eta1_error, "noise_rate_eta1_error[3]/D");
-    summary_tree->Branch("noise_rate_eta2_error", noise_rate_eta2_error, "noise_rate_eta2_error[3]/D");
+    summary_tree->Branch("noise_rate", &noise_rate_results_summary.noise_rate);
+    summary_tree->Branch("noise_rate_eta1", noise_rate_results_summary.noise_rate_eta1, "noise_rate_eta1[3]/D");
+    summary_tree->Branch("noise_rate_eta2", noise_rate_results_summary.noise_rate_eta2, "noise_rate_eta2[3]/D");
+    summary_tree->Branch("noise_rate_error", &noise_rate_results_summary.noise_rate_error, "noise_rate_error[3]/D");
+    summary_tree->Branch("noise_rate_eta1_error", noise_rate_results_summary.noise_rate_eta1_error, "noise_rate_eta1_error[3]/D");
+    summary_tree->Branch("noise_rate_eta2_error", noise_rate_results_summary.noise_rate_eta2_error, "noise_rate_eta2_error[3]/D");
 
     // Process each measurement entry in this config file
     for (const auto& metadata_entry : scan.metadata) {
@@ -656,135 +638,168 @@ void DataAnalyzer::produceSummaryStats() {
             }
         }
 
-
-        // Extract clusterization statistics from the "Clusterization" tree for this measurement entry
+        // ----------------------------------------------------------------------------------
+        {  // Average cluster size calculation
         TTree* cluster_tree = dynamic_cast<TTree*>(input_file->Get("Clusterization"));
-        if (cluster_tree) {
-            TTreeReader reader(cluster_tree);
-            TTreeReaderValue<std::vector<int>> cluster_eta1(reader, "cluster_size_eta1");
-            TTreeReaderValue<std::vector<int>> cluster_eta2(reader, "cluster_size_eta2");
-            TTreeReaderValue<std::vector<int>> cluster_eta1_layer0(reader, "cluster_size_eta1_layer0");
-            TTreeReaderValue<std::vector<int>> cluster_eta1_layer1(reader, "cluster_size_eta1_layer1");
-            TTreeReaderValue<std::vector<int>> cluster_eta1_layer2(reader, "cluster_size_eta1_layer2");
-            TTreeReaderValue<std::vector<int>> cluster_eta2_layer0(reader, "cluster_size_eta2_layer0");
-            TTreeReaderValue<std::vector<int>> cluster_eta2_layer1(reader, "cluster_size_eta2_layer1");
-            TTreeReaderValue<std::vector<int>> cluster_eta2_layer2(reader, "cluster_size_eta2_layer2");
+        if (!cluster_tree) {
+            std::cerr << "Error: Clusterization tree not found in file " << input_file->GetName() << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        TTreeReader reader(cluster_tree);
+        TTreeReaderValue<std::vector<int>> cluster_eta1(reader, "cluster_size_eta1");
+        TTreeReaderValue<std::vector<int>> cluster_eta2(reader, "cluster_size_eta2");
+        TTreeReaderValue<std::vector<int>> cluster_eta1_layer0(reader, "cluster_size_eta1_layer0");
+        TTreeReaderValue<std::vector<int>> cluster_eta1_layer1(reader, "cluster_size_eta1_layer1");
+        TTreeReaderValue<std::vector<int>> cluster_eta1_layer2(reader, "cluster_size_eta1_layer2");
+        TTreeReaderValue<std::vector<int>> cluster_eta2_layer0(reader, "cluster_size_eta2_layer0");
+        TTreeReaderValue<std::vector<int>> cluster_eta2_layer1(reader, "cluster_size_eta2_layer1");
+        TTreeReaderValue<std::vector<int>> cluster_eta2_layer2(reader, "cluster_size_eta2_layer2");
 
-            long long total_clusters_eta1 = 0;
-            long long total_clusters_eta2 = 0;
-            long long total_cluster_size_eta1 = 0;
-            long long total_cluster_size_eta2 = 0;
-            long long total_clusters_eta1_layers[3] = {0, 0, 0};
-            long long total_clusters_eta2_layers[3] = {0, 0, 0};
-            long long total_cluster_size_eta1_layers[3] = {0, 0, 0};
-            long long total_cluster_size_eta2_layers[3] = {0, 0, 0};
+        long long total_clusters_eta1 = 0;
+        long long total_clusters_eta2 = 0;
+        long long total_cluster_size_eta1 = 0;
+        long long total_cluster_size_eta2 = 0;
 
-            while (reader.Next()) {
-                if (cluster_eta1.GetSetupStatus() == 0) {
-                    total_clusters_eta1 += static_cast<long long>(cluster_eta1->size());
-                    for (int size : *cluster_eta1) {
-                        total_cluster_size_eta1 += size;
-                    }
-                }
-                if (cluster_eta2.GetSetupStatus() == 0) {
-                    total_clusters_eta2 += static_cast<long long>(cluster_eta2->size());
-                    for (int size : *cluster_eta2) {
-                        total_cluster_size_eta2 += size;
-                    }
-                }
-                if (cluster_eta1_layer0.GetSetupStatus() == 0) {
-                    total_clusters_eta1_layers[0] += static_cast<long long>(cluster_eta1_layer0->size());
-                    for (int size : *cluster_eta1_layer0) {
-                        total_cluster_size_eta1_layers[0] += size;
-                    }
-                }
-                if (cluster_eta1_layer1.GetSetupStatus() == 0) {
-                    total_clusters_eta1_layers[1] += static_cast<long long>(cluster_eta1_layer1->size());
-                    for (int size : *cluster_eta1_layer1) {
-                        total_cluster_size_eta1_layers[1] += size;
-                    }
-                }
-                if (cluster_eta1_layer2.GetSetupStatus() == 0) {
-                    total_clusters_eta1_layers[2] += static_cast<long long>(cluster_eta1_layer2->size());
-                    for (int size : *cluster_eta1_layer2) {
-                        total_cluster_size_eta1_layers[2] += size;
-                    }
-                }
-                if (cluster_eta2_layer0.GetSetupStatus() == 0) {
-                    total_clusters_eta2_layers[0] += static_cast<long long>(cluster_eta2_layer0->size());
-                    for (int size : *cluster_eta2_layer0) {
-                        total_cluster_size_eta2_layers[0] += size;
-                    }
-                }
-                if (cluster_eta2_layer1.GetSetupStatus() == 0) {
-                    total_clusters_eta2_layers[1] += static_cast<long long>(cluster_eta2_layer1->size());
-                    for (int size : *cluster_eta2_layer1) {
-                        total_cluster_size_eta2_layers[1] += size;
-                    }
-                }
-                if (cluster_eta2_layer2.GetSetupStatus() == 0) {
-                    total_clusters_eta2_layers[2] += static_cast<long long>(cluster_eta2_layer2->size());
-                    for (int size : *cluster_eta2_layer2) {
-                        total_cluster_size_eta2_layers[2] += size;
-                    }
-                }
-            }
+        long long sum_sq_cluster_size_eta1 = 0;
+        long long sum_sq_cluster_size_eta2 = 0;
 
-            if (total_clusters_eta1 > 0) {
-                stats.avg_cluster_size_eta1 = static_cast<double>(total_cluster_size_eta1) / total_clusters_eta1;
-            }
-            if (total_clusters_eta2 > 0) {
-                stats.avg_cluster_size_eta2 = static_cast<double>(total_cluster_size_eta2) / total_clusters_eta2;
-            }
-            for (int layer_idx = 0; layer_idx < 3; ++layer_idx) {
-                if (total_clusters_eta1_layers[layer_idx] > 0) {
-                    stats.avg_cluster_size_eta1_layers[layer_idx] =
-                        static_cast<double>(total_cluster_size_eta1_layers[layer_idx]) / total_clusters_eta1_layers[layer_idx];
+        long long total_clusters_eta1_layers[3] = {0, 0, 0};
+        long long total_clusters_eta2_layers[3] = {0, 0, 0};
+        long long total_cluster_size_eta1_layers[3] = {0, 0, 0};
+        long long total_cluster_size_eta2_layers[3] = {0, 0, 0};
+
+        long long sum_sq_cluster_size_eta1_layers[3] = {0, 0, 0};
+        long long sum_sq_cluster_size_eta2_layers[3] = {0, 0, 0};
+
+        while (reader.Next()) {
+            // Define a generic, inline accumulator helper
+            auto accumulateBranch = [](auto& reader_val, long long& count, long long& sum, long long& sum_sq) {
+                if (reader_val.GetSetupStatus() == 0) {
+                    count += static_cast<long long>(reader_val->size());
+                    for (int size : *reader_val) {
+                        sum += size;
+                        sum_sq += (static_cast<long long>(size) * size);
+                    }
                 }
-                if (total_clusters_eta2_layers[layer_idx] > 0) {
-                    stats.avg_cluster_size_eta2_layers[layer_idx] =
-                        static_cast<double>(total_cluster_size_eta2_layers[layer_idx]) / total_clusters_eta2_layers[layer_idx];
-                }
-            }
+            };
+
+            // Accumulate global metrics
+            accumulateBranch(cluster_eta1, total_clusters_eta1, total_cluster_size_eta1, sum_sq_cluster_size_eta1);
+            accumulateBranch(cluster_eta2, total_clusters_eta2, total_cluster_size_eta2, sum_sq_cluster_size_eta2);
+
+            // Accumulate layer-by-layer metrics
+            accumulateBranch(cluster_eta1_layer0, total_clusters_eta1_layers[0], total_cluster_size_eta1_layers[0], sum_sq_cluster_size_eta1_layers[0]);
+            accumulateBranch(cluster_eta1_layer1, total_clusters_eta1_layers[1], total_cluster_size_eta1_layers[1], sum_sq_cluster_size_eta1_layers[1]);
+            accumulateBranch(cluster_eta1_layer2, total_clusters_eta1_layers[2], total_cluster_size_eta1_layers[2], sum_sq_cluster_size_eta1_layers[2]);
+            
+            accumulateBranch(cluster_eta2_layer0, total_clusters_eta2_layers[0], total_cluster_size_eta2_layers[0], sum_sq_cluster_size_eta2_layers[0]);
+            accumulateBranch(cluster_eta2_layer1, total_clusters_eta2_layers[1], total_cluster_size_eta2_layers[1], sum_sq_cluster_size_eta2_layers[1]);
+            accumulateBranch(cluster_eta2_layer2, total_clusters_eta2_layers[2], total_cluster_size_eta2_layers[2], sum_sq_cluster_size_eta2_layers[2]);
         }
 
-        // Calculate noise rate
+        // Helper lambda to calculate mean and standard error of the mean (SEM)
+        auto calcMeanAndError = [](long long N, long long sum, long long sum_sq, double& mean_out, ErrorRange& err_out) {
+            if (N <= 0) {
+                mean_out = 0.0;
+                err_out = ErrorRange{0.0};
+                return;
+            }
+            mean_out = static_cast<double>(sum) / N;
+            
+            if (N > 1) {
+                double variance = (static_cast<double>(sum_sq) - (static_cast<double>(sum) * sum) / N) / (N - 1);
+                if (variance < 0.0) variance = 0.0; 
+                double std_dev = std::sqrt(variance);
+                err_out = ErrorRange{std_dev / std::sqrt(N)};
+            } else {
+                err_out = ErrorRange{0.0}; // Cannot calculate error with only one cluster
+            }
+        };
+
+        // Calculate global metrics
+        calcMeanAndError(total_clusters_eta1, total_cluster_size_eta1, sum_sq_cluster_size_eta1, 
+                         stats.cluster_size_results.avg_cluster_size_eta1, 
+                         stats.cluster_size_results.avg_cluster_size_eta1_error);
+
+        calcMeanAndError(total_clusters_eta2, total_cluster_size_eta2, sum_sq_cluster_size_eta2, 
+                         stats.cluster_size_results.avg_cluster_size_eta2, 
+                         stats.cluster_size_results.avg_cluster_size_eta2_error);
+
+        // Calculate layer-by-layer metrics
+        for (int layer_idx = 0; layer_idx < 3; ++layer_idx) {
+            calcMeanAndError(total_clusters_eta1_layers[layer_idx], 
+                             total_cluster_size_eta1_layers[layer_idx], 
+                             sum_sq_cluster_size_eta1_layers[layer_idx],
+                             stats.cluster_size_results.avg_cluster_size_eta1_layers[layer_idx],
+                             stats.cluster_size_results.avg_cluster_size_eta1_layers_error[layer_idx]);
+
+            calcMeanAndError(total_clusters_eta2_layers[layer_idx], 
+                             total_cluster_size_eta2_layers[layer_idx], 
+                             sum_sq_cluster_size_eta2_layers[layer_idx],
+                             stats.cluster_size_results.avg_cluster_size_eta2_layers[layer_idx],
+                             stats.cluster_size_results.avg_cluster_size_eta2_layers_error[layer_idx]);
+        }
+
+        std::cout << "Average cluster size (eta1): " << stats.cluster_size_results.avg_cluster_size_eta1 
+                  << " ± " << stats.cluster_size_results.avg_cluster_size_eta1_error.high << std::endl;
+        std::cout << "Average cluster size (eta2): " << stats.cluster_size_results.avg_cluster_size_eta2 
+                  << " ± " << stats.cluster_size_results.avg_cluster_size_eta2_error.high << std::endl;
+        }   // Close the scope for cluster size calculation to avoid variable name conflicts
+
+        // ----------------------------------------------------------------------------------
+        {  // Noise rate calculation
+        auto calculateRate = [](long long hits, long long events, int n_strips, int n_layers) 
+            -> std::pair<double, double> {
+            
+            if (events <= 0 || n_strips <= 0 || n_layers <= 0) {
+                return {0.0, 0.0};
+            }
+
+            // Total time-area exposure = events * window * sensitive area
+            const double total_exposure = events * TRIGGER_TIME_WINDOW * n_layers * n_strips * STRIP_WIDTH_CM * DETECTOR_LENGTH_CM;
+            
+            const double rate = static_cast<double>(hits) / total_exposure;
+            const double rate_error = (hits > 0) ? (std::sqrt(static_cast<double>(hits)) / total_exposure) : 0.0;
+
+            return {rate, rate_error};
+        };
+
         TTree* processed_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
-        if (processed_tree) {
-            TTreeReader reader(processed_tree);
+        if (!processed_tree) {
+            std::cerr << "Error: ProcessedData tree not found in file " << input_file->GetName() << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        TTreeReader reader(processed_tree);
 
-            // Get number of total hits, number of events, and unique strips/layers in one pass.
-            TTreeReaderValue<int> hits(reader, "n_hits");
-            TTreeReaderValue<std::vector<int>> strips(reader, "proc_strip");
-            TTreeReaderValue<std::vector<int>> layers(reader, "proc_layer");
+        // Get number of total hits, number of events, and unique strips/layers in one pass.
+        TTreeReaderValue<int> hits(reader, "n_hits");
+        TTreeReaderValue<std::vector<int>> strips(reader, "proc_strip");
+        TTreeReaderValue<std::vector<int>> layers(reader, "proc_layer");
 
-            long long total_hits = 0;
-            long long event_count = 0;
-            std::unordered_set<int> unique_strips;
-            std::unordered_set<int> unique_layers;
+        long long total_hits = 0;
+        long long event_count = 0;
+        std::unordered_set<int> unique_strips;
+        std::unordered_set<int> unique_layers;
 
-            while (reader.Next()) {
-                total_hits += static_cast<long long>(*hits);
-                event_count += 1;
+        while (reader.Next()) {
+            total_hits += static_cast<long long>(*hits);
+            event_count += 1;
 
-                if (strips.GetSetupStatus() == 0 && layers.GetSetupStatus() == 0) {
-                    for (int strip : *strips) {
-                        unique_strips.insert(strip);
-                    }
-                    for (int layer : *layers) {
-                        unique_layers.insert(layer);
-                    }
+            if (strips.GetSetupStatus() == 0 && layers.GetSetupStatus() == 0) {
+                for (int strip : *strips) {
+                    unique_strips.insert(strip);
+                }
+                for (int layer : *layers) {
+                    unique_layers.insert(layer);
                 }
             }
-
-            int n_strips = static_cast<int>(unique_strips.size());
-            int n_layers = static_cast<int>(unique_layers.size());
-
-            // Calculate the noise rate
-            if (event_count > 0 && n_strips > 0) {
-                stats.noise_rate = static_cast<double>(total_hits) / (event_count * TRIGGER_TIME_WINDOW * n_layers * n_strips * STRIP_WIDTH_CM * DETECTOR_LENGTH_CM);
-            }
         }
+
+        int n_strips = static_cast<int>(unique_strips.size());
+        int n_layers = static_cast<int>(unique_layers.size());
+
+        std::tie(stats.noise_rate_results.noise_rate, stats.noise_rate_results.noise_rate_error) = 
+                calculateRate(total_hits, event_count, n_strips, n_layers);
 
         // Calculate noise rates per layer per side using raw hit times from InputData
         TTree* input_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
@@ -836,29 +851,21 @@ void DataAnalyzer::produceSummaryStats() {
             for (int layer_idx = 0; layer_idx < 3; ++layer_idx) {
                 const int n_strips_eta1 = static_cast<int>(unique_strips_eta1[layer_idx].size());
                 const int n_strips_eta2 = static_cast<int>(unique_strips_eta2[layer_idx].size());
-                if (event_count > 0 && n_strips_eta1 > 0) {
-                    stats.noise_rate_eta1[layer_idx] = static_cast<double>(total_hits_eta1[layer_idx]) /
-                                                     (event_count * TRIGGER_TIME_WINDOW * n_strips_eta1 * STRIP_WIDTH_CM * DETECTOR_LENGTH_CM);
-                }
-                if (event_count > 0 && n_strips_eta2 > 0) {
-                    stats.noise_rate_eta2[layer_idx] = static_cast<double>(total_hits_eta2[layer_idx]) /
-                                                     (event_count * TRIGGER_TIME_WINDOW * n_strips_eta2 * STRIP_WIDTH_CM * DETECTOR_LENGTH_CM);
-                }
+                std::tie(stats.noise_rate_results.noise_rate_eta1[layer_idx],
+                         stats.noise_rate_results.noise_rate_eta1_error[layer_idx]) = calculateRate(total_hits_eta1[layer_idx], event_count, n_strips_eta1, 1);
+                std::tie(stats.noise_rate_results.noise_rate_eta2[layer_idx],
+                         stats.noise_rate_results.noise_rate_eta2_error[layer_idx]) = calculateRate(total_hits_eta2[layer_idx], event_count, n_strips_eta2, 1);
             }
         }
+        }   // Close the scope for rate calculation to avoid variable name conflicts
 
         // ----------------------------------------------------------------------------------
         // Fill the summary tree with the extracted statistics for this measurement entry
 
-        // Cluster size
-        avg_cluster_size_eta1 = stats.avg_cluster_size_eta1;
-        avg_cluster_size_eta2 = stats.avg_cluster_size_eta2;
-
         // Layer-specific cluster size and efficiency results
         for (int layer = 0; layer < 3; ++layer) {
-            avg_cluster_size_eta1_layers[layer] = stats.avg_cluster_size_eta1_layers[layer];
-            avg_cluster_size_eta2_layers[layer] = stats.avg_cluster_size_eta2_layers[layer];
 
+            // Efficiency results
             efficiency_results_summary.eta1_efficiency_external[layer] = stats.efficiency_results.eta1_efficiency_external[layer];
             efficiency_results_summary.eta2_efficiency_external[layer] = stats.efficiency_results.eta2_efficiency_external[layer];
             efficiency_results_summary.eta_or_efficiency_external[layer] = stats.efficiency_results.eta_or_efficiency_external[layer];
@@ -899,12 +906,30 @@ void DataAnalyzer::produceSummaryStats() {
             efficiency_results_track_summary.eta_or_efficiency_rpc_error[layer] = stats.efficiency_results_tracks.eta_or_efficiency_rpc_error[layer];
             efficiency_results_track_summary.eta_and_efficiency_rpc_error[layer] = stats.efficiency_results_tracks.eta_and_efficiency_rpc_error[layer];
 
-            noise_rate_eta1[layer] = stats.noise_rate_eta1[layer];
-            noise_rate_eta2[layer] = stats.noise_rate_eta2[layer];
+            // Cluster size results
+            cluster_size_results_summary.avg_cluster_size_eta1_layers[layer] = stats.cluster_size_results.avg_cluster_size_eta1_layers[layer];
+            cluster_size_results_summary.avg_cluster_size_eta2_layers[layer] = stats.cluster_size_results.avg_cluster_size_eta2_layers[layer];
+
+            cluster_size_results_summary.avg_cluster_size_eta1_layers_error[layer] = stats.cluster_size_results.avg_cluster_size_eta1_layers_error[layer];
+            cluster_size_results_summary.avg_cluster_size_eta2_layers_error[layer] = stats.cluster_size_results.avg_cluster_size_eta2_layers_error[layer];
+
+            // Noise rate results
+            noise_rate_results_summary.noise_rate_eta1[layer] = stats.noise_rate_results.noise_rate_eta1[layer];
+            noise_rate_results_summary.noise_rate_eta2[layer] = stats.noise_rate_results.noise_rate_eta2[layer];
+
+            noise_rate_results_summary.noise_rate_eta1_error[layer] = stats.noise_rate_results.noise_rate_eta1_error[layer];
+            noise_rate_results_summary.noise_rate_eta2_error[layer] = stats.noise_rate_results.noise_rate_eta2_error[layer];
         }
 
-        // Noise rate
-        noise_rate = stats.noise_rate;
+        // Detector-wide cluster size
+        cluster_size_results_summary.avg_cluster_size_eta1 = stats.cluster_size_results.avg_cluster_size_eta1;
+        cluster_size_results_summary.avg_cluster_size_eta2 = stats.cluster_size_results.avg_cluster_size_eta2;
+        cluster_size_results_summary.avg_cluster_size_eta1_error = stats.cluster_size_results.avg_cluster_size_eta1_error;
+        cluster_size_results_summary.avg_cluster_size_eta2_error = stats.cluster_size_results.avg_cluster_size_eta2_error;
+
+        // Detector-wide noise rate
+        noise_rate_results_summary.noise_rate = stats.noise_rate_results.noise_rate;
+        noise_rate_results_summary.noise_rate_error = stats.noise_rate_results.noise_rate_error;
 
         // Fill the summary tree with the extracted statistics for this measurement entry
         summary_tree->Fill();
