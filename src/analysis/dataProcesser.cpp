@@ -6,6 +6,7 @@
 
 #include <TFile.h>
 #include <TTree.h>
+#include <TH1.h>
 #include <TEfficiency.h>
 #include "TGraphAsymmErrors.h"
 #include <TAxis.h>
@@ -231,21 +232,23 @@ void DataProcesser::createEfficiencyGraphs() {
         graph->SetTitle(title);
 
         for (int i = 0; i < 4; i++) {
-            int x_pos = i + 1; // Categories map cleanly to 1, 2, 3, 4
+            int x_pos = i + 1;
             graph->SetPoint(i, x_pos, effs[i]);
-            // SetPointError(index, x_low, x_high, y_low, y_high)
             graph->SetPointError(i, 0.0, 0.0, errs[i].low, errs[i].high);
         }
 
-        TAxis* xAxis = graph->GetXaxis();
-        if (xAxis) {
-            xAxis->SetLimits(0.5, 4.5);
-            xAxis->SetNdivisions(-4);
-            xAxis->SetBinLabel(1, "eta1");
-            xAxis->SetBinLabel(2, "eta2");
-            xAxis->SetBinLabel(3, "OR");
-            xAxis->SetBinLabel(4, "AND");
-        }
+        TH1F* frame = new TH1F(Form("frame_%s", name), title, 4, 0.5, 4.5);
+
+        TAxis* xAxis = frame->GetXaxis();
+        xAxis->SetBinLabel(1, "eta1");
+        xAxis->SetBinLabel(2, "eta2");
+        xAxis->SetBinLabel(3, "OR");
+        xAxis->SetBinLabel(4, "AND");
+
+        xAxis->SetNdivisions(-4);
+
+        graph->SetHistogram(frame);
+        
         return graph;
     };
 
