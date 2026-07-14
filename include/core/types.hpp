@@ -51,6 +51,15 @@ enum class ErrorMethod {
 struct ErrorRange {
     double low = 0.0;
     double high = 0.0;
+
+    // Default constructor
+    ErrorRange() = default;
+
+    // Single-argument constructor: sets both bounds to the same value
+    ErrorRange(double val) : low(val), high(val) {}
+
+    // Two-argument constructor: sets them independently
+    ErrorRange(double l, double h) : low(l), high(h) {}
 };
 
 struct EfficiencyFlags {
