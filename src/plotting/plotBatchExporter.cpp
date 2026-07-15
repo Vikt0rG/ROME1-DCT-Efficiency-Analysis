@@ -6,6 +6,7 @@
 #include <TClass.h>
 #include <TCanvas.h>
 #include <TH1.h>
+#include <THStack.h>
 #include <TGraphAsymmErrors.h>
 #include <TMultiGraph.h>
 #include <TGraphErrors.h>
@@ -45,8 +46,11 @@ namespace {
                 continue;
             }
 
-            if (cl->InheritsFrom(TH1::Class()) || cl->InheritsFrom(TGraph::Class()) ||
-                cl->InheritsFrom(TMultiGraph::Class()) || cl->InheritsFrom(TGraphAsymmErrors::Class())) {
+            if (cl->InheritsFrom(TH1::Class()) ||
+                cl->InheritsFrom(TGraph::Class()) ||
+                cl->InheritsFrom(TMultiGraph::Class()) ||
+                cl->InheritsFrom(TGraphAsymmErrors::Class()) ||
+                cl->InheritsFrom(THStack::Class())) {
                 TObject* obj = key->ReadObj();
                 if (!obj) continue;
 
