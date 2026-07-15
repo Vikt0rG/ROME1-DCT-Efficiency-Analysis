@@ -18,6 +18,8 @@ enum class PlotCategory {
     Efficiency,
     EfficiencyVsHV,
     StripDistribution,
+    ToTDistribution,
+    ToTCombinedDistribution,
     DtVsStrip,
     ToT,
     MeanClusterSizeVsHV,
@@ -69,10 +71,10 @@ namespace PlotStyler {
         bool drawPlotTitle(TObject* obj, double x_offset, double y_offset);
 
         /// @brief Helper function to draw a legend on a plot
-        /// @param mg A pointer to the TMultiGraph object for which the legend will be drawn
+        /// @param obj A pointer to the ROOT object for which the legend will be drawn
         /// @param x_offset The horizontal offset for the legend position
         /// @param y_offset The vertical offset for the legend position
-        void drawATLASLegend(TMultiGraph* mg, double x_offset, double y_offset);
+        void drawATLASLegend(TObject* obj, double x_offset, double y_offset);
 
         /// @brief Helper function to adjust the color bar of a 2D histogram dynamically
         /// based on the maximum value in the histogram

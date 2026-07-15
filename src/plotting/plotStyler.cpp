@@ -9,6 +9,7 @@
 #include <TAxis.h>
 #include <TH1.h>
 #include <TH2.h>
+#include <THStack.h>
 #include <TGraph.h>
 #include <TGraphErrors.h>
 #include <TGraphAsymmErrors.h>
@@ -29,11 +30,13 @@ namespace PlotStyler {
 
     /// @brief Data-driven mapping of metric name prefixes to corresponding plot categories
     static const std::vector<std::tuple<std::string, TClass*, PlotCategory>> category_map = {
-        {"h1d_strip_eta",    TH1D::Class(),                 PlotCategory::StripDistribution},
-        {"eff",              TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
+        {"h1d_strip_eta",    TH1::Class(),                  PlotCategory::StripDistribution},
+        {"h1d_tot_eta",      TH1::Class(),                  PlotCategory::ToTDistribution},
+        {"h1d_tot",          THStack::Class(),              PlotCategory::ToTCombinedDistribution},
         {"track_eff",        TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
-        {"eff",              TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
+        {"eff",              TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
         {"track_eff",        TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
+        {"eff",              TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
         {"avg_cluster_size", TMultiGraph::Class(),          PlotCategory::MeanClusterSizeVsHV},
         {"noise_rate",       TMultiGraph::Class(),          PlotCategory::NoiseRateVsHV}
     };
@@ -120,7 +123,10 @@ namespace PlotStyler {
         }
 
         bool drawPlotTitle(TObject* obj, double x_left, double y_top) {
-            if (!obj || !gPad) return false;
+            if (!obj || !gPad) {
+                std::cout << "Error: Invalid object or pad for drawing plot title." << std::endl;
+                return false;
+            }
 
             std::string titleStr = obj->GetTitle();
             if (titleStr.empty()) return false;
@@ -141,46 +147,68 @@ namespace PlotStyler {
             return true;
         }
 
-        void drawATLASLegend(TMultiGraph* mg, double x_left, double y_top) {
-            if (!mg || !gPad) return;
+        void drawATLASLegend(TObject* obj, double x_left, double y_top) {
+        if (!obj || !gPad) return;
 
-            TList* graph_list = mg->GetListOfGraphs();
-            if (!graph_list || graph_list->GetSize() == 0) return;
+        TList* items_list = nullptr;
+        bool is_graph = false;
+        bool is_stack = false;
 
-            double left_margin = gPad->GetLeftMargin();
-            double top_margin = gPad->GetTopMargin();
-
-            double final_x_left = left_margin + x_left;
-            double final_y_top = (1.0 - top_margin) - y_top;
-
-            // Standard ATLAS entry row text scaling
-            double entry_height = 0.04; 
-            double total_height = graph_list->GetSize() * entry_height;
-            double final_x_right = final_x_left + 0.25;
-            double final_y_bottom = final_y_top - total_height;
-
-            TLegend* leg = new TLegend(final_x_left, final_y_bottom, final_x_right, final_y_top);
-            leg->SetBorderSize(0);
-            leg->SetFillStyle(0);
-            leg->SetTextFont(42);
-            leg->SetTextSize(0.04);
-
-            TIter next_graph(graph_list);
-            TGraph* sub_graph = nullptr;
-
-            while ((sub_graph = static_cast<TGraph*>(next_graph()))) {
-                std::string g_name = sub_graph->GetName();
-                std::string label = "Unknown Layer";
-
-                if (g_name.find("layer0") != std::string::npos) label = "Layer 0";
-                else if (g_name.find("layer1") != std::string::npos) label = "Layer 1";
-                else if (g_name.find("layer2") != std::string::npos) label = "Layer 2";
-
-                leg->AddEntry(sub_graph, label.c_str(), "pe");
-            }
-
-            leg->Draw();
+        // Check what container type we have
+        if (auto* mg = dynamic_cast<TMultiGraph*>(obj)) {
+            items_list = mg->GetListOfGraphs();
+            is_graph = true;
+        } else if (auto* stack = dynamic_cast<THStack*>(obj)) {
+            items_list = stack->GetHists();
+            is_stack = true;
         }
+
+        if (!items_list || items_list->GetSize() == 0) return;
+
+        double left_margin = gPad->GetLeftMargin();
+        double top_margin = gPad->GetTopMargin();
+
+        double final_x_left = left_margin + x_left;
+        double final_y_top = (1.0 - top_margin) - y_top;
+
+        double entry_height = 0.04; 
+        double total_height = items_list->GetSize() * entry_height;
+        double final_x_right = final_x_left + 0.25;
+        double final_y_bottom = final_y_top - total_height;
+
+        TLegend* leg = new TLegend(final_x_left, final_y_bottom, final_x_right, final_y_top);
+        leg->SetBorderSize(0);
+        leg->SetFillStyle(0);
+        leg->SetTextFont(42);
+        leg->SetTextSize(0.04);
+
+        TIter next_item(items_list);
+        TObject* child = nullptr;
+
+        while ((child = next_item())) {
+            std::string name = child->GetName();
+            std::string label = child->GetTitle(); // Use the object's configured title by default
+
+            // Fallback parsers for cleaner labels if titles aren't pretty
+            if (is_graph) {
+                if (name.find("layer0") != std::string::npos) label = "Layer 0";
+                else if (name.find("layer1") != std::string::npos) label = "Layer 1";
+                else if (name.find("layer2") != std::string::npos) label = "Layer 2";
+
+                // Graphs get Points + Error Bars marker style
+                leg->AddEntry(child, label.c_str(), "pe");
+            } 
+            else if (is_stack) {
+                if (name.find("tot_eta1") != std::string::npos) label = "#eta_{1} Side";
+                else if (name.find("tot_eta2") != std::string::npos) label = "#eta_{2} Side";
+                
+                // Filled histograms get Line + Fill box style
+                leg->AddEntry(child, label.c_str(), "lf");
+            }
+        }
+
+        leg->Draw();
+    }
 
         void adjustDynamicCB(TH2* h2, TPad* pad) {
             if (!h2 || !pad) return;
@@ -215,6 +243,8 @@ namespace PlotStyler {
             TAxis* xAxis = nullptr;
             TAxis* yAxis = nullptr;
             TAxis* zAxis = nullptr;
+
+            gStyle->SetOptTitle(0);
 
             if (gPad) {
                 gPad->SetTickx(1); // 1 = Draw ticks on top side
@@ -322,7 +352,6 @@ namespace PlotStyler {
         obj->Draw("APZ");
 
         auto mg = dynamic_cast<TMultiGraph*>(obj);
-        if (mg) mg->SetTitle("");
 
         // Set axis ranges and labels
         if (mg && mg->GetHistogram()) {
@@ -419,7 +448,7 @@ namespace PlotStyler {
         drawATLASLabel(0.05, 0.07, "Work in Progress");
         bool title_drawn = drawPlotTitle(obj, 0.05, 0.12);
 
-        if (mg) drawATLASLegend(mg, 0.05, title_drawn ? 0.17 : 0.12);
+        drawATLASLegend(obj, 0.05, title_drawn ? 0.17 : 0.12);
     }
 
     void styleStripDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
@@ -430,24 +459,17 @@ namespace PlotStyler {
 
         applyATLASStyle(obj, canvas);
 
-        if (auto h1 = dynamic_cast<TH1*>(obj)) {
-            h1->SetLineColor(kBlack);
-            h1->SetLineWidth(2.0);
-            h1->SetLineStyle(1);
+        auto h1 = dynamic_cast<TH1*>(obj);
+        h1->SetLineColor(kBlack);
+        h1->SetLineWidth(2.0);
+        h1->SetLineStyle(1);
 
-            // Fill properties: Pick a base color (e.g., kBlue-9 or kAzure) and make it transparent
-            // Format: TColor::GetColorTransparent(Color_Index, Alpha_Opacity_From_0_to_1)
-            // 0.30 gives a light saturation
-            Int_t light_blue_transparent = TColor::GetColorTransparent(kAzure + 7, 0.30);
-            h1->SetFillColor(light_blue_transparent);
-            h1->SetFillStyle(1001); // 1001 = Solid fill style
+        // Format: TColor::GetColorTransparent(Color_Index, Alpha_Opacity_From_0_to_1)
+        Int_t light_blue_transparent = TColor::GetColorTransparent(kAzure + 7, 0.30);
+        h1->SetFillColor(light_blue_transparent);
+        h1->SetFillStyle(1001); // 1001 = Solid fill style
 
-            // Draw option "HIST" forces ROOT to draw it as a filled bar/step chart 
-            h1->Draw("HIST");
-        } else {
-            // Fallback draw if object isn't a 1D histogram
-            obj->Draw("E1");
-        }
+        h1->Draw("HIST");
 
         canvas->Modified();
         canvas->Update();
@@ -456,20 +478,85 @@ namespace PlotStyler {
         drawPlotTitle(obj, 0.05, 0.12);
     }
 
+    void styleToTDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
+        canvas->SetLeftMargin(0.16);
+        canvas->SetRightMargin(0.05);
+        canvas->SetTopMargin(0.05);
+        canvas->SetBottomMargin(0.14);
+
+        applyATLASStyle(obj, canvas);
+
+        auto h1 = dynamic_cast<TH1*>(obj);
+        h1->SetLineColor(kBlack);
+        h1->SetLineWidth(2.0);
+        h1->SetLineStyle(1);
+
+        Int_t light_green_transparent = TColor::GetColorTransparent(kGreen + 2, 0.30);
+        h1->SetFillColor(light_green_transparent);
+        h1->SetFillStyle(1001);
+
+        h1->Draw("HIST");
+
+        canvas->Modified();
+        canvas->Update();
+
+        drawATLASLabel(0.46, 0.07, "Work in Progress");
+        drawPlotTitle(obj, 0.46, 0.12);
+    }
+
+    void styleToTCombinedDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
+        canvas->SetLeftMargin(0.16);
+        canvas->SetRightMargin(0.05);
+        canvas->SetTopMargin(0.05);
+        canvas->SetBottomMargin(0.14);
+
+        applyATLASStyle(obj, canvas);
+
+        auto stack = dynamic_cast<THStack*>(obj);
+        if (!stack) return;
+
+        TList* hist_list = stack->GetHists();
+        if (hist_list) {
+            TIter next(hist_list);
+            TH1* hist = nullptr;
+            int index = 0;
+
+            while ((hist = static_cast<TH1*>(next()))) {
+                Color_t base_color = (index == 0) ? kBlue : kRed;
+
+                // Sharp solid outline
+                hist->SetLineColor(base_color);
+                hist->SetLineWidth(2);
+                hist->SetLineStyle(1);
+
+                // Matching partially transparent fill (30% opacity)
+                Int_t trans_color = TColor::GetColorTransparent(base_color, 0.30);
+                hist->SetFillColor(trans_color);
+                hist->SetFillStyle(1001);
+
+                index++;
+            }
+        }
+        stack->Draw("nostack hist");
+
+        canvas->Modified();
+        canvas->Update();
+
+        drawATLASLabel(0.46, 0.07, "Work in Progress");
+        bool title_drawn = drawPlotTitle(obj, 0.46, 0.12);
+
+        // Draw the newly adjusted general legend
+        drawATLASLegend(obj, 0.46, title_drawn ? 0.17 : 0.12);
+    }
+
     void styleDefaultPlot(TObject* obj, TCanvas* canvas, TClass* cl) {
-        // Standard configurations for generic plots
         canvas->SetLeftMargin(0.16);
         canvas->SetRightMargin(cl->InheritsFrom(TH2::Class()) ? 0.14 : 0.05);
         canvas->SetTopMargin(0.06);
         canvas->SetBottomMargin(0.14);
 
-        if (auto h = dynamic_cast<TH1*>(obj)) {
-            h->SetTitle("");
-        } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
-            mg->SetTitle("");
-        } else if (auto gr = dynamic_cast<TGraph*>(obj)) {
+        if (auto gr = dynamic_cast<TGraph*>(obj)) {
             if (gr->GetHistogram()) {
-                gr->GetHistogram()->SetTitle("");
                 gr->GetHistogram()->SetStats(0);
             }
         }
@@ -492,7 +579,6 @@ namespace PlotStyler {
         canvas->Modified();
         canvas->Update();
 
-        // Default positioning near the bottom left or top left
         drawATLASLabel(0.05, 0.07, "Work in Progress");
         bool title_drawn = drawPlotTitle(obj, 0.05, 0.12);
 
@@ -502,11 +588,13 @@ namespace PlotStyler {
     }
 
     static const std::vector<std::pair<PlotCategory, StylerFnPtr>> styler_map = {
-        {PlotCategory::EfficiencyVsHV,      &styleEfficiencyVsHV},
-        {PlotCategory::MeanClusterSizeVsHV, &styleEfficiencyVsHV},
-        {PlotCategory::NoiseRateVsHV,       &styleEfficiencyVsHV},
-        {PlotCategory::StripDistribution,   &styleStripDistribution},
-        {PlotCategory::Default,             &styleDefaultPlot}
+        {PlotCategory::EfficiencyVsHV,          &styleEfficiencyVsHV},
+        {PlotCategory::MeanClusterSizeVsHV,     &styleEfficiencyVsHV},
+        {PlotCategory::NoiseRateVsHV,           &styleEfficiencyVsHV},
+        {PlotCategory::StripDistribution,       &styleStripDistribution},
+        {PlotCategory::ToTDistribution,         &styleToTDistribution},
+        {PlotCategory::ToTCombinedDistribution, &styleToTCombinedDistribution},
+        {PlotCategory::Default,                 &styleDefaultPlot}
     };
 
     StylerFnPtr getCustomStyler(PlotCategory category) {
