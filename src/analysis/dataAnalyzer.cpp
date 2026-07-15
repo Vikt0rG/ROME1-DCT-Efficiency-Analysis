@@ -6,6 +6,7 @@
 #include <TTree.h>
 #include <TH1F.h>
 #include <TH2F.h>
+#include <THStack.h>
 #include <TGraphAsymmErrors.h>
 #include <TCanvas.h>
 #include <TTreeReader.h>
@@ -91,6 +92,81 @@ void plotStrip(TFile* input_file) {
     }
 
     // Write histograms to file and clean up
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            strip_histograms[categories[c]][layer]->Write("", TObject::kOverwrite);
+            delete strip_histograms[categories[c]][layer];
+        }
+    }
+}
+
+void plotToT(TFile* input_file) {
+    TDirectory* analysis_dir = input_file->GetDirectory("analysis");
+    TDirectory* tot_dir = analysis_dir->GetDirectory("tot");
+    tot_dir->cd();
+
+    TTree* input_data_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
+    if (!input_data_tree || input_data_tree->IsZombie()) {
+        std::cerr << "Error: Invalid input data tree for analysis." << std::endl;
+        return;
+    }
+    TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
+    if (!proc_tree || proc_tree->IsZombie()) {
+        std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
+        return;
+    }
+
+    TTreeReader readerInputData(input_data_tree);
+    TTreeReader readerProcData(proc_tree);
+    TTreeReaderValue<std::vector<int>> raw_time1(readerInputData, "hit_raw_time1");
+    TTreeReaderValue<std::vector<int>> raw_time2(readerInputData, "hit_raw_time2");
+    TTreeReaderValue<std::vector<int>> tot1(readerProcData, "proc_tot1");
+    TTreeReaderValue<std::vector<int>> tot2(readerProcData, "proc_tot2");
+    TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
+
+    const int nConfigs = 2;
+    const char* categories[nConfigs] = { "tot_eta1", "tot_eta2" };
+
+    std::map<std::string, std::map<int, TH1*>> strip_histograms;
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            auto* hist = new TH1F(Form("h1d_%s_layer%d", categories[c], layer),
+                            Form("Layer %d;ToT [Ticks];Hits", layer),
+                            50, 0, 50);
+            strip_histograms[categories[c]][layer] = hist;
+        }
+    }
+
+    while (readerInputData.Next() && readerProcData.Next()) {
+        for (size_t i = 0; i < tot1->size(); ++i) {
+            int layer = (*layers)[i];
+            int tot1_value = (*tot1)[i];
+            int tot2_value = (*tot2)[i];
+            
+            if ((*raw_time1)[i] != 0) strip_histograms["tot_eta1"][layer]->Fill(tot1_value);
+            if ((*raw_time2)[i] != 0) strip_histograms["tot_eta2"][layer]->Fill(tot2_value);
+            if ((*raw_time1)[i] != 0 && (*raw_time2)[i] != 0) strip_histograms["tot_combined"][layer]->Fill((*tot1)[i] + (*tot2)[i]);
+        }
+    }
+
+    // First store the stack
+    for (int layer : {0, 1, 2}) {
+        auto* h_tot1 = strip_histograms["tot_eta1"][layer];
+        auto* h_tot2 = strip_histograms["tot_eta2"][layer];
+
+        // Style them so they are distinct in the stack
+        h_tot1->SetLineColor(kBlue);
+        h_tot2->SetLineColor(kRed);
+
+        auto* stack = new THStack(Form("h1d_tot_layer%d", layer), Form("Layer %d Comparison", layer));
+
+        stack->Add(h_tot2);
+        stack->Add(h_tot1);
+        
+        stack->Write("", TObject::kOverwrite);
+        delete stack;
+    }
+
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             strip_histograms[categories[c]][layer]->Write("", TObject::kOverwrite);
@@ -199,7 +275,7 @@ void plotToTVsStrip(TFile* input_file) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
                             Form("Layer %d;Strip;ToT [Ticks]; Entries", layer),
-                            24, 0, 24, 100, 0, 100);
+                            24, 0, 24, 34, 1, 35);
             tot_strip_histograms[suffixes[c]][layer] = hist;
         }
     }
@@ -384,6 +460,7 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
     // Set up output directories for per-file statistics and plots
     std::vector<std::string> dir_names = {
         "analysis/strip",
+        "analysis/tot",
         "analysis/dt_strip",
         "analysis/tot_strip",
         "analysis/multiplicity_strip",
@@ -393,6 +470,7 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
 
     // Produce relevant plots for this file using helper functions
     perFileHelpers::plotStrip(input_file);
+    perFileHelpers::plotToT(input_file);
     perFileHelpers::plotDtVsStrip(input_file);
     perFileHelpers::plotToTVsStrip(input_file);
     perFileHelpers::plotMultiplicityAndDelayVsStrip(input_file);
@@ -739,11 +817,6 @@ void DataAnalyzer::produceSummaryStats() {
                              stats.cluster_size_results.avg_cluster_size_eta2_layers[layer_idx],
                              stats.cluster_size_results.avg_cluster_size_eta2_layers_error[layer_idx]);
         }
-
-        std::cout << "Average cluster size (eta1): " << stats.cluster_size_results.avg_cluster_size_eta1 
-                  << " ± " << stats.cluster_size_results.avg_cluster_size_eta1_error.high << std::endl;
-        std::cout << "Average cluster size (eta2): " << stats.cluster_size_results.avg_cluster_size_eta2 
-                  << " ± " << stats.cluster_size_results.avg_cluster_size_eta2_error.high << std::endl;
         }   // Close the scope for cluster size calculation to avoid variable name conflicts
 
         // ----------------------------------------------------------------------------------
