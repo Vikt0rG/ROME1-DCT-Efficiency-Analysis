@@ -695,7 +695,7 @@ namespace PlotStyler {
 
     void styleDefaultPlot(TObject* obj, TCanvas* canvas, TClass* cl) {
         canvas->SetLeftMargin(0.16);
-        canvas->SetRightMargin(cl->InheritsFrom(TH2::Class()) ? 0.14 : 0.05);
+        canvas->SetRightMargin(cl->InheritsFrom(TH2::Class()) ? 0.16 : 0.05);
         canvas->SetTopMargin(0.06);
         canvas->SetBottomMargin(0.14);
 
