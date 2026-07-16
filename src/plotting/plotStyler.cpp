@@ -199,8 +199,8 @@ namespace PlotStyler {
                 leg->AddEntry(child, label.c_str(), "pe");
             } 
             else if (is_stack) {
-                if (name.find("tot_eta1") != std::string::npos) label = "#eta_{1} Side";
-                else if (name.find("tot_eta2") != std::string::npos) label = "#eta_{2} Side";
+                if (name.find("tot_eta1") != std::string::npos) label = "#eta1 Side";
+                else if (name.find("tot_eta2") != std::string::npos) label = "#eta2 Side";
                 
                 // Filled histograms get Line + Fill box style
                 leg->AddEntry(child, label.c_str(), "lf");
@@ -266,6 +266,12 @@ namespace PlotStyler {
                 h->SetLineColor(kBlack);
                 h->SetLineWidth(2);
                 h->SetStats(0);
+            } else if (auto stack = dynamic_cast<THStack*>(obj)) {
+                TH1* frame = stack->GetHistogram();
+                if (frame) {
+                    xAxis = frame->GetXaxis();
+                    yAxis = frame->GetYaxis();
+                }
             } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
                 xAxis = mg->GetXaxis();
                 yAxis = mg->GetYaxis();
@@ -510,8 +516,6 @@ namespace PlotStyler {
         canvas->SetTopMargin(0.05);
         canvas->SetBottomMargin(0.14);
 
-        applyATLASStyle(obj, canvas);
-
         auto stack = dynamic_cast<THStack*>(obj);
         if (!stack) return;
 
@@ -522,7 +526,7 @@ namespace PlotStyler {
             int index = 0;
 
             while ((hist = static_cast<TH1*>(next()))) {
-                Color_t base_color = (index == 0) ? kBlue : kRed;
+                Color_t base_color = (index == 0) ? kBlue - 2 : kOrange + 6;
 
                 // Sharp solid outline
                 hist->SetLineColor(base_color);
@@ -538,6 +542,11 @@ namespace PlotStyler {
             }
         }
         stack->Draw("nostack hist");
+
+        if (stack->GetXaxis()) stack->GetXaxis()->SetTitle("ToT [Ticks]");
+        if (stack->GetYaxis()) stack->GetYaxis()->SetTitle("Hits");
+
+        applyATLASStyle(obj, canvas);
 
         canvas->Modified();
         canvas->Update();
