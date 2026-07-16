@@ -406,9 +406,8 @@ namespace PlotStyler {
 
             TAxis* yAxis = mg->GetHistogram()->GetYaxis();
             if (yAxis) {
-                double floor_limit = 0.0;
-                double dynamic_ymin = floor_limit;
-                double dynamic_ymax = floor_limit;
+                double dynamic_ymin = 0.0;
+                double dynamic_ymax = 1.0;
 
                 if (mg->GetListOfGraphs()) {
                     double true_min_y = INT_MAX;
@@ -418,15 +417,34 @@ namespace PlotStyler {
                     TObject* gr_obj = nullptr;
                     while ((gr_obj = next())) {
                         auto* gr = dynamic_cast<TGraph*>(gr_obj);
-                        if (gr && gr->GetN() > 0) {
-                            double gr_min = TMath::MinElement(gr->GetN(), gr->GetY());
-                            double gr_max = TMath::MaxElement(gr->GetN(), gr->GetY());
+                        if (!gr || gr->GetN() <= 0) continue;
 
-                            if (gr_min > floor_limit && gr_min < true_min_y) {
-                                true_min_y = gr_min;
+                        // Try to cast to error-bearing graph subclasses
+                        auto* gr_err = dynamic_cast<TGraphErrors*>(gr);
+                        auto* gr_asymm = dynamic_cast<TGraphAsymmErrors*>(gr);
+
+                        int n_points = gr->GetN();
+                        double* y_vals = gr->GetY();
+
+                        for (int i = 0; i < n_points; ++i) {
+                            double val_y = y_vals[i];
+                            double low_y = val_y;
+                            double high_y = val_y;
+
+                            if (gr_asymm) {
+                                low_y  -= gr_asymm->GetErrorYlow(i);
+                                high_y += gr_asymm->GetErrorYhigh(i);
+                            } else if (gr_err) {
+                                double err_y = gr_err->GetErrorY(i);
+                                low_y  -= err_y;
+                                high_y += err_y;
                             }
-                            if (gr_max > gr_min && gr_max > true_max_y) {
-                                true_max_y = gr_max;
+
+                            if (low_y < true_min_y) {
+                                true_min_y = low_y;
+                            }
+                            if (high_y > true_max_y) {
+                                true_max_y = high_y;
                             }
                         }
                     }
