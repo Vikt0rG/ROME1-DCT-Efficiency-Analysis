@@ -364,9 +364,10 @@ namespace PlotStyler {
 
         // Set axis ranges and labels
         if (mg && mg->GetHistogram()) {
+            double floor_limit = 4500.0; // Keep floor_limit in parent scope for both axes
+
             TAxis* xAxis = mg->GetHistogram()->GetXaxis();
             if (xAxis) {
-                double floor_limit = 4500.0;
                 double dynamic_lower_bound = floor_limit;
                 double dynamic_upper_bound = floor_limit;
 
@@ -376,26 +377,38 @@ namespace PlotStyler {
 
                     TIter next(mg->GetListOfGraphs());
                     TObject* gr_obj = nullptr;
+
                     while ((gr_obj = next())) {
                         auto* gr = dynamic_cast<TGraph*>(gr_obj);
                         if (gr && gr->GetN() > 0) {
-                            double gr_min = TMath::MinElement(gr->GetN(), gr->GetX());
-                            double gr_max = TMath::MaxElement(gr->GetN(), gr->GetX());
+                            int n_points = gr->GetN();
+                            double* x_vals = gr->GetX();
 
-                            if (gr_min > floor_limit && gr_min < true_min_x) {
-                                true_min_x = gr_min;
+                            for (int i = 0; i < n_points; ++i) {
+                                double x_val = x_vals[i];
+                                
+                                // Check each individual point against the floor limit
+                                if (x_val > floor_limit) {
+                                    if (x_val < true_min_x) {
+                                        true_min_x = x_val;
+                                    }
+                                    if (x_val > true_max_x) {
+                                        true_max_x = x_val;
+                                    }
+                                }
                             }
-                            if (gr_max > gr_min && gr_max > true_max_x) {
-                                true_max_x = gr_max;
-                            }
+                        } else if (gr) {
+                            std::cout << "  Graph: \"" << gr->GetName() << "\" <-- WARNING: Graph is empty (0 points)!" << std::endl;
                         }
                     }
 
-                    if (true_max_x < INT_MAX && true_min_x > INT_MIN) {
-                        double safety_buffer = (true_max_x - true_min_x) * 0.05;
+                    if (true_min_x < INT_MAX && true_max_x > INT_MIN && true_max_x >= true_min_x) {
+                        double safety_buffer = (true_max_x > true_min_x) ? (true_max_x - true_min_x) * 0.05 : 50.0; 
 
                         dynamic_lower_bound = true_min_x - safety_buffer;
                         dynamic_upper_bound = true_max_x + safety_buffer;
+                    } else {
+                        std::cout << "  -> WARNING: No valid points found above " << floor_limit << ". Falling back to default limits." << std::endl;
                     }
                 }
 
@@ -424,9 +437,15 @@ namespace PlotStyler {
                         auto* gr_asymm = dynamic_cast<TGraphAsymmErrors*>(gr);
 
                         int n_points = gr->GetN();
+                        double* x_vals = gr->GetX();
                         double* y_vals = gr->GetY();
 
                         for (int i = 0; i < n_points; ++i) {
+                            // Skip y-values for any high-voltage points below or equal to the floor
+                            if (x_vals && x_vals[i] <= floor_limit) {
+                                continue; 
+                            }
+
                             double val_y = y_vals[i];
                             double low_y = val_y;
                             double high_y = val_y;
@@ -449,7 +468,7 @@ namespace PlotStyler {
                         }
                     }
 
-                    if (true_max_y < INT_MAX && true_min_y > INT_MIN) {
+                    if (true_min_y < INT_MAX && true_max_y > INT_MIN && true_max_y > true_min_y) {
                         double safety_buffer = (true_max_y - true_min_y) * 0.05;
 
                         dynamic_ymin = std::max(true_min_y - safety_buffer, 0.0);
