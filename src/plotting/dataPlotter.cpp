@@ -190,7 +190,11 @@ void DataPlotter::produceSummaryPlots() {
                     const double x_value = (layer == scanned_layer_value) ? scanned_hv_value : other_hv_value;
                     layer_series[metric_name].x[layer].push_back(x_value);
                     layer_series[metric_name].y[layer].push_back(values[layer]);
-                    layer_series[metric_name].y_errors[layer].push_back(errors[layer]);
+
+                    double err_low = errors[2 * layer];
+                    double err_high = errors[2 * layer + 1];
+                    layer_series[metric_name].y_errors_low[layer].push_back(err_low);
+                    layer_series[metric_name].y_errors_high[layer].push_back(err_high);
                 }
             }
 
@@ -254,15 +258,18 @@ void DataPlotter::produceSummaryPlots() {
                 for (int layer = 0; layer < 3; ++layer) {
                     const auto& xs = series.x[layer];
                     const auto& ys = series.y[layer];
-                    const auto& y_errors = series.y_errors[layer];
+                    const auto& y_errors_low = series.y_errors_low[layer];
+                    const auto& y_errors_high = series.y_errors_high[layer];
                     if (xs.empty()) { continue; }
                     
-                    TGraphErrors* layer_graph = new TGraphErrors(
+                    TGraphAsymmErrors* layer_graph = new TGraphAsymmErrors(
                         static_cast<int>(xs.size()),
                         xs.data(), 
                         ys.data(),
                         nullptr,
-                        y_errors.data()
+                        nullptr,
+                        y_errors_low.data(),
+                        y_errors_high.data()
                     );
                     
                     // Name reflects the physical layer being recorded

@@ -20,7 +20,8 @@ namespace Utilities {
     struct LayerSeries {
         std::array<std::vector<double>, 3> x;
         std::array<std::vector<double>, 3> y;
-        std::array<std::vector<double>, 3> y_errors;
+        std::array<std::vector<double>, 3> y_errors_low;
+        std::array<std::vector<double>, 3> y_errors_high;
     };
     
     /// @brief Utility function to parse measurement entries from provided configuration paths

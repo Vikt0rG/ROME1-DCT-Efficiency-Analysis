@@ -535,37 +535,37 @@ void DataAnalyzer::produceSummaryStats() {
     summary_tree->Branch("eff_eta2_external", efficiency_results_summary.eta2_efficiency_external, "eff_eta2_external[3]/D");
     summary_tree->Branch("eff_or_external", efficiency_results_summary.eta_or_efficiency_external, "eff_or_external[3]/D");
     summary_tree->Branch("eff_and_external", efficiency_results_summary.eta_and_efficiency_external, "eff_and_external[3]/D");
-    summary_tree->Branch("eff_eta1_external_error", efficiency_results_summary.eta1_efficiency_external_error, "eff_eta1_external_error[3]/D");
-    summary_tree->Branch("eff_eta2_external_error", efficiency_results_summary.eta2_efficiency_external_error, "eff_eta2_external_error[3]/D");
-    summary_tree->Branch("eff_or_external_error", efficiency_results_summary.eta_or_efficiency_external_error, "eff_or_external_error[3]/D");
-    summary_tree->Branch("eff_and_external_error", efficiency_results_summary.eta_and_efficiency_external_error, "eff_and_external_error[3]/D");
+    summary_tree->Branch("eff_eta1_external_error", efficiency_results_summary.eta1_efficiency_external_error, "eff_eta1_external_error[6]/D");
+    summary_tree->Branch("eff_eta2_external_error", efficiency_results_summary.eta2_efficiency_external_error, "eff_eta2_external_error[6]/D");
+    summary_tree->Branch("eff_or_external_error", efficiency_results_summary.eta_or_efficiency_external_error, "eff_or_external_error[6]/D");
+    summary_tree->Branch("eff_and_external_error", efficiency_results_summary.eta_and_efficiency_external_error, "eff_and_external_error[6]/D");
 
     summary_tree->Branch("eff_eta1_rpc", efficiency_results_summary.eta1_efficiency_rpc, "eff_eta1_rpc[3]/D");
     summary_tree->Branch("eff_eta2_rpc", efficiency_results_summary.eta2_efficiency_rpc, "eff_eta2_rpc[3]/D");
     summary_tree->Branch("eff_or_rpc", efficiency_results_summary.eta_or_efficiency_rpc, "eff_or_rpc[3]/D");
     summary_tree->Branch("eff_and_rpc", efficiency_results_summary.eta_and_efficiency_rpc, "eff_and_rpc[3]/D");
-    summary_tree->Branch("eff_eta1_rpc_error", efficiency_results_summary.eta1_efficiency_rpc_error, "eff_eta1_rpc_error[3]/D");
-    summary_tree->Branch("eff_eta2_rpc_error", efficiency_results_summary.eta2_efficiency_rpc_error, "eff_eta2_rpc_error[3]/D");
-    summary_tree->Branch("eff_or_rpc_error", efficiency_results_summary.eta_or_efficiency_rpc_error, "eff_or_rpc_error[3]/D");
-    summary_tree->Branch("eff_and_rpc_error", efficiency_results_summary.eta_and_efficiency_rpc_error, "eff_and_rpc_error[3]/D");
+    summary_tree->Branch("eff_eta1_rpc_error", efficiency_results_summary.eta1_efficiency_rpc_error, "eff_eta1_rpc_error[6]/D");
+    summary_tree->Branch("eff_eta2_rpc_error", efficiency_results_summary.eta2_efficiency_rpc_error, "eff_eta2_rpc_error[6]/D");
+    summary_tree->Branch("eff_or_rpc_error", efficiency_results_summary.eta_or_efficiency_rpc_error, "eff_or_rpc_error[6]/D");
+    summary_tree->Branch("eff_and_rpc_error", efficiency_results_summary.eta_and_efficiency_rpc_error, "eff_and_rpc_error[6]/D");
 
     summary_tree->Branch("track_eff_eta1_external", efficiency_results_track_summary.eta1_efficiency_external, "track_eff_eta1_external[3]/D");
     summary_tree->Branch("track_eff_eta2_external", efficiency_results_track_summary.eta2_efficiency_external, "track_eff_eta2_external[3]/D");
     summary_tree->Branch("track_eff_or_external", efficiency_results_track_summary.eta_or_efficiency_external, "track_eff_or_external[3]/D");
     summary_tree->Branch("track_eff_and_external", efficiency_results_track_summary.eta_and_efficiency_external, "track_eff_and_external[3]/D");
-    summary_tree->Branch("track_eff_eta1_external_error", efficiency_results_track_summary.eta1_efficiency_external_error, "track_eff_eta1_external_error[3]/D");
-    summary_tree->Branch("track_eff_eta2_external_error", efficiency_results_track_summary.eta2_efficiency_external_error, "track_eff_eta2_external_error[3]/D");
-    summary_tree->Branch("track_eff_or_external_error", efficiency_results_track_summary.eta_or_efficiency_external_error, "track_eff_or_external_error[3]/D");
-    summary_tree->Branch("track_eff_and_external_error", efficiency_results_track_summary.eta_and_efficiency_external_error, "track_eff_and_external_error[3]/D");
+    summary_tree->Branch("track_eff_eta1_external_error", efficiency_results_track_summary.eta1_efficiency_external_error, "track_eff_eta1_external_error[6]/D");
+    summary_tree->Branch("track_eff_eta2_external_error", efficiency_results_track_summary.eta2_efficiency_external_error, "track_eff_eta2_external_error[6]/D");
+    summary_tree->Branch("track_eff_or_external_error", efficiency_results_track_summary.eta_or_efficiency_external_error, "track_eff_or_external_error[6]/D");
+    summary_tree->Branch("track_eff_and_external_error", efficiency_results_track_summary.eta_and_efficiency_external_error, "track_eff_and_external_error[6]/D");
 
     summary_tree->Branch("track_eff_eta1_rpc", efficiency_results_track_summary.eta1_efficiency_rpc, "track_eff_eta1_rpc[3]/D");
     summary_tree->Branch("track_eff_eta2_rpc", efficiency_results_track_summary.eta2_efficiency_rpc, "track_eff_eta2_rpc[3]/D");
     summary_tree->Branch("track_eff_or_rpc", efficiency_results_track_summary.eta_or_efficiency_rpc, "track_eff_or_rpc[3]/D");
     summary_tree->Branch("track_eff_and_rpc", efficiency_results_track_summary.eta_and_efficiency_rpc, "track_eff_and_rpc[3]/D");
-    summary_tree->Branch("track_eff_eta1_rpc_error", efficiency_results_track_summary.eta1_efficiency_rpc_error, "track_eff_eta1_rpc_error[3]/D");
-    summary_tree->Branch("track_eff_eta2_rpc_error", efficiency_results_track_summary.eta2_efficiency_rpc_error, "track_eff_eta2_rpc_error[3]/D");
-    summary_tree->Branch("track_eff_or_rpc_error", efficiency_results_track_summary.eta_or_efficiency_rpc_error, "track_eff_or_rpc_error[3]/D");
-    summary_tree->Branch("track_eff_and_rpc_error", efficiency_results_track_summary.eta_and_efficiency_rpc_error, "track_eff_and_rpc_error[3]/D");
+    summary_tree->Branch("track_eff_eta1_rpc_error", efficiency_results_track_summary.eta1_efficiency_rpc_error, "track_eff_eta1_rpc_error[6]/D");
+    summary_tree->Branch("track_eff_eta2_rpc_error", efficiency_results_track_summary.eta2_efficiency_rpc_error, "track_eff_eta2_rpc_error[6]/D");
+    summary_tree->Branch("track_eff_or_rpc_error", efficiency_results_track_summary.eta_or_efficiency_rpc_error, "track_eff_or_rpc_error[6]/D");
+    summary_tree->Branch("track_eff_and_rpc_error", efficiency_results_track_summary.eta_and_efficiency_rpc_error, "track_eff_and_rpc_error[6]/D");
 
     summary_tree->Branch("avg_cluster_size_eta1", &cluster_size_results_summary.avg_cluster_size_eta1);
     summary_tree->Branch("avg_cluster_size_eta2", &cluster_size_results_summary.avg_cluster_size_eta2);
@@ -573,15 +573,15 @@ void DataAnalyzer::produceSummaryStats() {
     summary_tree->Branch("avg_cluster_size_eta2_layers", cluster_size_results_summary.avg_cluster_size_eta2_layers, "avg_cluster_size_eta2_layers[3]/D");
     summary_tree->Branch("avg_cluster_size_eta1_error", &cluster_size_results_summary.avg_cluster_size_eta1_error, "avg_cluster_size_eta1_error[2]/D");
     summary_tree->Branch("avg_cluster_size_eta2_error", &cluster_size_results_summary.avg_cluster_size_eta2_error, "avg_cluster_size_eta2_error[2]/D");
-    summary_tree->Branch("avg_cluster_size_eta1_layers_error", cluster_size_results_summary.avg_cluster_size_eta1_layers_error, "avg_cluster_size_eta1_layers_error[3]/D");
-    summary_tree->Branch("avg_cluster_size_eta2_layers_error", cluster_size_results_summary.avg_cluster_size_eta2_layers_error, "avg_cluster_size_eta2_layers_error[3]/D");
+    summary_tree->Branch("avg_cluster_size_eta1_layers_error", cluster_size_results_summary.avg_cluster_size_eta1_layers_error, "avg_cluster_size_eta1_layers_error[6]/D");
+    summary_tree->Branch("avg_cluster_size_eta2_layers_error", cluster_size_results_summary.avg_cluster_size_eta2_layers_error, "avg_cluster_size_eta2_layers_error[6]/D");
 
     summary_tree->Branch("noise_rate", &noise_rate_results_summary.noise_rate);
     summary_tree->Branch("noise_rate_eta1", noise_rate_results_summary.noise_rate_eta1, "noise_rate_eta1[3]/D");
     summary_tree->Branch("noise_rate_eta2", noise_rate_results_summary.noise_rate_eta2, "noise_rate_eta2[3]/D");
-    summary_tree->Branch("noise_rate_error", &noise_rate_results_summary.noise_rate_error, "noise_rate_error[3]/D");
-    summary_tree->Branch("noise_rate_eta1_error", noise_rate_results_summary.noise_rate_eta1_error, "noise_rate_eta1_error[3]/D");
-    summary_tree->Branch("noise_rate_eta2_error", noise_rate_results_summary.noise_rate_eta2_error, "noise_rate_eta2_error[3]/D");
+    summary_tree->Branch("noise_rate_error", &noise_rate_results_summary.noise_rate_error, "noise_rate_error[2]/D");
+    summary_tree->Branch("noise_rate_eta1_error", noise_rate_results_summary.noise_rate_eta1_error, "noise_rate_eta1_error[6]/D");
+    summary_tree->Branch("noise_rate_eta2_error", noise_rate_results_summary.noise_rate_eta2_error, "noise_rate_eta2_error[6]/D");
 
     // Process each measurement entry in this config file
     for (const auto& metadata_entry : scan.metadata) {
