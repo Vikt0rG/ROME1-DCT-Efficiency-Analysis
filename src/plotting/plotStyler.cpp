@@ -17,6 +17,7 @@
 #include <TLatex.h>
 #include <TLegend.h>
 #include <TStyle.h>
+#include <TLine.h>
 #include <TColor.h>
 #include <TVirtualPad.h>
 #include <TMath.h>
@@ -148,67 +149,67 @@ namespace PlotStyler {
         }
 
         void drawATLASLegend(TObject* obj, double x_left, double y_top) {
-        if (!obj || !gPad) return;
+            if (!obj || !gPad) return;
 
-        TList* items_list = nullptr;
-        bool is_graph = false;
-        bool is_stack = false;
+            TList* items_list = nullptr;
+            bool is_graph = false;
+            bool is_stack = false;
 
-        // Check what container type we have
-        if (auto* mg = dynamic_cast<TMultiGraph*>(obj)) {
-            items_list = mg->GetListOfGraphs();
-            is_graph = true;
-        } else if (auto* stack = dynamic_cast<THStack*>(obj)) {
-            items_list = stack->GetHists();
-            is_stack = true;
-        }
-
-        if (!items_list || items_list->GetSize() == 0) return;
-
-        double left_margin = gPad->GetLeftMargin();
-        double top_margin = gPad->GetTopMargin();
-
-        double final_x_left = left_margin + x_left;
-        double final_y_top = (1.0 - top_margin) - y_top;
-
-        double entry_height = 0.04; 
-        double total_height = items_list->GetSize() * entry_height;
-        double final_x_right = final_x_left + 0.25;
-        double final_y_bottom = final_y_top - total_height;
-
-        TLegend* leg = new TLegend(final_x_left, final_y_bottom, final_x_right, final_y_top);
-        leg->SetBorderSize(0);
-        leg->SetFillStyle(0);
-        leg->SetTextFont(42);
-        leg->SetTextSize(0.04);
-
-        TIter next_item(items_list);
-        TObject* child = nullptr;
-
-        while ((child = next_item())) {
-            std::string name = child->GetName();
-            std::string label = child->GetTitle(); // Use the object's configured title by default
-
-            // Fallback parsers for cleaner labels if titles aren't pretty
-            if (is_graph) {
-                if (name.find("layer0") != std::string::npos) label = "Layer 0";
-                else if (name.find("layer1") != std::string::npos) label = "Layer 1";
-                else if (name.find("layer2") != std::string::npos) label = "Layer 2";
-
-                // Graphs get Points + Error Bars marker style
-                leg->AddEntry(child, label.c_str(), "pe");
-            } 
-            else if (is_stack) {
-                if (name.find("tot_eta1") != std::string::npos) label = "#eta1 Side";
-                else if (name.find("tot_eta2") != std::string::npos) label = "#eta2 Side";
-                
-                // Filled histograms get Line + Fill box style
-                leg->AddEntry(child, label.c_str(), "lf");
+            // Check what container type we have
+            if (auto* mg = dynamic_cast<TMultiGraph*>(obj)) {
+                items_list = mg->GetListOfGraphs();
+                is_graph = true;
+            } else if (auto* stack = dynamic_cast<THStack*>(obj)) {
+                items_list = stack->GetHists();
+                is_stack = true;
             }
-        }
 
-        leg->Draw();
-    }
+            if (!items_list || items_list->GetSize() == 0) return;
+
+            double left_margin = gPad->GetLeftMargin();
+            double top_margin = gPad->GetTopMargin();
+
+            double final_x_left = left_margin + x_left;
+            double final_y_top = (1.0 - top_margin) - y_top;
+
+            double entry_height = 0.04; 
+            double total_height = items_list->GetSize() * entry_height;
+            double final_x_right = final_x_left + 0.25;
+            double final_y_bottom = final_y_top - total_height;
+
+            TLegend* leg = new TLegend(final_x_left, final_y_bottom, final_x_right, final_y_top);
+            leg->SetBorderSize(0);
+            leg->SetFillStyle(0);
+            leg->SetTextFont(42);
+            leg->SetTextSize(0.04);
+
+            TIter next_item(items_list);
+            TObject* child = nullptr;
+
+            while ((child = next_item())) {
+                std::string name = child->GetName();
+                std::string label = child->GetTitle(); // Use the object's configured title by default
+
+                // Fallback parsers for cleaner labels if titles aren't pretty
+                if (is_graph) {
+                    if (name.find("layer0") != std::string::npos) label = "Layer 0";
+                    else if (name.find("layer1") != std::string::npos) label = "Layer 1";
+                    else if (name.find("layer2") != std::string::npos) label = "Layer 2";
+
+                    // Graphs get Points + Error Bars marker style
+                    leg->AddEntry(child, label.c_str(), "pe");
+                } 
+                else if (is_stack) {
+                    if (name.find("tot_eta1") != std::string::npos) label = "#eta1 Side";
+                    else if (name.find("tot_eta2") != std::string::npos) label = "#eta2 Side";
+                    
+                    // Filled histograms get Line + Fill box style
+                    leg->AddEntry(child, label.c_str(), "f");
+                }
+            }
+
+            leg->Draw();
+        }
 
         void adjustDynamicCB(TH2* h2, TPad* pad) {
             if (!h2 || !pad) return;
@@ -245,6 +246,10 @@ namespace PlotStyler {
             TAxis* zAxis = nullptr;
 
             gStyle->SetOptTitle(0);
+            gStyle->SetOptStat(0);
+
+            // Custom dash lines: dash/gap/dot/gap
+            gStyle->SetLineStyleString(11, "48 24");
 
             if (gPad) {
                 gPad->SetTickx(1); // 1 = Draw ticks on top side
@@ -256,7 +261,6 @@ namespace PlotStyler {
                 xAxis = h2->GetXaxis();
                 yAxis = h2->GetYaxis();
                 zAxis = h2->GetZaxis();
-                h2->SetStats(0);
                 adjustDynamicCB(h2, pad); // Adjust color bar dynamically based on max value
             } else if (auto h = dynamic_cast<TH1*>(obj)) {
                 xAxis = h->GetXaxis();
@@ -265,7 +269,6 @@ namespace PlotStyler {
                 h->SetMarkerSize(1.0);
                 h->SetLineColor(kBlack);
                 h->SetLineWidth(2);
-                h->SetStats(0);
             } else if (auto stack = dynamic_cast<THStack*>(obj)) {
                 TH1* frame = stack->GetHistogram();
                 if (frame) {
@@ -511,51 +514,165 @@ namespace PlotStyler {
     }
 
     void styleToTCombinedDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
-        canvas->SetLeftMargin(0.16);
-        canvas->SetRightMargin(0.05);
-        canvas->SetTopMargin(0.05);
-        canvas->SetBottomMargin(0.14);
-
         auto stack = dynamic_cast<THStack*>(obj);
         if (!stack) return;
 
         TList* hist_list = stack->GetHists();
-        if (hist_list) {
-            TIter next(hist_list);
-            TH1* hist = nullptr;
-            int index = 0;
+        if (!hist_list || hist_list->GetSize() < 2) return; // We need at least 2 histograms to compute a ratio
 
-            while ((hist = static_cast<TH1*>(next()))) {
-                Color_t base_color = (index == 0) ? kBlue - 2 : kOrange + 6;
+        canvas->SetWindowSize(800, 840);
+        canvas->SetCanvasSize(800, 840);
 
-                // Sharp solid outline
-                hist->SetLineColor(base_color);
-                hist->SetLineWidth(2);
-                hist->SetLineStyle(1);
+        // Create the Top and Bottom Pads (Ratio Layout)
+        canvas->cd();
+        
+        // Top Pad: Occupies upper 70% of the canvas
+        TPad* pad1 = new TPad("pad1", "pad1", 0.0, 0.30, 1.0, 1.0);
+        pad1->SetLeftMargin(0.16);
+        pad1->SetRightMargin(0.05);
+        pad1->SetTopMargin(0.07);
+        pad1->SetBottomMargin(0.03);
+        pad1->Draw();
 
-                // Matching partially transparent fill (30% opacity)
-                Int_t trans_color = TColor::GetColorTransparent(base_color, 0.30);
-                hist->SetFillColor(trans_color);
-                hist->SetFillStyle(1001);
+        // Bottom Pad: Occupies lower 30% of the canvas
+        TPad* pad2 = new TPad("pad2", "pad2", 0.0, 0.0, 1.0, 0.30);
+        pad2->SetLeftMargin(0.16);
+        pad2->SetRightMargin(0.05);
+        pad2->SetTopMargin(0.05);
+        pad2->SetBottomMargin(0.35);
+        pad2->SetTicks(1, 1);
+        pad2->Draw();
 
-                index++;
-            }
+        // Style & Extract Histograms from Stack
+        std::vector<std::pair<double, Color_t>> mean_line_data;
+        TH1* h1 = nullptr;
+        TH1* h2 = nullptr;
+
+        TIter next(hist_list);
+        TH1* hist = nullptr;
+        int index = 0;
+
+        while ((hist = static_cast<TH1*>(next()))) {
+            Color_t base_color = (index == 0) ? kBlue - 2 : kRed - 3;
+            mean_line_data.push_back({hist->GetMean(), base_color});
+
+            // Store references to the first two histograms for our ratio
+            if (index == 0) h1 = hist;
+            if (index == 1) h2 = hist;
+
+            // Apply standard styling
+            hist->SetLineColor(base_color);
+            hist->SetLineWidth(2);
+            hist->SetLineStyle(1);
+
+            Int_t trans_color = TColor::GetColorTransparent(base_color, 0.30);
+            hist->SetFillColor(trans_color);
+            hist->SetFillStyle(1001);
+
+            index++;
         }
+
+        // Draw Top Pad (Main Stack Distributions)
+        pad1->cd();
+        applyATLASStyle(obj, pad1);
         stack->Draw("nostack hist");
 
-        if (stack->GetXaxis()) stack->GetXaxis()->SetTitle("ToT [Ticks]");
-        if (stack->GetYaxis()) stack->GetYaxis()->SetTitle("Hits");
+        // Remove X-axis labels/titles from the top plot to avoid overlaps
+        if (stack->GetXaxis()) {
+            stack->GetXaxis()->SetLabelSize(0);
+            stack->GetXaxis()->SetTitleSize(0);
+        }
+        if (stack->GetYaxis()) {
+            stack->GetYaxis()->SetTitle("Hits");
+            stack->GetYaxis()->SetTitleSize(0.06);
+            stack->GetYaxis()->SetLabelSize(0.05);
+            stack->GetYaxis()->SetTitleOffset(1.2);
+        }
 
-        applyATLASStyle(obj, canvas);
+        pad1->Modified();
+        pad1->Update();
 
+        // Draw Vertical Mean Lines on Top Pad
+        double y_min = pad1->GetUymin();
+        double y_max = pad1->GetUymax();
+        for (const auto& data : mean_line_data) {
+            double mean_x = data.first;
+            Color_t color = data.second;
+
+            TLine* mean_line = new TLine(mean_x, y_min, mean_x, y_max);
+            mean_line->SetLineColor(color);
+            mean_line->SetLineWidth(2);
+            mean_line->SetLineStyle(11);
+            mean_line->Draw();
+        }
+
+        drawATLASLabel(0.42, 0.07, "Work in Progress");
+        bool title_drawn = drawPlotTitle(obj, 0.42, 0.12);
+        drawATLASLegend(obj, 0.42, title_drawn ? 0.17 : 0.12);
+
+        // Calculate & Draw Bottom Pad (Ratio Plot)
+        pad2->cd();
+
+        // Clone h1 to preserve properties, then divide by h2
+        TH1* h_ratio = static_cast<TH1*>(h1->Clone("h_ratio"));
+        h_ratio->SetDirectory(nullptr);
+        h_ratio->Reset();
+        h_ratio->Divide(h1, h2, 1.0, 1.0, "B"); // "B" uses binomial errors
+
+        // Stylize Ratio Histogram
+        h_ratio->SetLineColor(kBlack);
+        h_ratio->SetLineWidth(2);
+        h_ratio->SetMarkerStyle(20);
+        h_ratio->SetMarkerSize(0.8);
+        h_ratio->SetFillStyle(0);
+
+        h_ratio->Draw("ep"); // Draw with error bars and points
+
+        TAxis* rx = h_ratio->GetXaxis();
+        TAxis* ry = h_ratio->GetYaxis();
+
+        if (rx) {
+            rx->SetTitle("ToT [Ticks]");
+            rx->SetTitleFont(42);
+            rx->SetTitleSize(0.14);  // Scaled up for small pad height
+            rx->SetTitleOffset(1.0);
+
+            rx->SetLabelFont(42);
+            rx->SetLabelSize(0.11);
+
+            rx->SetNdivisions(505);
+            rx->SetTickLength(0.06);
+        }
+
+        if (ry) {
+            ry->SetTitle("#eta1 / #eta2");
+            ry->SetTitleFont(42);
+            ry->SetLabelFont(42);
+            ry->SetTitleSize(0.14);
+            ry->SetLabelSize(0.11);
+            ry->SetTitleOffset(0.50);
+
+            ry->SetNdivisions(505);
+
+            h_ratio->SetMinimum(0.0); 
+            h_ratio->SetMaximum(2.0);
+        }
+
+        // Draw a dashed reference line at Y = 1.0
+        double x_min_val = rx ? rx->GetXmin() : 0;
+        double x_max_val = rx ? rx->GetXmax() : 100;
+        TLine* line_one = new TLine(x_min_val, 1.0, x_max_val, 1.0);
+        line_one->SetLineColor(kGray+2);
+        line_one->SetLineStyle(2);
+        line_one->SetLineWidth(1);
+        line_one->Draw();
+
+        pad2->Modified();
+        pad2->Update();
+
+        canvas->cd();
         canvas->Modified();
         canvas->Update();
-
-        drawATLASLabel(0.46, 0.07, "Work in Progress");
-        bool title_drawn = drawPlotTitle(obj, 0.46, 0.12);
-
-        // Draw the newly adjusted general legend
-        drawATLASLegend(obj, 0.46, title_drawn ? 0.17 : 0.12);
     }
 
     void styleDefaultPlot(TObject* obj, TCanvas* canvas, TClass* cl) {
@@ -563,12 +680,6 @@ namespace PlotStyler {
         canvas->SetRightMargin(cl->InheritsFrom(TH2::Class()) ? 0.14 : 0.05);
         canvas->SetTopMargin(0.06);
         canvas->SetBottomMargin(0.14);
-
-        if (auto gr = dynamic_cast<TGraph*>(obj)) {
-            if (gr->GetHistogram()) {
-                gr->GetHistogram()->SetStats(0);
-            }
-        }
 
         if (cl->InheritsFrom(TH2::Class())) {
             obj->Draw("COLZ");
