@@ -145,7 +145,6 @@ void plotToT(TFile* input_file) {
             
             if ((*raw_time1)[i] != 0) strip_histograms["tot_eta1"][layer]->Fill(tot1_value);
             if ((*raw_time2)[i] != 0) strip_histograms["tot_eta2"][layer]->Fill(tot2_value);
-            if ((*raw_time1)[i] != 0 && (*raw_time2)[i] != 0) strip_histograms["tot_combined"][layer]->Fill((*tot1)[i] + (*tot2)[i]);
         }
     }
 
