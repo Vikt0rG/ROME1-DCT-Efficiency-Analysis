@@ -86,10 +86,10 @@ namespace PlotStyler {
     namespace ATLASStyler {
 
         const std::vector<Color_t> ATLAS_PALETTE = {
-            kAzure + 1,    // Sharp Blue
-            kRed + 1,      // Deep Red
-            kGreen + 2,    // Dark Green
-            kOrange + 7    // Burnt Orange
+            static_cast<Color_t>(TColor::GetColor("#144d92")),    // Sharp Blue
+            static_cast<Color_t>(TColor::GetColor("#CF4446")),    // Deep Red
+            static_cast<Color_t>(TColor::GetColor("#1a8f3f")),    // Dark Green
+            static_cast<Color_t>(TColor::GetColor("#e28843"))     // Burnt Orange
         };
 
         void drawATLASLabel(double x_left, double y_top, const std::string& status) {
