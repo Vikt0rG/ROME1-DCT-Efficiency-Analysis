@@ -9,6 +9,8 @@
 #include <TDirectory.h>
 #include <TFile.h>
 
+#include "core/constants.hpp"
+
 // ==========================================================================================
 // Utility namespaces for time conversions, path management, and ROOT file handling
 // ==========================================================================================
@@ -17,6 +19,13 @@
 namespace TimeUtils {
 inline int convertRawTimeToPhysical(int raw_time, int bcid) {
     return raw_time != 0 ? bcid * 30 + raw_time - 1 : -1;
+}
+
+/// @brief Convert time ticks to physical time in nanoseconds
+/// @param time_ticks The time in ticks to be converted
+/// @return The physical time in nanoseconds
+inline double ticksToTime(int& time_ticks) {
+    return time_ticks * TIME_TICK_NS;
 }
 }
 
