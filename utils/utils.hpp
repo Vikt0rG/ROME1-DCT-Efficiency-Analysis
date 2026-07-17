@@ -17,6 +17,11 @@
 /// @namespace TimeUtils
 /// @brief Namespace for utility functions related to time conversions and calculations
 namespace TimeUtils {
+
+/// @brief Convert raw time and BCID to physical time in nanoseconds
+/// @param raw_time The raw time value to be converted
+/// @param bcid The BCID (Bunch Crossing ID) associated with the raw time
+/// @return The physical time in nanoseconds, or -1 if raw_time is 0
 inline int convertRawTimeToPhysical(int raw_time, int bcid) {
     return raw_time != 0 ? bcid * 30 + raw_time - 1 : -1;
 }
