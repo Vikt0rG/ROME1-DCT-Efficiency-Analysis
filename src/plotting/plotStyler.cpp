@@ -22,6 +22,7 @@
 #include <TMath.h>
 
 #include "plotting/plotStyler.hpp"
+#include "core/constants.hpp"
 
 namespace PlotterHelpers {
 namespace PlotStyler {
@@ -453,7 +454,7 @@ namespace PlotStyler {
 
             if (alpha < 1.0) {
                 box->SetFillColorAlpha(color, alpha);
-                box->SetLineColorAlpha(color, alpha); 
+                box->SetLineColorAlpha(color, alpha);
             } else {
                 box->SetFillColor(color);
                 box->SetLineColor(color);
@@ -462,7 +463,7 @@ namespace PlotStyler {
             box->SetLineWidth(line_width);
 
             box->Draw("same");
-            
+
             canvas->Modified();
             canvas->Update();
         }
@@ -623,10 +624,13 @@ namespace PlotStyler {
         canvas->Modified();
         canvas->Update();
 
-        drawATLASLabel(0.05, 0.07, "Work in Progress");
-        bool title_drawn = drawPlotTitle(obj, 0.05, 0.12);
+        float start_x = 0.21;
+        float start_y = 0.85;
+        float offset_y = 0.04;
+        drawATLASLabel(start_x, start_y, "Work in Progress");
+        bool title_drawn = drawPlotTitle(obj, start_x, start_y - offset_y);
 
-        drawATLASLegend(obj, 0.05, title_drawn ? 0.17 : 0.12);
+        drawATLASLegend(obj, start_x, title_drawn ? start_y - 2 * offset_y : start_y - offset_y, 13);
     }
 
     void styleStripDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
@@ -652,8 +656,8 @@ namespace PlotStyler {
         canvas->Modified();
         canvas->Update();
 
-        drawATLASLabel(0.05, 0.07, "Work in Progress");
-        drawPlotTitle(obj, 0.05, 0.12);
+        drawATLASLabel(0.21, 0.86, "Work in Progress");
+        drawPlotTitle(obj, 0.21, 0.82);
     }
 
     void styleToTDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
@@ -678,8 +682,8 @@ namespace PlotStyler {
         canvas->Modified();
         canvas->Update();
 
-        drawATLASLabel(0.46, 0.07, "Work in Progress");
-        drawPlotTitle(obj, 0.46, 0.12);
+        drawATLASLabel(0.90, 0.90, "Work in Progress", 33);
+        drawPlotTitle(obj, 0.90, 0.86, 33);
     }
 
     void styleToTCombinedDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
@@ -761,9 +765,14 @@ namespace PlotStyler {
         pad1->Modified();
         pad1->Update();
 
-        // Draw Vertical Mean Lines on Top Pad
+        double x_max = pad1->GetUxmax();
         double y_min = pad1->GetUymin();
         double y_max = pad1->GetUymax();
+
+        Objects::line(pad1, TOT_ROI_MAX, TOT_ROI_MAX, y_min, y_max, kBlack, 9, 1);
+        Objects::hatchedRegion(pad1, TOT_ROI_MAX, x_max, y_min, y_max, 3244);
+
+        // Draw Vertical Mean Lines on Top Pad
         for (const auto& data : mean_line_data) {
             double mean_x = data.first;
             Color_t color = data.second;
@@ -775,9 +784,50 @@ namespace PlotStyler {
             mean_line->Draw();
         }
 
-        drawATLASLabel(0.42, 0.07, "Work in Progress");
-        bool title_drawn = drawPlotTitle(obj, 0.42, 0.12);
-        drawATLASLegend(obj, 0.42, title_drawn ? 0.17 : 0.12);
+        // Draw ATLAS Label, Plot Title, and Legend on Top Pad
+        float start_x = 0.92f;
+        float start_y = 0.85f;
+        float offset_y = 0.04f;
+        float padding = 0.02f;
+
+        auto atlas_labels = drawATLASLabel(start_x, start_y, "Work in Progress", 33);
+
+        float title_y = start_y - offset_y;
+        auto title_latex = drawPlotTitle(obj, start_x, title_y, 33);
+
+        // Calculate horizontal width
+        float logo_width = 0.0f;
+        float logo_height = 0.0f;
+        for (auto* l : atlas_labels) {
+            auto [w, h] = Objects::getTextSizeNDC(l);
+            logo_width += w;
+            logo_height = std::max(logo_height, h);
+        }
+
+        auto [title_width, title_height] = Objects::getTextSizeNDC(title_latex);
+
+        float max_width = std::max(logo_width, title_width);
+
+        // Calculate vertical bounds (Y coordinates)
+        // Top boundary: start_y is the top of the ATLAS label
+        float box_y_end = start_y + padding;
+
+        // Bottom boundary: Start from the lowest label's Y position and subtract its text height
+        float lowest_text_y = title_latex ? title_y : start_y;
+        float lowest_text_h = title_latex ? title_height : logo_height;
+        float box_y_start   = (lowest_text_y - lowest_text_h) - padding;
+
+        // Horizontal boundaries
+        float box_x_start = start_x - max_width - padding;
+        float box_x_end   = start_x + padding;
+
+        Objects::box(pad1, box_x_start, box_x_end, box_y_start, box_y_end, kWhite, 0.70f, 2, 1, kBlack, 1.0f);
+
+        // Redraw labels so they sit cleanly on top of the semi-transparent box
+        for (auto* l : atlas_labels) if (l) l->Draw();
+        if (title_latex) title_latex->Draw();
+
+        drawATLASLegend(obj, start_x, title_latex ? start_y - 3 * offset_y : start_y - offset_y, 33);
 
         // Calculate & Draw Bottom Pad (Ratio Plot)
         pad2->cd();
@@ -790,6 +840,7 @@ namespace PlotStyler {
 
         // Stylize Ratio Histogram
         h_ratio->SetLineColor(kBlack);
+        h_ratio->SetMarkerColor(kBlack);
         h_ratio->SetLineWidth(2);
         h_ratio->SetMarkerStyle(20);
         h_ratio->SetMarkerSize(0.8);
@@ -801,7 +852,7 @@ namespace PlotStyler {
         TAxis* ry = h_ratio->GetYaxis();
 
         if (rx) {
-            rx->SetTitle("ToT [Ticks]");
+            rx->SetTitle("ToT [ns]");
             rx->SetTitleFont(42);
             rx->SetTitleSize(0.14);  // Scaled up for small pad height
             rx->SetTitleOffset(1.0);
@@ -828,13 +879,9 @@ namespace PlotStyler {
         }
 
         // Draw a dashed reference line at Y = 1.0
-        double x_min_val = rx ? rx->GetXmin() : 0;
-        double x_max_val = rx ? rx->GetXmax() : 100;
-        TLine* line_one = new TLine(x_min_val, 1.0, x_max_val, 1.0);
-        line_one->SetLineColor(kGray+2);
-        line_one->SetLineStyle(2);
-        line_one->SetLineWidth(1);
-        line_one->Draw();
+        double x_min_pad2 = rx ? rx->GetXmin() : 0;
+        double x_max_pad2 = rx ? rx->GetXmax() : 100;
+        Objects::line(pad2, x_min_pad2, x_max_pad2, 1.0, 1.0, kGray+2, 2, 1);
 
         pad2->Modified();
         pad2->Update();
@@ -868,11 +915,14 @@ namespace PlotStyler {
         canvas->Modified();
         canvas->Update();
 
-        drawATLASLabel(0.05, 0.07, "Work in Progress");
-        bool title_drawn = drawPlotTitle(obj, 0.05, 0.12);
+        float start_x = 0.21;
+        float start_y = 0.86;
+        float offset_y = 0.04;
+        drawATLASLabel(start_x, start_y, "Work in Progress", 11);
+        bool title_drawn = drawPlotTitle(obj, start_x, start_y - offset_y, 11);
 
         if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
-            drawATLASLegend(mg, 0.05, title_drawn ? 0.17 : 0.12);
+            drawATLASLegend(mg, start_x, title_drawn ? start_y - 2 * offset_y : start_y - offset_y, 11);
         }
     }
 
