@@ -63,20 +63,28 @@ namespace PlotStyler {
         /// @param x_offset The horizontal offset for the label position
         /// @param y_offset The vertical offset for the label position
         /// @param status The status text to display (e.g., "Work in Progress")
-        void drawATLASLabel(double x_offset, double y_offset, const std::string& status);
+        /// @param alignment The text alignment for the label (default: 11 for left-aligned;
+        /// options: 11, 12, 13 for left-aligned; 21, 22, 23 for center-aligned; 31, 32, 33
+        /// for right-aligned)
+        /// @return A vector of TLatex pointers representing the drawn label components
+        std::vector<TLatex*> drawATLASLabel(float x_offset, float y_offset,
+            const std::string& status, short alignment);
 
         /// @brief Helper function to draw a title on a plot
         /// @param obj The ROOT object (e.g., TGraph, TH1) to which the title will be applied
         /// @param x_offset The horizontal offset for the title position
         /// @param y_offset The vertical offset for the title position
-        /// @return A boolean indicating whether the title was successfully drawn
-        bool drawPlotTitle(TObject* obj, double x_offset, double y_offset);
+        /// @param alignment The text alignment for the title (default: 11 for left-aligned)
+        /// @return A pointer to the created TLatex object, or nullptr if no title was drawn
+        TLatex* drawPlotTitle(TObject* obj, float x_offset, float y_offset, short alignment);
 
         /// @brief Helper function to draw a legend on a plot
         /// @param obj A pointer to the ROOT object for which the legend will be drawn
         /// @param x_offset The horizontal offset for the legend position
         /// @param y_offset The vertical offset for the legend position
-        void drawATLASLegend(TObject* obj, double x_offset, double y_offset);
+        /// @param alignment The text alignment for the legend (default: 11 for left-aligned)
+        /// @return A pointer to the created TLegend object, or nullptr if no legend was drawn
+        TLegend* drawATLASLegend(TObject* obj, float x_offset, float y_offset, short alignment);
 
         /// @brief Helper function to adjust the color bar of a 2D histogram dynamically
         /// based on the maximum value in the histogram

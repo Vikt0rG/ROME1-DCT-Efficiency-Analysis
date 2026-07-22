@@ -91,70 +91,92 @@ namespace PlotStyler {
             static_cast<Color_t>(TColor::GetColor("#e28843"))     // Burnt Orange
         };
 
-        void drawATLASLabel(double x_left, double y_top, const std::string& status) {
-            double left_margin = 0.16;
-            double top_margin = 0.06;
-            if (gPad) {
-                left_margin = gPad->GetLeftMargin();
-                top_margin = gPad->GetTopMargin();
+        std::vector<TLatex*> drawATLASLabel(float ndc_x, float ndc_y, const std::string& status, short alignment = 11) {
+            std::vector<TLatex*> drawn_objects;
+            if (!gPad) return drawn_objects;
+
+            TLatex* l_atlas = new TLatex();
+            l_atlas->SetNDC();
+            l_atlas->SetTextColor(kBlack);
+            l_atlas->SetTextSize(0.04);
+            l_atlas->SetTextAlign(alignment);
+
+            if (status.empty()) {
+                l_atlas->SetTextFont(72);
+                l_atlas->SetTextAlign(alignment);
+                l_atlas->DrawLatex(ndc_x, ndc_y, "ATLAS");
+                drawn_objects.push_back(l_atlas);
+            } else {
+                TLatex* l_status = new TLatex();
+                l_status->SetNDC();
+                l_status->SetTextColor(kBlack);
+                l_status->SetTextSize(0.04);
+                l_status->SetTextAlign(alignment);
+
+                if (alignment >= 30 && alignment <= 33) { // Right-aligned family
+                    l_status->SetTextFont(42);
+                    TLatex* s_drawn = l_status->DrawLatex(ndc_x, ndc_y, status.c_str());
+
+                    double status_width = 0.12;
+                    if (s_drawn) {
+                        UInt_t w = 0, h = 0;
+                        s_drawn->GetBoundingBox(w, h);
+                        status_width = static_cast<double>(w) / gPad->GetWw();
+                    }
+
+                    l_atlas->SetTextFont(72);
+                    TLatex* a_drawn = l_atlas->DrawLatex(ndc_x - status_width - 0.01, ndc_y, "ATLAS");
+
+                    drawn_objects.push_back(a_drawn ? a_drawn : l_atlas);
+                    drawn_objects.push_back(s_drawn ? s_drawn : l_status);
+                } else { // Left-aligned family
+                    l_atlas->SetTextFont(72);
+                    TLatex* a_drawn = l_atlas->DrawLatex(ndc_x, ndc_y, "ATLAS");
+
+                    double atlas_width = 0.12;
+                    if (a_drawn) {
+                        UInt_t w = 0, h = 0;
+                        a_drawn->GetBoundingBox(w, h);
+                        atlas_width = static_cast<double>(w) / gPad->GetWw();
+                    }
+
+                    l_status->SetTextFont(42);
+                    TLatex* s_drawn = l_status->DrawLatex(ndc_x + atlas_width + 0.01, ndc_y, status.c_str());
+
+                    drawn_objects.push_back(a_drawn ? a_drawn : l_atlas);
+                    drawn_objects.push_back(s_drawn ? s_drawn : l_status);
+                }
             }
 
-            // Anchor exactly inside the active axis frame workspace
-            double final_x = left_margin + x_left;
-            double final_y = (1.0 - top_margin) - y_top;
-
-            TLatex l;
-            l.SetNDC();
-            l.SetTextFont(72);  // Bold-Italic Helvetica for "ATLAS"
-            l.SetTextColor(kBlack);
-            l.SetTextSize(0.04);
-            l.DrawLatex(final_x, final_y, "ATLAS");
-
-            if (!status.empty()) {
-                TLatex s;
-                s.SetNDC();
-                s.SetTextFont(42);  // Regular Helvetica
-                s.SetTextColor(kBlack);
-                s.SetTextSize(0.04);
-
-                // 0.13 NDC offset ensures "ATLAS" and Status don't overlap
-                s.DrawLatex(final_x + 0.10, final_y, status.c_str()); 
-            }
+            return drawn_objects;
         }
 
-        bool drawPlotTitle(TObject* obj, double x_left, double y_top) {
-            if (!obj || !gPad) {
-                std::cout << "Error: Invalid object or pad for drawing plot title." << std::endl;
-                return false;
-            }
+        TLatex* drawPlotTitle(TObject* obj, float ndc_x, float ndc_y, short alignment = 11) {
+            if (!obj || !gPad) return nullptr;
 
             std::string titleStr = obj->GetTitle();
-            if (titleStr.empty()) return false;
+            if (titleStr.empty()) return nullptr;
 
-            double left_margin = gPad->GetLeftMargin();
-            double top_margin = gPad->GetTopMargin();
+            TLatex* t = new TLatex();
+            t->SetNDC();
+            t->SetTextFont(42);
+            t->SetTextSize(0.04);
+            t->SetTextColor(kBlack);
+            t->SetTextAlign(alignment);
 
-            double final_x = left_margin + x_left;
-            double final_y = (1.0 - top_margin) - y_top;
+            TLatex* title_drawn = t->DrawLatex(ndc_x, ndc_y, titleStr.c_str());
 
-            TLatex t;
-            t.SetNDC();
-            t.SetTextFont(42);
-            t.SetTextSize(0.04);
-            t.SetTextColor(kBlack);
-            t.DrawLatex(final_x, final_y, titleStr.c_str());
-
-            return true;
+            return title_drawn ? title_drawn : t; 
         }
 
-        void drawATLASLegend(TObject* obj, double x_left, double y_top) {
-            if (!obj || !gPad) return;
+        TLegend* drawATLASLegend(TObject* obj, float ndc_x, float ndc_y, short alignment = 11) {
+            if (!obj || !gPad) return nullptr;
 
             TList* items_list = nullptr;
             bool is_graph = false;
             bool is_stack = false;
 
-            // Check what container type we have
+            // Check container type
             if (auto* mg = dynamic_cast<TMultiGraph*>(obj)) {
                 items_list = mg->GetListOfGraphs();
                 is_graph = true;
@@ -163,20 +185,46 @@ namespace PlotStyler {
                 is_stack = true;
             }
 
-            if (!items_list || items_list->GetSize() == 0) return;
+            if (!items_list || items_list->GetSize() == 0) return nullptr;
 
-            double left_margin = gPad->GetLeftMargin();
-            double top_margin = gPad->GetTopMargin();
-
-            double final_x_left = left_margin + x_left;
-            double final_y_top = (1.0 - top_margin) - y_top;
-
+            // Dimensions of the legend box
+            double leg_width = 0.25; 
             double entry_height = 0.04; 
-            double total_height = items_list->GetSize() * entry_height;
-            double final_x_right = final_x_left + 0.25;
-            double final_y_bottom = final_y_top - total_height;
+            double leg_height = items_list->GetSize() * entry_height;
 
-            TLegend* leg = new TLegend(final_x_left, final_y_bottom, final_x_right, final_y_top);
+            double x1 = 0.0, y1 = 0.0, x2 = 0.0, y2 = 0.0;
+
+            // Parse the 2-digit alignment code:
+            // First digit:  1 = Left, 2 = Center, 3 = Right
+            // Second digit: 1 = Bottom, 2 = Middle, 3 = Top
+            int h_align = alignment / 10;
+            int v_align = alignment % 10;
+
+            // Horizontal anchoring
+            if (h_align == 3) {        // Right-aligned: ndc_x is the RIGHT edge
+                x2 = ndc_x;
+                x1 = ndc_x - leg_width;
+            } else if (h_align == 2) { // Centered: ndc_x is the CENTER
+                x1 = ndc_x - (leg_width / 2.0);
+                x2 = ndc_x + (leg_width / 2.0);
+            } else {                   // Left-aligned (1 or default): ndc_x is the LEFT edge
+                x1 = ndc_x;
+                x2 = ndc_x + leg_width;
+            }
+
+            // Vertical anchoring
+            if (v_align == 3) {        // Top-aligned: ndc_y is the TOP edge
+                y2 = ndc_y;
+                y1 = ndc_y - leg_height;
+            } else if (v_align == 2) { // Middle-aligned: ndc_y is the CENTER
+                y1 = ndc_y - (leg_height / 2.0);
+                y2 = ndc_y + (leg_height / 2.0);
+            } else {                   // Bottom-aligned (1 or default): ndc_y is the BOTTOM edge
+                y1 = ndc_y;
+                y2 = ndc_y + leg_height;
+            }
+
+            TLegend* leg = new TLegend(x1, y1, x2, y2);
             leg->SetBorderSize(0);
             leg->SetFillStyle(0);
             leg->SetTextFont(42);
@@ -187,27 +235,25 @@ namespace PlotStyler {
 
             while ((child = next_item())) {
                 std::string name = child->GetName();
-                std::string label = child->GetTitle(); // Use the object's configured title by default
+                std::string label = child->GetTitle(); // Use configured title by default
 
-                // Fallback parsers for cleaner labels if titles aren't pretty
                 if (is_graph) {
                     if (name.find("layer0") != std::string::npos) label = "Layer 0";
                     else if (name.find("layer1") != std::string::npos) label = "Layer 1";
                     else if (name.find("layer2") != std::string::npos) label = "Layer 2";
 
-                    // Graphs get Points + Error Bars marker style
                     leg->AddEntry(child, label.c_str(), "pe");
                 } 
                 else if (is_stack) {
                     if (name.find("tot_eta1") != std::string::npos) label = "#eta1 Side";
                     else if (name.find("tot_eta2") != std::string::npos) label = "#eta2 Side";
                     
-                    // Filled histograms get Line + Fill box style
                     leg->AddEntry(child, label.c_str(), "f");
                 }
             }
 
             leg->Draw();
+            return leg;
         }
 
         void adjustDynamicCB(TH2* h2, TPad* pad) {
