@@ -14,7 +14,6 @@
 #include <TGraphErrors.h>
 #include <TGraphAsymmErrors.h>
 #include <TMultiGraph.h>
-#include <TLatex.h>
 #include <TLegend.h>
 #include <TStyle.h>
 #include <TLine.h>
@@ -346,6 +345,93 @@ namespace PlotStyler {
 
     }   // namespace ATLASStyler
     // --------------------------------------------------------------------------------------
+
+    namespace Objects {
+
+        void line(TVirtualPad* canvas, float x_start, float x_end, float y_start, float y_end,
+            Color_t color = kBlack, int line_style = 1, int line_width = 1) {
+            if (!canvas) return;
+
+            canvas->cd();
+            TLine* line = new TLine(x_start, y_start, x_end, y_end);
+            line->SetLineColor(color);
+            line->SetLineStyle(line_style);
+            line->SetLineWidth(line_width);
+            line->Draw("same");
+        }
+
+        void box(TVirtualPad* canvas, float x_start, float x_end, float y_start, float y_end,
+                Color_t color = kWhite, float alpha = 1.0,
+                int line_width = 1, int line_style = 1, Color_t line_color = kBlack, float line_alpha = 1.0)
+        {
+            if (!canvas) return;
+            canvas->cd();
+
+            if (x_start >= x_end || y_start >= y_end) {
+                std::cerr << "Error: Invalid coordinates for box. Ensure x_start < x_end and y_start < y_end." << std::endl;
+                return;
+            }
+
+            TPave* box = new TPave(x_start, y_start, x_end, y_end, line_width, "NDC");
+            box->SetLineWidth(line_width);
+            box->SetLineStyle(line_style);
+            if (alpha < 1.0f) {
+                box->SetFillColorAlpha(color, alpha);
+                box->SetLineColorAlpha(line_color, line_alpha);
+            } else {
+                box->SetFillColor(color);
+                box->SetLineColor(line_color);
+            }
+
+            box->Draw("same");
+
+            canvas->Modified();
+            canvas->Update();
+        }
+
+        void hatchedRegion(TVirtualPad* canvas,
+            float x_start, float x_end, float y_start, float y_end,
+            int pattern = 3245, int line_width = 1,
+            Color_t color = kAzure + 2, float alpha = 0.5)
+        {
+            canvas->cd();
+
+            // Check if the coordinates are valid
+            if (x_start >= x_end || y_start >= y_end) {
+                std::cerr << "Error: Invalid coordinates for hatched region. Ensure x_start < x_end and y_start < y_end." << std::endl;
+                return;
+            }
+
+            TBox* box = new TBox(x_start, y_start, x_end, y_end);
+            box->SetFillStyle(pattern);
+
+            if (alpha < 1.0) {
+                box->SetFillColorAlpha(color, alpha);
+                box->SetLineColorAlpha(color, alpha); 
+            } else {
+                box->SetFillColor(color);
+                box->SetLineColor(color);
+            }
+
+            box->SetLineWidth(line_width);
+
+            box->Draw("same");
+            
+            canvas->Modified();
+            canvas->Update();
+        }
+
+        std::pair<float, float> getTextSizeNDC(TLatex* latex_obj) {
+            if (!latex_obj || !gPad) return {0.0, 0.0};
+            UInt_t w = 0, h = 0;
+            latex_obj->GetBoundingBox(w, h);
+            return {static_cast<double>(w) / gPad->GetWw(), static_cast<double>(h) / gPad->GetWh()};
+        }
+
+    }   // namespace Objects
+    // --------------------------------------------------------------------------------------
+
+    using namespace ATLASStyler;
 
     void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
         // Margins

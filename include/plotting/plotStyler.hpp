@@ -4,6 +4,8 @@
 #include <vector>
 #include <tuple>
 
+#include <TLatex.h>
+
 class TObject;
 class TCanvas;
 class TClass;
@@ -86,7 +88,65 @@ namespace PlotStyler {
         /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
         /// @param pad A pointer to the TPad object on which the object is drawn (optional)
         void applyATLASStyle(TObject* obj, TPad* pad = nullptr);
+
     }   // namespace ATLASStyler
+    // --------------------------------------------------------------------------------------
+    /// @namespace Objects
+    /// @brief Collection of helper functions for drawing and styling specific plot objects
+    namespace Objects {
+
+        /// @brief Helper function to draw a line on a canvas
+        /// @param canvas A pointer to the TVirtualPad object on which the line will be drawn
+        /// @param x_start The starting x-coordinate of the line
+        /// @param x_end The ending x-coordinate of the line
+        /// @param y_start The starting y-coordinate of the line
+        /// @param y_end The ending y-coordinate of the line
+        /// @param color The color of the line (default: kBlack)
+        /// @param line_style The style of the line (default: 1 for solid)
+        /// @param line_width The width of the line (default: 1)
+        void line(TVirtualPad* canvas,
+            float x_start, float x_end, float y_start, float y_end,
+            Color_t color, int line_style, int line_width);
+
+        /// @brief Helper function to draw a box on a canvas
+        /// @param canvas A pointer to the TVirtualPad object on which the box will be drawn
+        /// @param x_start The starting x-coordinate of the box
+        /// @param x_end The ending x-coordinate of the box
+        /// @param y_start The starting y-coordinate of the box
+        /// @param y_end The ending y-coordinate of the box
+        /// @param color The fill color of the box (default: kWhite)
+        /// @param alpha The alpha transparency for the box (default: 1.0 for fully opaque)
+        /// @param line_width The width of the box border (default: 1)
+        /// @param line_style The style of the box border (default: 1 for solid)
+        /// @param line_color The color of the box border (default: kBlack)
+        /// @param line_alpha The alpha transparency for the box border (default: 1.0 for
+        /// fully opaque)
+        void box(TVirtualPad* canvas,
+            float x_start, float x_end, float y_start, float y_end,
+            Color_t color, float alpha,
+            int line_width, int line_style, Color_t line_color, float line_alpha);
+
+        /// @brief Helper function to draw a hatched region on a canvas
+        /// @param canvas A pointer to the TVirtualPad object on which the hatched region will
+        /// be drawn
+        /// @param x_start The starting x-coordinate of the hatched region
+        /// @param x_end The ending x-coordinate of the hatched region
+        /// @param y_start The starting y-coordinate of the hatched region
+        /// @param y_end The ending y-coordinate of the hatched region
+        /// @param pattern The fill pattern for the hatched region (default: 3001)
+        /// @param line_width The line width for the hatches (default: 1)
+        /// @param color The color of the hatches (default: kAzure + 2)
+        /// @param alpha The alpha transparency for the hatches (default: 0.5)
+        void hatchedRegion(TVirtualPad* virtual_pad,
+            float x_start, float x_end, float y_start, float y_end,
+            int pattern, int line_width, Color_t color, float alpha);
+
+        /// @brief Helper function to get width and height of a TLatex object in NDC
+        /// @param latex_obj A pointer to the TLatex object for which to calculate the width
+        /// @return Width and height of the TLatex object in NDC as a pair of floats
+        std::pair<float, float> getTextSizeNDC(TLatex* latex_obj);
+
+    }   // namespace Objects
     // --------------------------------------------------------------------------------------
 
     /// @brief Helper function to style efficiency vs HV plots
