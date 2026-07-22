@@ -115,55 +115,104 @@ void plotToT(TFile* input_file) {
         std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
         return;
     }
+    TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
+    if (!track_tree || track_tree->IsZombie()) {
+        std::cerr << "Error: Invalid track reconstruction tree for analysis." << std::endl;
+        return;
+    }
 
     TTreeReader readerInputData(input_data_tree);
     TTreeReader readerProcData(proc_tree);
+    TTreeReader readerTrackData(track_tree);
     TTreeReaderValue<std::vector<int>> raw_time1(readerInputData, "hit_raw_time1");
     TTreeReaderValue<std::vector<int>> raw_time2(readerInputData, "hit_raw_time2");
     TTreeReaderValue<std::vector<int>> tot1(readerProcData, "proc_tot1");
     TTreeReaderValue<std::vector<int>> tot2(readerProcData, "proc_tot2");
     TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
-    const int nConfigs = 2;
-    const char* categories[nConfigs] = { "tot_eta1", "tot_eta2" };
+    const int nConfigs = 8;
+    const char* categories[nConfigs] = { "tot_eta1", "tot_eta2",
+        "tot_eta1_valid1", "tot_eta2_valid1", "tot_eta1_valid2", "tot_eta2_valid2", "tot_eta1_valid_all", "tot_eta2_valid_all" };
+    const char* comments[nConfigs] = { "All hits", "All hits",
+        "After track reconstruction (#eta1)", "After track reconstruction (#eta2)",
+        "After track reconstruction (#eta1)", "After track reconstruction (#eta2)",
+        "After track reconstruction (All)", "After track reconstruction (All)" };
 
+    const int nBins = 25;
+    const float xMin = 0.0;
+    const float xMax = 25.0;
     std::map<std::string, std::map<int, TH1*>> strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH1F(Form("h1d_%s_layer%d", categories[c], layer),
-                            Form("Layer %d;ToT [Ticks];Hits", layer),
-                            50, 0, 50);
+                            Form("Layer %d %s;ToT [ns];Hits", layer, comments[c]),
+                            nBins, xMin, xMax);
             strip_histograms[categories[c]][layer] = hist;
         }
     }
 
-    while (readerInputData.Next() && readerProcData.Next()) {
+    while (readerInputData.Next() && readerProcData.Next() && readerTrackData.Next()) {
         for (size_t i = 0; i < tot1->size(); ++i) {
             int layer = (*layers)[i];
-            int tot1_value = (*tot1)[i];
-            int tot2_value = (*tot2)[i];
-            
-            if ((*raw_time1)[i] != 0) strip_histograms["tot_eta1"][layer]->Fill(tot1_value);
-            if ((*raw_time2)[i] != 0) strip_histograms["tot_eta2"][layer]->Fill(tot2_value);
+
+            double tot1_ns = TimeUtils::ticksToTime((*tot1)[i]);
+            double tot2_ns = TimeUtils::ticksToTime((*tot2)[i]);
+            bool valid_eta1 = (*in_valid_track_eta1)[i];
+            bool valid_eta2 = (*in_valid_track_eta2)[i];
+
+            if ((*raw_time1)[i] != 0) strip_histograms["tot_eta1"][layer]->Fill(tot1_ns);
+            if ((*raw_time2)[i] != 0) strip_histograms["tot_eta2"][layer]->Fill(tot2_ns);
+            if ((*raw_time1)[i] != 0 && valid_eta1) strip_histograms["tot_eta1_valid1"][layer]->Fill(tot1_ns);
+            if ((*raw_time2)[i] != 0 && valid_eta1) strip_histograms["tot_eta2_valid1"][layer]->Fill(tot2_ns);
+            if ((*raw_time1)[i] != 0 && valid_eta2) strip_histograms["tot_eta1_valid2"][layer]->Fill(tot1_ns);
+            if ((*raw_time2)[i] != 0 && valid_eta2) strip_histograms["tot_eta2_valid2"][layer]->Fill(tot2_ns);
+            if ((*raw_time1)[i] != 0 && valid_eta1 && valid_eta2) strip_histograms["tot_eta1_valid_all"][layer]->Fill(tot1_ns);
+            if ((*raw_time2)[i] != 0 && valid_eta1 && valid_eta2) strip_histograms["tot_eta2_valid_all"][layer]->Fill(tot2_ns);
         }
     }
 
-    // First store the stack
+    struct StackPairing {
+        std::string eta1_cat;
+        std::string eta2_cat;
+        std::string suffix;
+        std::string title_modifier;
+    };
+
+    std::vector<StackPairing> pairings = {
+        {"tot_eta1",        "tot_eta2",        "all",    "All Hits"},
+        {"tot_eta1_valid1", "tot_eta2_valid1", "valid1", "Track Reco (#eta1 Valid)"},
+        {"tot_eta1_valid2", "tot_eta2_valid2", "valid2", "Track Reco (#eta2 Valid)"},
+        {"tot_eta1_valid_all", "tot_eta2_valid_all", "valid_all", "Track Reco (#eta1 and #eta2 Valid)"}
+    };
+
+    // Store stacks
     for (int layer : {0, 1, 2}) {
-        auto* h_tot1 = strip_histograms["tot_eta1"][layer];
-        auto* h_tot2 = strip_histograms["tot_eta2"][layer];
+        for (const auto& pair : pairings) {
+            auto* h_tot1 = strip_histograms[pair.eta1_cat][layer];
+            auto* h_tot2 = strip_histograms[pair.eta2_cat][layer];
 
-        // Style them so they are distinct in the stack
-        h_tot1->SetLineColor(kBlue);
-        h_tot2->SetLineColor(kRed);
+            // Style them distinctly inside the stack
+            h_tot1->SetLineColor(kBlue);
+            h_tot1->SetMarkerColor(kBlue);
+            
+            h_tot2->SetLineColor(kRed);
+            h_tot2->SetMarkerColor(kRed);
 
-        auto* stack = new THStack(Form("h1d_tot_layer%d", layer), Form("Layer %d Comparison", layer));
+            // Construct unique name and descriptive title for each specific stack pairing
+            std::string stack_name = Form("h1d_tot_%s_layer%d", pair.suffix.c_str(), layer);
+            std::string stack_title = Form("Layer %d: %s", layer, pair.title_modifier.c_str());
 
-        stack->Add(h_tot2);
-        stack->Add(h_tot1);
-        
-        stack->Write("", TObject::kOverwrite);
-        delete stack;
+            auto* stack = new THStack(stack_name.c_str(), stack_title.c_str());
+
+            // Add to stack (h_tot1 drawn on top of h_tot2 if using "nostack" option later)
+            stack->Add(h_tot2);
+            stack->Add(h_tot1);
+
+            stack->Write("", TObject::kOverwrite);
+            delete stack;
+        }
     }
 
     for (int c = 0; c < nConfigs; ++c) {
