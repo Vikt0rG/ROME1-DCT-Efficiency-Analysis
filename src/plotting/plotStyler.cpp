@@ -874,50 +874,19 @@ namespace PlotStyler {
             mean_line->Draw();
         }
 
-        // Draw ATLAS Label, Plot Title, and Legend on Top Pad
-        float start_x = 0.92f;
-        float start_y = 0.85f;
-        float offset_y = 0.04f;
-        float padding = 0.02f;
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        TPaveText* header = drawATLASHeaderBlock(
+            0.92, 0.82,               // Coordinates for the header box
+            "Work in Progress",       // Status string
+            plot_title,               // Title string
+            32,                       // Alignment
+            kWhite, 0.70f,            // 85% semi-transparent white background
+            kBlack, 1,                // Black 1px border line
+            0.01                      // Inner padding
+        );
 
-        auto atlas_labels = drawATLASLabel(start_x, start_y, "Work in Progress", 33);
-
-        float title_y = start_y - offset_y;
-        auto title_latex = drawPlotTitle(obj, start_x, title_y, 33);
-
-        // Calculate horizontal width
-        float logo_width = 0.0f;
-        float logo_height = 0.0f;
-        for (auto* l : atlas_labels) {
-            auto [w, h] = Objects::getTextSizeNDC(l);
-            logo_width += w;
-            logo_height = std::max(logo_height, h);
-        }
-
-        auto [title_width, title_height] = Objects::getTextSizeNDC(title_latex);
-
-        float max_width = std::max(logo_width, title_width);
-
-        // Calculate vertical bounds (Y coordinates)
-        // Top boundary: start_y is the top of the ATLAS label
-        float box_y_end = start_y + padding;
-
-        // Bottom boundary: Start from the lowest label's Y position and subtract its text height
-        float lowest_text_y = title_latex ? title_y : start_y;
-        float lowest_text_h = title_latex ? title_height : logo_height;
-        float box_y_start   = (lowest_text_y - lowest_text_h) - padding;
-
-        // Horizontal boundaries
-        float box_x_start = start_x - max_width - padding;
-        float box_x_end   = start_x + padding;
-
-        Objects::box(pad1, box_x_start, box_x_end, box_y_start, box_y_end, kWhite, 0.70f, 2, 1, kBlack, 1.0f);
-
-        // Redraw labels so they sit cleanly on top of the semi-transparent box
-        for (auto* l : atlas_labels) if (l) l->Draw();
-        if (title_latex) title_latex->Draw();
-
-        drawATLASLegend(obj, start_x, title_latex ? start_y - 3 * offset_y : start_y - offset_y, 33);
+        double legend_y = header ? header->GetY1NDC() - 0.02 : 0.70;
+        drawATLASLegend(obj, 0.92, legend_y, 33);
 
         // Calculate & Draw Bottom Pad (Ratio Plot)
         pad2->cd();
@@ -1005,15 +974,19 @@ namespace PlotStyler {
         canvas->Modified();
         canvas->Update();
 
-        float start_x = 0.21;
-        float start_y = 0.86;
-        float offset_y = 0.04;
-        drawATLASLabel(start_x, start_y, "Work in Progress", 11);
-        bool title_drawn = drawPlotTitle(obj, start_x, start_y - offset_y, 11);
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        TPaveText* header = drawATLASHeaderBlock(
+            0.21, 0.82,               // Coordinates for the header box
+            "Work in Progress",       // Status string
+            plot_title,               // Title string
+            12,                       // Alignment
+            kWhite, 0.70f,            // 85% semi-transparent white background
+            kBlack, 1,                // Black 1px border line
+            0.01                      // Inner padding
+        );
 
-        if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
-            drawATLASLegend(mg, start_x, title_drawn ? start_y - 2 * offset_y : start_y - offset_y, 11);
-        }
+        double legend_y = header ? header->GetY1NDC() - 0.02 : 0.70;
+        drawATLASLegend(obj, 0.21, legend_y, 33);
     }
 
     static const std::vector<std::pair<PlotCategory, StylerFnPtr>> styler_map = {
