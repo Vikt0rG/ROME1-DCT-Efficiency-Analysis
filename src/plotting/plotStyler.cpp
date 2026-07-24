@@ -17,6 +17,8 @@
 #include <TLegend.h>
 #include <TStyle.h>
 #include <TLine.h>
+#include <TPaveText.h>
+#include <TLatex.h>
 #include <TColor.h>
 #include <TVirtualPad.h>
 #include <TMath.h>
@@ -168,6 +170,95 @@ namespace PlotStyler {
             TLatex* title_drawn = t->DrawLatex(ndc_x, ndc_y, titleStr.c_str());
 
             return title_drawn ? title_drawn : t; 
+        }
+
+        TPaveText* drawATLASHeaderBlock(double ndc_x, double ndc_y,
+                                        const std::string& status = "",
+                                        const std::string& title = "",
+                                        short alignment = 33,
+                                        Color_t fillColor = kWhite, float fillAlpha = 0.70f,
+                                        Color_t borderColor = kBlack, int borderWidth = 1,
+                                        double innerPadding = 0.01)
+        {
+            if (!gPad) return nullptr;
+
+            // Construct text strings
+            std::string line1 = "#bf{#it{ATLAS}}";
+            if (!status.empty()) {
+                line1 += " " + status;
+            }
+
+            // Measure actual text width dynamically on gPad using a dummy TLatex
+            auto getWidthNDC = [&](const std::string& txt) -> double {
+                if (txt.empty()) return 0.0;
+
+                TLatex measure;
+                measure.SetNDC();
+                measure.SetTextFont(42);
+                measure.SetTextSize(0.035);
+                measure.SetText(0, 0, txt.c_str());
+
+                UInt_t w = 0, h = 0;
+                measure.GetBoundingBox(w, h);
+                return static_cast<double>(w) / gPad->GetWw();
+            };
+
+            double w1 = getWidthNDC(line1);
+            double w2 = getWidthNDC(title);
+            std::cout << "Measured widths: line1 = " << w1 << ", title = " << w2 << std::endl;
+            double max_text_width = std::max(w1, w2);
+
+            int num_lines = title.empty() ? 1 : 2;
+            double line_height = 0.038;
+
+            // Calculate total box dimensions including padding
+            double box_width  = max_text_width + (2.0 * innerPadding);
+            double box_height = (num_lines * line_height) + (2.0 * innerPadding);
+
+            // Compute (x1, y1, x2, y2) relative to (ndc_x, ndc_y) using the alignment code
+            double x1 = 0.0, y1 = 0.0, x2 = 0.0, y2 = 0.0;
+            int h_align = alignment / 10; // 1 = Left, 2 = Center, 3 = Right
+            int v_align = alignment % 10; // 1 = Bottom, 2 = Middle, 3 = Top
+
+            if (h_align == 3)      { x2 = ndc_x; x1 = ndc_x - box_width; }
+            else if (h_align == 2) { x1 = ndc_x - (box_width / 2.0); x2 = ndc_x + (box_width / 2.0); }
+            else                   { x1 = ndc_x; x2 = ndc_x + box_width; }
+
+            if (v_align == 3)      { y2 = ndc_y; y1 = ndc_y - box_height; }
+            else if (v_align == 2) { y1 = ndc_y - (box_height / 2.0); y2 = ndc_y + (box_height / 2.0); }
+            else                   { y1 = ndc_y; y2 = ndc_y + box_height; }
+
+            // Instantiate TPaveText with auto-fitted coordinates
+            TPaveText* pave = new TPaveText(x1, y1, x2, y2, "NDC");
+
+            pave->SetMargin(0.02);
+            pave->SetBorderSize(borderWidth);
+            pave->SetLineColor(borderColor);
+            pave->SetLineWidth(borderWidth);
+            pave->SetLineStyle(1);
+            pave->SetShadowColor(0);
+
+            if (fillAlpha < 1.0f) {
+                pave->SetFillColorAlpha(fillColor, fillAlpha);
+            } else {
+                pave->SetFillColor(fillColor);
+            }
+
+            pave->SetTextAlign(alignment);
+            pave->SetTextFont(42);
+            pave->SetTextSize(0.035);
+
+            // Add lines
+            TText* t1 = pave->AddText(line1.c_str());
+            if (t1) t1->SetTextColor(kBlack);
+
+            if (!title.empty()) {
+                TText* t2 = pave->AddText(title.c_str());
+                if (t2) t2->SetTextColor(kBlack);
+            }
+
+            pave->Draw();
+            return pave;
         }
 
         TLegend* drawATLASLegend(TObject* obj, float ndc_x, float ndc_y, short alignment = 11) {

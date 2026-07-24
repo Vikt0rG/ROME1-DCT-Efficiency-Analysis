@@ -4,12 +4,13 @@
 #include <vector>
 #include <tuple>
 
-#include <TLatex.h>
-
 class TObject;
 class TCanvas;
 class TClass;
+class TLatex;
+class TLegend;
 class TPad;
+class TPaveText;
 class TH2;
 class TMultiGraph;
 
@@ -77,6 +78,24 @@ namespace PlotStyler {
         /// @param alignment The text alignment for the title (default: 11 for left-aligned)
         /// @return A pointer to the created TLatex object, or nullptr if no title was drawn
         TLatex* drawPlotTitle(TObject* obj, float x_offset, float y_offset, short alignment);
+
+        /// @brief Helper function to draw ATLAS header and title on a plot using TPaveText box
+        /// @param ndc_x The x-coordinate in NDC for the header/title position
+        /// @param ndc_y The y-coordinate in NDC for the header/title position
+        /// @param status The status text to display (e.g., "Work in Progress")
+        /// @param title The title text to display (optional)
+        /// @param alignment The text alignment for the header/title (default: 33 for right-aligned)
+        /// @param fillColor The fill color for the TPaveText box (default: kWhite)
+        /// @param fillAlpha The alpha transparency for the TPaveText box (default: 0.0 for fully transparent)
+        /// @param borderColor The border color for the TPaveText box (default: kBlack)
+        /// @param borderWidth The border width for the TPaveText box (default: 1)
+        /// @param innerPadding The inner padding for the TPaveText box (default: 0.01)
+        /// @return A pointer to the created TPaveText object, or nullptr if no header/title was drawn
+        TPaveText* drawATLASHeaderBlock(double ndc_x, double ndc_y,
+            const std::string& status, const std::string& title, short alignment,
+            Color_t fillColor, float fillAlpha,
+            Color_t borderColor, float borderWidth,
+            double innerPadding);
 
         /// @brief Helper function to draw a legend on a plot
         /// @param obj A pointer to the ROOT object for which the legend will be drawn
