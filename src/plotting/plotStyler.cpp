@@ -205,7 +205,6 @@ namespace PlotStyler {
 
             double w1 = getWidthNDC(line1);
             double w2 = getWidthNDC(title);
-            std::cout << "Measured widths: line1 = " << w1 << ", title = " << w2 << std::endl;
             double max_text_width = std::max(w1, w2);
 
             int num_lines = title.empty() ? 1 : 2;
