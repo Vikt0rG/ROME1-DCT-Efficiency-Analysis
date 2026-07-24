@@ -18,6 +18,7 @@
 #include <TStyle.h>
 #include <TLine.h>
 #include <TPaveText.h>
+#include <TPaletteAxis.h>
 #include <TLatex.h>
 #include <TColor.h>
 #include <TVirtualPad.h>
@@ -176,7 +177,7 @@ namespace PlotStyler {
                                         const std::string& status = "",
                                         const std::string& title = "",
                                         short alignment = 33,
-                                        Color_t fillColor = kWhite, float fillAlpha = 0.70f,
+                                        Color_t fillColor = kWhite, double fillAlpha = 0.70,
                                         Color_t borderColor = kBlack, int borderWidth = 1,
                                         double innerPadding = 0.01)
         {
@@ -237,7 +238,7 @@ namespace PlotStyler {
             pave->SetLineStyle(1);
             pave->SetShadowColor(0);
 
-            if (fillAlpha < 1.0f) {
+            if (fillAlpha < 1.0) {
                 pave->SetFillColorAlpha(fillColor, fillAlpha);
             } else {
                 pave->SetFillColor(fillColor);
@@ -347,39 +348,232 @@ namespace PlotStyler {
             return leg;
         }
 
-        void adjustDynamicCB(TH2* h2, TPad* pad) {
-            if (!h2 || !pad) return;
+        // ----------------------------------------------------------------------------------
+        namespace {
 
-            double maxVal = h2->GetMaximum();
-            int digits = 1;
-            if (maxVal > 0) {
-                digits = static_cast<int>(std::log10(maxVal)) + 1;
+            enum class AxisType { X, Y, Z };
+
+            struct SpacingSettings {
+                double margin;      // Suggested pad margin (left for Y, right for Z, bottom for X)
+                double titleOffset; // Suggested axis title offset
+            };
+
+            int getLabelWidthDigits(double val) {
+                double absVal = std::abs(val);
+                if (absVal == 0.0) return 1;
+
+                if (absVal >= 1.0) {
+                    return static_cast<int>(std::floor(std::log10(absVal))) + 1;
+                } else {
+                    int decimalPlaces = static_cast<int>(-std::floor(std::log10(absVal)));
+                    return decimalPlaces + 2;
+                }
             }
 
-            double rightMargin = 0.15;
-            double titleOffset = 0.95;
+            // Computes digits and returns spacing settings
+            SpacingSettings calculateAxisSpacing(double maxVal, AxisType type) {
+                int digits = getLabelWidthDigits(maxVal);
 
-            if (digits > 5) {
-                rightMargin = 0.19;
-                titleOffset = 1.35;
-            } else if (digits >= 4) {
-                rightMargin = 0.17; 
-                titleOffset = 1.10;
+                SpacingSettings settings;
+
+                // Map digits to margins and offsets based on axis orientation
+                if (type == AxisType::Z) { // Colorbar (Right margin & Z-title offset)
+                    if (digits > 5)       { settings.margin = 0.18; settings.titleOffset = 1.45; }
+                    else if (digits >= 4) { settings.margin = 0.17; settings.titleOffset = 1.15; }
+                    else if (digits == 3) { settings.margin = 0.16; settings.titleOffset = 1.00; }
+                    else if (digits == 2) { settings.margin = 0.15; settings.titleOffset = 0.85; }
+                    else                  { settings.margin = 0.14; settings.titleOffset = 0.70; }
+                } else if (type == AxisType::Y) { // Y-Axis (Left margin & Y-title offset)
+                    if (digits > 5)       { settings.margin = 0.18; settings.titleOffset = 1.40; }
+                    else if (digits >= 4) { settings.margin = 0.26; settings.titleOffset = 1.25; }
+                    else if (digits == 3) { settings.margin = 0.14; settings.titleOffset = 1.10; }
+                    else if (digits == 2) { settings.margin = 0.12; settings.titleOffset = 0.95; }
+                    else                  { settings.margin = 0.10; settings.titleOffset = 0.80; }
+                } else { // X-Axis (Bottom margin & X-title offset)
+                    settings.margin = 0.14;
+                    settings.titleOffset = 1.10;
+                }
+
+                return settings;
             }
 
-            // Apply directly to the pad pointer before any Draw() execution happens
-            pad->SetRightMargin(rightMargin);
-            
-            TAxis* zAxis = h2->GetZaxis();
-            if (zAxis) {
-                zAxis->SetTitleOffset(titleOffset);
+            void setMargins(TObject* obj, TPad* pad, AxisType axisType) {
+                if (!obj || !pad) return;
+
+                // Set default margins to be small
+                pad->SetTopMargin(0.05);
+                pad->SetRightMargin(0.05);
+
+                double maxVal = 0.0;
+                TAxis* axis = nullptr;
+
+                // Extract axis and maximum value depending on object type
+                if (auto h2 = dynamic_cast<TH2*>(obj)) {
+                    if (axisType == AxisType::X)      { axis = h2->GetXaxis(); maxVal = h2->GetXaxis()->GetXmax(); }
+                    else if (axisType == AxisType::Y) { axis = h2->GetYaxis(); maxVal = h2->GetYaxis()->GetXmax(); }
+                    else if (axisType == AxisType::Z) { axis = h2->GetZaxis(); maxVal = h2->GetMaximum(); }
+                } else if (auto h1 = dynamic_cast<TH1*>(obj)) {
+                    if (axisType == AxisType::X)      { axis = h1->GetXaxis(); maxVal = h1->GetXaxis()->GetXmax(); }
+                    else if (axisType == AxisType::Y) { axis = h1->GetYaxis(); maxVal = h1->GetMaximum(); }
+                } else if (auto stack = dynamic_cast<THStack*>(obj)) {
+                    if (axisType == AxisType::X)      { axis = stack->GetXaxis(); if (axis) maxVal = axis->GetXmax(); }
+                    else if (axisType == AxisType::Y) { axis = stack->GetYaxis(); maxVal = stack->GetMaximum(); }
+                } else if (auto eg = dynamic_cast<TGraphAsymmErrors*>(obj)) {
+                    if (axisType == AxisType::X)      { axis = eg->GetXaxis(); maxVal = eg->GetXaxis()->GetXmax(); }
+                    else if (axisType == AxisType::Y) { axis = eg->GetYaxis(); maxVal = eg->GetYaxis()->GetXmax(); }
+                } else if (auto g = dynamic_cast<TGraph*>(obj)) {
+                    if (axisType == AxisType::X)      { axis = g->GetXaxis(); maxVal = g->GetXaxis()->GetXmax(); }
+                    else if (axisType == AxisType::Y) { axis = g->GetYaxis(); maxVal = g->GetYaxis()->GetXmax(); }
+                }
+
+                if (!axis) return;
+
+                // Calculate settings
+                SpacingSettings spacing = calculateAxisSpacing(maxVal, axisType);
+
+                // Apply pad margins depending on axis orientation
+                if (axisType == AxisType::Z)      pad->SetRightMargin(spacing.margin);
+                else if (axisType == AxisType::Y) pad->SetLeftMargin(spacing.margin);
+                else if (axisType == AxisType::X) pad->SetBottomMargin(spacing.margin);
+
+                // Set axis title offset
+                axis->SetTitleOffset(spacing.titleOffset);
+
+                pad->Modified();
+                pad->Update();
             }
-        }
+
+            // Adjusts the color bar of a 2D histogram dynamically based on the maximum value
+            void adjustDynamicCB(TH2* h2, TPad* pad) {
+                if (!h2 || !pad) return;
+
+                // Delegate dynamic right margin & Z-title offset calculation to estimateMargins
+                setMargins(h2, pad, AxisType::Z);
+
+                // Find the colorbar object
+                TObject* paletteObj = h2->GetListOfFunctions() ? h2->GetListOfFunctions()->FindObject("palette") : nullptr;
+                if (paletteObj) {
+                    // Find where the plot frame ends
+                    double rightMargin = pad->GetRightMargin();
+                    double plotFrameRightX = 1.0 - rightMargin; 
+
+                    // Anchor the colorbar a constant distance away from the plot frame
+                    double gap = 0.015;
+                    double barWidth = 0.035;
+
+                    double x1 = plotFrameRightX + gap;
+                    double x2 = plotFrameRightX + gap + barWidth;
+                    double y1 = pad->GetBottomMargin();
+                    double y2 = 1.0 - pad->GetTopMargin();
+
+                    // Apply coordinates dynamically
+                    char paramStr[64];
+
+                    snprintf(paramStr, sizeof(paramStr), "%f", x1); 
+                    paletteObj->Execute("SetX1NDC", paramStr);
+                    
+                    snprintf(paramStr, sizeof(paramStr), "%f", x2); 
+                    paletteObj->Execute("SetX2NDC", paramStr);
+
+                    snprintf(paramStr, sizeof(paramStr), "%f", y1);
+                    paletteObj->Execute("SetY1NDC", paramStr);
+
+                    snprintf(paramStr, sizeof(paramStr), "%f", y2);
+                    paletteObj->Execute("SetY2NDC", paramStr);
+                }
+
+                pad->Modified();
+                pad->Update();
+            }
+
+            std::array<TAxis*, 3> extractAxis(TObject* obj, TPad* pad) {
+                std::array<TAxis*, 3> axes = {nullptr, nullptr, nullptr};
+
+                // Safely extract axes depending on the object type
+                if (auto h2 = dynamic_cast<TH2*>(obj)) {
+                    axes[0] = h2->GetXaxis();
+                    axes[1] = h2->GetYaxis();
+                    axes[2] = h2->GetZaxis();
+                } else if (auto h = dynamic_cast<TH1*>(obj)) {
+                    axes[0] = h->GetXaxis();
+                    axes[1] = h->GetYaxis();
+                    h->SetMarkerStyle(20);
+                    h->SetMarkerSize(1.0);
+                    h->SetLineColor(kBlack);
+                    h->SetLineWidth(2);
+                } else if (auto stack = dynamic_cast<THStack*>(obj)) {
+                    TH1* frame = stack->GetHistogram();
+                    if (frame) {
+                        axes[0] = frame->GetXaxis();
+                        axes[1] = frame->GetYaxis();
+                    }
+                } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
+                    axes[0] = mg->GetXaxis();
+                    axes[1] = mg->GetYaxis();
+                    TList* graph_list = mg->GetListOfGraphs();
+                    if (!graph_list) return axes;
+
+                    TIter next_graph(graph_list);
+                    TGraph* sub_graph = nullptr;
+                    int color_index = 0;
+
+                    while ((sub_graph = static_cast<TGraph*>(next_graph()))) {
+                        sub_graph->SetMarkerStyle(5);
+                        sub_graph->SetMarkerSize(1.0);
+
+                        std::string g_name = sub_graph->GetName();
+                        int layer_id = 0; // Default fallback
+                        
+                        if (g_name.find("layer0") != std::string::npos) layer_id = 0;
+                        else if (g_name.find("layer1") != std::string::npos) layer_id = 1;
+                        else if (g_name.find("layer2") != std::string::npos) layer_id = 2;
+
+                        Color_t assigned_color = ATLAS_PALETTE[0]; // Default to kBlack
+                        if (layer_id >= 0 && layer_id < static_cast<int>(ATLAS_PALETTE.size())) {
+                            assigned_color = ATLAS_PALETTE[layer_id];
+                        }
+
+                        sub_graph->SetMarkerColor(assigned_color);
+                        sub_graph->SetLineColor(assigned_color);
+
+                        color_index++;
+                    }
+                }
+                else if (auto g = dynamic_cast<TGraph*>(obj)) {
+                    axes[0] = g->GetXaxis();
+                    axes[1] = g->GetYaxis();
+                    g->SetMarkerStyle(20);
+                    g->SetMarkerSize(1.0);
+                    g->SetLineColor(kBlack);
+                    g->SetLineWidth(2);
+                }
+
+                pad->Modified();
+                pad->Update();
+
+                return axes;
+            }
+
+            void styleAxis(TAxis* axis, TPad* pad, TObject* parentObj, AxisType type,
+                float labelSize = 0.04f, float titleSize = 0.05f, int ndivisions = 510) {
+                if (!axis || !pad) return;
+
+                axis->SetLabelFont(42);
+                axis->SetTitleFont(42);
+                axis->SetLabelSize(labelSize);
+                axis->SetTitleSize(titleSize);
+                axis->SetNdivisions(ndivisions, kTRUE);
+
+                // Dynamically set offset & pad margins if parent object is provided
+                if (parentObj) setMargins(parentObj, pad, type);
+
+                pad->Modified();
+                pad->Update();
+            }
+        }   // anonymous namespace
+        // ----------------------------------------------------------------------------------
 
         void applyATLASStyle(TObject* obj, TPad* pad) {
-            TAxis* xAxis = nullptr;
-            TAxis* yAxis = nullptr;
-            TAxis* zAxis = nullptr;
 
             gStyle->SetOptTitle(0);
             gStyle->SetOptStat(0);
@@ -392,92 +586,24 @@ namespace PlotStyler {
                 gPad->SetTicky(1); // 1 = Draw ticks on right side
             }
 
-            // Safely extract axes depending on the object type
-            if (auto h2 = dynamic_cast<TH2*>(obj)) {
-                xAxis = h2->GetXaxis();
-                yAxis = h2->GetYaxis();
-                zAxis = h2->GetZaxis();
-                adjustDynamicCB(h2, pad); // Adjust color bar dynamically based on max value
-            } else if (auto h = dynamic_cast<TH1*>(obj)) {
-                xAxis = h->GetXaxis();
-                yAxis = h->GetYaxis();
-                h->SetMarkerStyle(20);
-                h->SetMarkerSize(1.0);
-                h->SetLineColor(kBlack);
-                h->SetLineWidth(2);
-            } else if (auto stack = dynamic_cast<THStack*>(obj)) {
-                TH1* frame = stack->GetHistogram();
-                if (frame) {
-                    xAxis = frame->GetXaxis();
-                    yAxis = frame->GetYaxis();
-                }
-            } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
-                xAxis = mg->GetXaxis();
-                yAxis = mg->GetYaxis();
-                TList* graph_list = mg->GetListOfGraphs();
-                if (!graph_list) return;
+            // Extract axes for styling
+            auto [xAxis, yAxis, zAxis] = extractAxis(obj, pad);
 
-                TIter next_graph(graph_list);
-                TGraph* sub_graph = nullptr;
-                int color_index = 0;
+            // Apply ATLAS standard font rules to all axes
+            if (xAxis) styleAxis(xAxis, pad, obj, AxisType::X, 0.04, 0.05, 510);
+            if (yAxis) styleAxis(yAxis, pad, obj, AxisType::Y, 0.04, 0.05, 510);
 
-                while ((sub_graph = static_cast<TGraph*>(next_graph()))) {
-                    sub_graph->SetMarkerStyle(5);
-                    sub_graph->SetMarkerSize(1.0);
+            // For 2D histograms, apply dynamic right margin and Z-axis title offset
+            if (zAxis) styleAxis(zAxis, pad, nullptr, AxisType::Z, 0.04, 0.05, 510);
 
-                    std::string g_name = sub_graph->GetName();
-                    int layer_id = 0; // Default fallback
-                    
-                    if (g_name.find("layer0") != std::string::npos) layer_id = 0;
-                    else if (g_name.find("layer1") != std::string::npos) layer_id = 1;
-                    else if (g_name.find("layer2") != std::string::npos) layer_id = 2;
-
-                    Color_t assigned_color = ATLAS_PALETTE[0]; // Default to kBlack
-                    if (layer_id >= 0 && layer_id < static_cast<int>(ATLAS_PALETTE.size())) {
-                        assigned_color = ATLAS_PALETTE[layer_id];
-                    }
-
-                    sub_graph->SetMarkerColor(assigned_color);
-                    sub_graph->SetLineColor(assigned_color);
-
-                    color_index++;
-                }
-            }
-            else if (auto g = dynamic_cast<TGraph*>(obj)) {
-                xAxis = g->GetXaxis();
-                yAxis = g->GetYaxis();
-                g->SetMarkerStyle(20);
-                g->SetMarkerSize(1.0);
-                g->SetLineColor(kBlack);
-                g->SetLineWidth(2);
-            }
+            // Adjust the colorbar for 2D histograms
+            if (auto h2 = dynamic_cast<TH2*>(obj)) adjustDynamicCB(h2, pad);
 
             // Set colormap and palette for 2D histograms
-            gStyle->SetPalette(kBird);
+            if (zAxis) gStyle->SetPalette(kBird);
 
-            // Apply ATLAS standard font rules (Font 42 = Helvetica, Font 43 = Precise Pixel size) to all axes
-            if (xAxis && yAxis) {
-                xAxis->SetLabelFont(42);
-                xAxis->SetTitleFont(42);
-                xAxis->SetLabelSize(0.04);
-                xAxis->SetTitleSize(0.05);
-                xAxis->SetTitleOffset(1.1);
-                xAxis->SetNdivisions(510, kTRUE);
-
-                yAxis->SetLabelFont(42);
-                yAxis->SetTitleFont(42);
-                yAxis->SetLabelSize(0.04);
-                yAxis->SetTitleSize(0.05);
-                yAxis->SetTitleOffset(1.3);
-                yAxis->SetNdivisions(510, kTRUE);
-            }
-
-            if (zAxis) {
-                zAxis->SetLabelFont(42);
-                zAxis->SetTitleFont(42);
-                zAxis->SetLabelSize(0.04);
-                zAxis->SetTitleSize(0.05);
-            }
+            pad->Modified();
+            pad->Update();
         }
 
     }   // namespace ATLASStyler

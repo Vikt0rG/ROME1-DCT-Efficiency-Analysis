@@ -93,8 +93,8 @@ namespace PlotStyler {
         /// @return A pointer to the created TPaveText object, or nullptr if no header/title was drawn
         TPaveText* drawATLASHeaderBlock(double ndc_x, double ndc_y,
             const std::string& status, const std::string& title, short alignment,
-            Color_t fillColor, float fillAlpha,
-            Color_t borderColor, float borderWidth,
+            Color_t fillColor, double fillAlpha,
+            Color_t borderColor, int borderWidth,
             double innerPadding);
 
         /// @brief Helper function to draw a legend on a plot
@@ -104,12 +104,6 @@ namespace PlotStyler {
         /// @param alignment The text alignment for the legend (default: 11 for left-aligned)
         /// @return A pointer to the created TLegend object, or nullptr if no legend was drawn
         TLegend* drawATLASLegend(TObject* obj, float x_offset, float y_offset, short alignment);
-
-        /// @brief Helper function to adjust the color bar of a 2D histogram dynamically
-        /// based on the maximum value in the histogram
-        /// @param h2 A pointer to the TH2 histogram object
-        /// @param pad A pointer to the TPad object on which the histogram is drawn
-        void adjustDynamicCB(TH2* h2, TPad* pad);
 
         /// @brief Helper function to apply ATLAS styling to a given plot object and canvas
         /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
