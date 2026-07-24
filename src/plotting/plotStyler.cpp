@@ -455,7 +455,7 @@ namespace PlotStyler {
                 if (paletteObj) {
                     // Find where the plot frame ends
                     double rightMargin = pad->GetRightMargin();
-                    double plotFrameRightX = 1.0 - rightMargin; 
+                    double plotFrameRightX = 1.0 - rightMargin;
 
                     // Anchor the colorbar a constant distance away from the plot frame
                     double gap = 0.015;
@@ -469,10 +469,10 @@ namespace PlotStyler {
                     // Apply coordinates dynamically
                     char paramStr[64];
 
-                    snprintf(paramStr, sizeof(paramStr), "%f", x1); 
+                    snprintf(paramStr, sizeof(paramStr), "%f", x1);
                     paletteObj->Execute("SetX1NDC", paramStr);
-                    
-                    snprintf(paramStr, sizeof(paramStr), "%f", x2); 
+
+                    snprintf(paramStr, sizeof(paramStr), "%f", x2);
                     paletteObj->Execute("SetX2NDC", paramStr);
 
                     snprintf(paramStr, sizeof(paramStr), "%f", y1);
@@ -523,7 +523,7 @@ namespace PlotStyler {
 
                         std::string g_name = sub_graph->GetName();
                         int layer_id = 0; // Default fallback
-                        
+
                         if (g_name.find("layer0") != std::string::npos) layer_id = 0;
                         else if (g_name.find("layer1") != std::string::npos) layer_id = 1;
                         else if (g_name.find("layer2") != std::string::npos) layer_id = 2;
@@ -877,10 +877,6 @@ namespace PlotStyler {
     }
 
     void styleToTDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
-        canvas->SetLeftMargin(0.16);
-        canvas->SetRightMargin(0.05);
-        canvas->SetTopMargin(0.05);
-        canvas->SetBottomMargin(0.14);
 
         applyATLASStyle(obj, canvas);
 
@@ -898,8 +894,16 @@ namespace PlotStyler {
         canvas->Modified();
         canvas->Update();
 
-        drawATLASLabel(0.90, 0.90, "Work in Progress", 33);
-        drawPlotTitle(obj, 0.90, 0.86, 33);
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        drawATLASHeaderBlock(
+            0.92, 0.82,               // Coordinates for the header box
+            "Work in Progress",       // Status string
+            plot_title,               // Title string
+            32,                       // Alignment
+            kWhite, 0.00,             // transparent background
+            kBlack, 0,                // No border line
+            0.01                      // Inner padding
+        );
     }
 
     void styleToTCombinedDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
@@ -1077,10 +1081,6 @@ namespace PlotStyler {
     }
 
     void styleDefaultPlot(TObject* obj, TCanvas* canvas, TClass* cl) {
-        canvas->SetLeftMargin(0.16);
-        canvas->SetRightMargin(cl->InheritsFrom(TH2::Class()) ? 0.16 : 0.05);
-        canvas->SetTopMargin(0.06);
-        canvas->SetBottomMargin(0.14);
 
         if (cl->InheritsFrom(TH2::Class())) {
             obj->Draw("COLZ");
@@ -1096,23 +1096,20 @@ namespace PlotStyler {
         }
 
         applyATLASStyle(obj, canvas);
-        
-        canvas->Modified();
-        canvas->Update();
 
         std::string plot_title = obj ? obj->GetTitle() : "";
         TPaveText* header = drawATLASHeaderBlock(
-            0.21, 0.82,               // Coordinates for the header box
+            0.15, 0.86,               // Coordinates for the header box
             "Work in Progress",       // Status string
             plot_title,               // Title string
             12,                       // Alignment
-            kWhite, 0.70f,            // 85% semi-transparent white background
+            kWhite, 0.70,             // semi-transparent white background
             kBlack, 1,                // Black 1px border line
             0.01                      // Inner padding
         );
 
         double legend_y = header ? header->GetY1NDC() - 0.02 : 0.70;
-        drawATLASLegend(obj, 0.21, legend_y, 33);
+        drawATLASLegend(obj, 0.15, legend_y, 33);
     }
 
     static const std::vector<std::pair<PlotCategory, StylerFnPtr>> styler_map = {
