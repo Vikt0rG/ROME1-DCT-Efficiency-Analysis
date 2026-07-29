@@ -1097,6 +1097,31 @@ namespace PlotStyler {
 
         applyATLASStyle(obj, canvas);
 
+        auto enforceIntegerMinorTicks = [](TAxis* axis) {
+            if (!axis) return;
+
+            int current_ndiv = axis->GetNdivisions();
+            int n1 = current_ndiv % 100;         // Major divisions
+            int n2 = (current_ndiv / 100) % 100; // Minor divisions
+            int n3 = current_ndiv / 10000;       // Tertiary divisions
+
+            if (n1 == 0) n1 = 1; // Safety against div-by-zero
+            double range = axis->GetXmax() - axis->GetXmin();
+            double min_major_step = range / n1;
+
+            if (min_major_step / n2 < 1.0) {
+                n2 = static_cast<int>(std::floor(min_major_step));
+                if (n2 < 1) n2 = 1;
+                axis->SetNdivisions(n1 + 100 * n2 + 10000 * n3, kTRUE);
+            }
+        };
+
+        if (auto h2 = dynamic_cast<TH2*>(obj)) {
+            enforceIntegerMinorTicks(h2->GetXaxis());
+        } else if (auto h1 = dynamic_cast<TH1*>(obj)) {
+            enforceIntegerMinorTicks(h1->GetXaxis());
+        }
+
         std::string plot_title = obj ? obj->GetTitle() : "";
         TPaveText* header = drawATLASHeaderBlock(
             0.15, 0.86,               // Coordinates for the header box
