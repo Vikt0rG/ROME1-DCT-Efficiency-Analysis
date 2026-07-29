@@ -256,8 +256,8 @@ void plotDtVsStrip(TFile* input_file) {
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
-                            Form("Layer %d;Strip;dt [Ticks]; Entries", layer),
-                            24, 0, 24, 40, -20, 20);
+                            Form("Layer %d;Strip;#Delta#it{t} [Ticks]; Entries", layer),
+                            24, 0, 24, 24, -12, 12);
             dt_strip_histograms[suffixes[c]][layer] = hist;
         }
     }
@@ -266,14 +266,15 @@ void plotDtVsStrip(TFile* input_file) {
         for (size_t i = 0; i < strips->size(); ++i) {
             int layer = (*layers)[i];
             int strip = remapStrip((*strips)[i]);
-            int dt = (*dts)[i];
-            
-            dt_strip_histograms["dt_strip_all"][layer]->Fill(strip, dt);
+            double dt_ticks = (*dts)[i];
+            double dt_ns = TimeUtils::ticksToTime((*dts)[i]);
+
+            dt_strip_histograms["dt_strip_all"][layer]->Fill(strip, dt_ticks);
             if ((*in_valid_track_eta1)[i]) {
-                dt_strip_histograms["dt_strip_valid1"][layer]->Fill(strip, dt);
+                dt_strip_histograms["dt_strip_valid1"][layer]->Fill(strip, dt_ticks);
             }
             if ((*in_valid_track_eta2)[i]) {
-                dt_strip_histograms["dt_strip_valid2"][layer]->Fill(strip, dt);
+                dt_strip_histograms["dt_strip_valid2"][layer]->Fill(strip, dt_ticks);
             }
         }
     }
@@ -322,7 +323,7 @@ void plotToTVsStrip(TFile* input_file) {
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
-                            Form("Layer %d;Strip;ToT [Ticks]; Entries", layer),
+                            Form("Layer %d;Strip;ToT [ns]; Entries", layer),
                             24, 0, 24, 34, 1, 35);
             tot_strip_histograms[suffixes[c]][layer] = hist;
         }
