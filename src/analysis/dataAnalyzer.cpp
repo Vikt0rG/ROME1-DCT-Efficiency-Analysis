@@ -249,14 +249,15 @@ void plotDtVsStrip(TFile* input_file) {
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
     // Create histograms using arrays
-    const int nConfigs = 3;
-    const char* suffixes[nConfigs] = {"dt_strip_all", "dt_strip_valid1", "dt_strip_valid2"};
+    const int nConfigs = 4;
+    const char* suffixes[nConfigs] = {"dt_strip_all", "dt_strip_valid1", "dt_strip_valid2", "dt_strip_valid_all"};
+    const char* comments[nConfigs] = {"All hits", "Track Reco (#eta1)", "Track Reco (#eta2)", "Track Reco (#eta1 and #eta2)"};
 
     std::map<std::string, std::map<int, TH2*>> dt_strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
-                            Form("Layer %d;Strip;#Delta#it{t} [Ticks]; Entries", layer),
+                            Form("Layer %d: %s;Strip;#Delta#it{t} [Ticks]; Entries", layer, comments[c]),
                             24, 0, 24, 24, -12, 12);
             dt_strip_histograms[suffixes[c]][layer] = hist;
         }
@@ -275,6 +276,9 @@ void plotDtVsStrip(TFile* input_file) {
             }
             if ((*in_valid_track_eta2)[i]) {
                 dt_strip_histograms["dt_strip_valid2"][layer]->Fill(strip, dt_ticks);
+            }
+            if ((*in_valid_track_eta1)[i] && (*in_valid_track_eta2)[i]) {
+                dt_strip_histograms["dt_strip_valid_all"][layer]->Fill(strip, dt_ticks);
             }
         }
     }
@@ -315,15 +319,17 @@ void plotToTVsStrip(TFile* input_file) {
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
     // Create histograms using arrays
-    const int nConfigs = 6;
-    const char* suffixes[nConfigs] = {"tot1_strip_all", "tot2_strip_all",
-        "tot1_strip_valid1", "tot2_strip_valid1", "tot1_strip_valid2", "tot2_strip_valid2"};
+    const int nConfigs = 8;
+    const char* suffixes[nConfigs] = {"tot1_strip_all", "tot2_strip_all", "tot1_strip_valid1", "tot2_strip_valid1",
+        "tot1_strip_valid2", "tot2_strip_valid2", "tot1_strip_valid_all", "tot2_strip_valid_all"};
+    const char* comments[nConfigs] = {"All hits", "All hits", "Track Reco (#eta1)", "Track Reco (#eta1)",
+        "Track Reco (#eta2)", "Track Reco (#eta2)", "Track Reco (#eta1 and #eta2)", "Track Reco (#eta1 and #eta2)"};
 
     std::map<std::string, std::map<int, TH2*>> tot_strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
-                            Form("Layer %d;Strip;ToT [ns]; Entries", layer),
+                            Form("Layer %d: %s;Strip;ToT [ns]; Entries", layer, comments[c]),
                             24, 0, 24, 34, 1, 35);
             tot_strip_histograms[suffixes[c]][layer] = hist;
         }
@@ -343,9 +349,14 @@ void plotToTVsStrip(TFile* input_file) {
             if ((*in_valid_track_eta1)[i]) {
                 tot_strip_histograms["tot1_strip_valid1"][layer]->Fill(strip, tot1);
                 tot_strip_histograms["tot2_strip_valid1"][layer]->Fill(strip, tot2);
-            } else if ((*in_valid_track_eta2)[i]) {
+            }
+            if ((*in_valid_track_eta2)[i]) {
                 tot_strip_histograms["tot1_strip_valid2"][layer]->Fill(strip, tot1);
                 tot_strip_histograms["tot2_strip_valid2"][layer]->Fill(strip, tot2);
+            }
+            if ((*in_valid_track_eta1)[i] && (*in_valid_track_eta2)[i]) {
+                tot_strip_histograms["tot1_strip_valid_all"][layer]->Fill(strip, tot1);
+                tot_strip_histograms["tot2_strip_valid_all"][layer]->Fill(strip, tot2);
             }
         }
     }
@@ -392,18 +403,25 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
     // Create histograms using arrays
-    const int nConfigs = 6;
+    const int nConfigs = 8;
     const char* categories[nConfigs] = {
         "mult1_all", "mult2_all",           // Multiplicity for all hits based on time1 and time2
         "mult1_valid1", "mult2_valid1",     // Multiplicity for hits in valid tracks on eta1 side based on time1 and time2
-        "mult1_valid2", "mult2_valid2"      // Multiplicity for hits in valid tracks on eta2 side based on time1 and time2
+        "mult1_valid2", "mult2_valid2",      // Multiplicity for hits in valid tracks on eta2 side based on time1 and time2
+        "mult1_valid_all", "mult2_valid_all" // Multiplicity for hits in valid tracks on both sides based on time1 and time2
+    };
+    const char* comments[nConfigs] = {
+        "All hits", "All hits",
+        "Track Reco (#eta1)", "Track Reco (#eta1)",
+        "Track Reco (#eta2)", "Track Reco (#eta2)",
+        "Track Reco (#eta1 and #eta2)", "Track Reco (#eta1 and #eta2)"
     };
 
     std::map<std::string, std::map<int, TH2*>> multiplicity_histograms;
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_%s_layer%d", categories[c], layer),
-                            Form("Layer %d;Strip;Multiplicity; Entries", layer),
+                            Form("Layer %d: %s;Strip;Multiplicity; Entries", layer, comments[c]),
                             24, 0, 24, 9, 1, 10);
             multiplicity_histograms[categories[c]][layer] = hist;
         }
@@ -412,7 +430,7 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_delay_%s_layer%d", categories[c], layer),
-                            Form("Layer %d;Strip;Delay from First Hit [Ticks]; Entries", layer),
+                            Form("Layer %d: %s;Strip;Delay from First Hit [Ticks]; Entries", layer, comments[c]),
                             24, 0, 24, 100, 0, 100);
             delay_histograms[categories[c]][layer] = hist;
         }
@@ -421,8 +439,8 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
     while (readerInputData.Next() && readerProcData.Next() && readerTrackData.Next()) {
 
         // Create lookup tables for each entry
-        std::map<int, std::map<int, int>> counts[6];    // layer -> strip -> count (for each of the 6 categories)
-        std::map<int, std::map<int, std::vector<int>>> delays[6];
+        std::map<int, std::map<int, int>> counts[8];    // layer -> strip -> count (for each of the 8 categories)
+        std::map<int, std::map<int, std::vector<int>>> delays[8];
 
         for (size_t i = 0; i < strips->size(); ++i) {
 
@@ -442,6 +460,10 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
                     counts[4][layer][strip]++;
                     delays[4][layer][strip].push_back((*time1)[i]);
                 }
+                if ((*in_valid_track_eta1)[i] && (*in_valid_track_eta2)[i]) {
+                    counts[6][layer][strip]++;
+                    delays[6][layer][strip].push_back((*time1)[i]);
+                }
             }
             if ((*raw_time2)[i] != 0) {
                 counts[1][layer][strip]++;
@@ -453,6 +475,10 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
                 if ((*in_valid_track_eta2)[i]) {
                     counts[5][layer][strip]++;
                     delays[5][layer][strip].push_back((*time2)[i]);
+                }
+                if ((*in_valid_track_eta1)[i] && (*in_valid_track_eta2)[i]) {
+                    counts[7][layer][strip]++;
+                    delays[7][layer][strip].push_back((*time2)[i]);
                 }
             }
         }
@@ -668,6 +694,7 @@ void DataAnalyzer::produceSummaryStats() {
         // Extract relevant data/statistics from the input ROOT file for this measurement entry
         MeasurementData stats;
 
+        // ----------------------------------------------------------------------------------
         // Extract efficiency values from histograms for this measurement entry
         for (int layer = 0; layer < 3; ++layer) {
 
