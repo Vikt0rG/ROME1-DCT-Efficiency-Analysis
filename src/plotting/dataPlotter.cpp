@@ -55,7 +55,8 @@ std::string getTimestamp() {
     localtime_r(&now_time_t, &now_tm);
     char timestamp[20];
     std::strftime(timestamp, sizeof(timestamp), "%d-%m-%Y_%H-%M-%S", &now_tm);
-    return std::string(timestamp);}
+    return std::string(timestamp);
+}
 }   // namespace Utilities
 
 // Anonymous namespace for metric names and other constants used in DataPlotter implementation
@@ -68,7 +69,7 @@ namespace {
         "avg_cluster_size_eta1_layers", "avg_cluster_size_eta2_layers",
         "noise_rate_eta1", "noise_rate_eta2"
     };
-    
+
     const std::vector<std::string> scalar_metrics = {
         "avg_cluster_size_eta1", "avg_cluster_size_eta2", "noise_rate"
     };
@@ -213,7 +214,7 @@ std::map<int, DataPlotter::MetricsData> DataPlotter::extractScanData(
                 for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
 
                     // C++ struct memory layout is [LAYER_COUNT][STRIPS_PER_LAYER]
-                    int flat_idx = layer * STRIPS_PER_LAYER + strip; 
+                    int flat_idx = layer * STRIPS_PER_LAYER + strip;
 
                     auto& strip_series = current_scan.strip_metrics[metric_name][layer][strip];
                     strip_series.x.push_back(x_value);
@@ -271,15 +272,15 @@ void DataPlotter::plotLayerMetrics(
             // Save individual layer graphs in subfolders
             std::string layer_folder = "layer" + std::to_string(layer);
             if (TDirectory* l_dir = PathUtils::ensureDirectory(metric_dir, layer_folder.c_str())) {
-                l_dir->cd(); 
+                l_dir->cd();
                 layer_graph->Write("", TObject::kOverwrite);
             }
         }
-        
+
         // Save the combined multigraph
-        metric_dir->cd(); 
+        metric_dir->cd();
         multi_graph->Write("", TObject::kOverwrite);
-        delete multi_graph; 
+        delete multi_graph;
     }
 }
 
@@ -315,8 +316,8 @@ void DataPlotter::plotStripMetrics(
                 );
 
                 g->SetName(Form("%s_layer%d_strip%d", metric_name.c_str(), layer, strip));
-                g->SetMarkerStyle(20 + (strip % 4)); 
-                g->SetMarkerColor(1 + (strip % 9)); 
+                g->SetMarkerStyle(20 + (strip % 4));
+                g->SetMarkerColor(1 + (strip % 9));
                 g->SetLineColor(1 + (strip % 9));
 
                 multi_graph->Add(g, "P");
@@ -339,7 +340,7 @@ void DataPlotter::produceSummaryPlots() {
 
         // Extract scan data from the summary ROOT file
         std::map<int, MetricsData> scan_data_map = extractScanData(config_data.summary_root_file);
-        
+
         // Plot metrics for each scan layer
         for (const auto& [scan_layer, scan_data] : scan_data_map) {
             TDirectory* scan_dir = setupScanDirectories(config_dir, scan_layer);
