@@ -128,6 +128,26 @@ struct NoiseRateResults {
     ErrorRange noise_rate_eta2_error[3] = {};
 };
 
+struct ToTResults {
+    double avg_tot_eta1_layers[STRIPS_PER_LAYER][LAYER_COUNT] = {};
+    double avg_tot_eta2_layers[STRIPS_PER_LAYER][LAYER_COUNT] = {};
+
+    ErrorRange avg_tot_eta1_layers_error[STRIPS_PER_LAYER][LAYER_COUNT] = {};
+    ErrorRange avg_tot_eta2_layers_error[STRIPS_PER_LAYER][LAYER_COUNT] = {};
+};
+
+struct MultiplicityResults {
+    double avg_multiplicity_eta1[STRIPS_PER_LAYER] = {};
+    double avg_multiplicity_eta2[STRIPS_PER_LAYER] = {};
+    double avg_multiplicity_eta1_layers[STRIPS_PER_LAYER][LAYER_COUNT] = {};
+    double avg_multiplicity_eta2_layers[STRIPS_PER_LAYER][LAYER_COUNT] = {};
+
+    ErrorRange avg_multiplicity_eta1_error[STRIPS_PER_LAYER] = {};
+    ErrorRange avg_multiplicity_eta2_error[STRIPS_PER_LAYER] = {};
+    ErrorRange avg_multiplicity_eta1_layers_error[STRIPS_PER_LAYER][LAYER_COUNT] = {};
+    ErrorRange avg_multiplicity_eta2_layers_error[STRIPS_PER_LAYER][LAYER_COUNT] = {};
+};
+
 // ==========================================================================================
 // Measurement configuration and summary structures for the measurement analysis part
 
@@ -165,11 +185,22 @@ struct MeasurementMetadata {
 /// measurement entry
 /// @param cluster_size_results Calculated cluster size results for the measurement entry
 /// @param noise_rate_results Calculated noise rate results for the measurement entry
+/// @param tot_results Calculated average ToT results for the measurement entry
+/// @param tot_results_tracks Calculated track-based average ToT results for the measurement
+/// entry
+/// @param multiplicity_results Calculated average multiplicity results for the measurement
+/// entry
+/// @param multiplicity_results_tracks Calculated track-based average multiplicity results
+/// for the measurement entry
 struct MeasurementData {
     EfficiencyResults efficiency_results;
     EfficiencyResults efficiency_results_tracks;
     ClusterSizeResults cluster_size_results;
     NoiseRateResults noise_rate_results;
+    ToTResults tot_results;
+    ToTResults tot_results_tracks;
+    MultiplicityResults multiplicity_results;
+    MultiplicityResults multiplicity_results_tracks;
 };
 
 
