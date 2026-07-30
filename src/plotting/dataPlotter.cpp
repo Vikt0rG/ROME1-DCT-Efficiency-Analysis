@@ -58,6 +58,29 @@ std::string getTimestamp() {
     return std::string(timestamp);}
 }   // namespace Utilities
 
+// Anonymous namespace for metric names and other constants used in DataPlotter implementation
+namespace {
+    const std::vector<std::string> layer_metrics = {
+        "eff_eta1_external", "eff_eta2_external", "eff_or_external", "eff_and_external",
+        "eff_eta1_rpc", "eff_eta2_rpc", "eff_or_rpc", "eff_and_rpc",
+        "track_eff_eta1_external", "track_eff_eta2_external", "track_eff_or_external", "track_eff_and_external",
+        "track_eff_eta1_rpc", "track_eff_eta2_rpc", "track_eff_or_rpc", "track_eff_and_rpc",
+        "avg_cluster_size_eta1_layers", "avg_cluster_size_eta2_layers",
+        "noise_rate_eta1", "noise_rate_eta2"
+    };
+    
+    const std::vector<std::string> scalar_metrics = {
+        "avg_cluster_size_eta1", "avg_cluster_size_eta2", "noise_rate"
+    };
+
+    const std::vector<std::string> strip_layer_metrics = {
+        "avg_tot_eta1_layers", "avg_tot_eta2_layers",
+        "track_avg_tot_eta1_layers", "track_avg_tot_eta2_layers",
+        "avg_multiplicity_eta1_layers", "avg_multiplicity_eta2_layers",
+        "track_avg_multiplicity_eta1_layers", "track_avg_multiplicity_eta2_layers"
+    };
+}   // anonymous namespace
+
 // ==========================================================================================
 // DataPlotter class implementation for plotting summary statistics
 // ==========================================================================================
