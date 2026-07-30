@@ -519,6 +519,96 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
 
 }
 
+namespace summaryHelpers {
+
+void getAverageToT(TFile* input_file, MeasurementData& stats) {
+    TTree* processed_tree = input_file->Get<TTree>("ProcessedData");
+    TTree* track_tree = input_file->Get<TTree>("TrackReconstruction");
+    
+    if (!processed_tree || !track_tree) {
+        std::cerr << "Error: Required trees not found in file " << input_file->GetName() << "\n";
+        std::exit(EXIT_FAILURE);
+    }
+
+    TTreeReader reader_processed(processed_tree);
+    TTreeReader reader_track(track_tree);
+
+    TTreeReaderValue<std::vector<int>>  tot1(reader_processed, "proc_tot1");
+    TTreeReaderValue<std::vector<int>>  tot2(reader_processed, "proc_tot2");
+    TTreeReaderValue<std::vector<int>>  strips(reader_processed, "proc_strip");
+    TTreeReaderValue<std::vector<int>>  layers(reader_processed, "proc_layer");
+    TTreeReaderValue<std::vector<bool>> is_valid_eta1(reader_track, "in_valid_track_eta1");
+    TTreeReaderValue<std::vector<bool>> is_valid_eta2(reader_track, "in_valid_track_eta2");
+
+    // Local accumulators
+    Accumulator eta1_all[LAYER_COUNT][STRIPS_PER_LAYER];
+    Accumulator eta2_all[LAYER_COUNT][STRIPS_PER_LAYER];
+    Accumulator eta1_trk[LAYER_COUNT][STRIPS_PER_LAYER];
+    Accumulator eta2_trk[LAYER_COUNT][STRIPS_PER_LAYER];
+
+    while (reader_processed.Next() && reader_track.Next()) {
+        if (tot1.GetSetupStatus() != 0 || is_valid_eta1.GetSetupStatus() != 0) continue;
+
+        const size_t n_entries = std::min({tot1->size(), tot2->size(), strips->size(), layers->size(), 
+                                           is_valid_eta1->size(), is_valid_eta2->size()});
+                                           
+        for (size_t i = 0; i < n_entries; ++i) {
+            int layer = (*layers)[i];
+            int strip = (*strips)[i];
+
+            if (layer < 0 || layer >= LAYER_COUNT || strip < 0 || strip >= STRIPS_PER_LAYER) continue;
+
+            // Accumulate for all hits
+            eta1_all[layer][strip].sum += (*tot1)[i];
+            eta1_all[layer][strip].hits++;
+            
+            eta2_all[layer][strip].sum += (*tot2)[i];
+            eta2_all[layer][strip].hits++;
+
+            // Accumulate exclusively for valid tracks
+            if ((*is_valid_eta1)[i] || (*is_valid_eta2)[i]) {
+                eta1_trk[layer][strip].sum += (*tot1)[i];
+                eta1_trk[layer][strip].hits++;
+                
+                eta2_trk[layer][strip].sum += (*tot2)[i];
+                eta2_trk[layer][strip].hits++;
+            }
+        }
+    }
+
+    auto assignAverageAndError = [](const Accumulator& acc, double& avg, double& err) {
+        if (acc.hits == 0) {
+            avg = 0.0;
+            err = 0.0;
+        } else {
+            avg = static_cast<double>(acc.sum) / acc.hits;
+            err = std::sqrt(avg) / acc.hits;
+        }
+    };
+
+    for (int layer = 0; layer < LAYER_COUNT; ++layer) {
+        for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
+
+            assignAverageAndError(eta1_all[layer][strip], 
+                                  stats.tot_results.avg_tot_eta1_layers[layer][strip], 
+                                  stats.tot_results.avg_tot_eta1_layers_error[layer][strip]);
+
+            assignAverageAndError(eta2_all[layer][strip], 
+                                  stats.tot_results.avg_tot_eta2_layers[layer][strip], 
+                                  stats.tot_results.avg_tot_eta2_layers_error[layer][strip]);
+
+            assignAverageAndError(eta1_trk[layer][strip], 
+                                  stats.tot_results_tracks.avg_tot_eta1_layers[layer][strip], 
+                                  stats.tot_results_tracks.avg_tot_eta1_layers_error[layer][strip]);
+
+            assignAverageAndError(eta2_trk[layer][strip], 
+                                  stats.tot_results_tracks.avg_tot_eta2_layers[layer][strip], 
+                                  stats.tot_results_tracks.avg_tot_eta2_layers_error[layer][strip]);
+        }
+    }
+}
+}
+
 // ==========================================================================================
 // DataAnalyzer class implementation for analyzing processed DCT data and plotting results
 // ==========================================================================================
@@ -595,6 +685,10 @@ void DataAnalyzer::produceSummaryStats() {
     EfficiencyResults efficiency_results_track_summary;
     ClusterSizeResults cluster_size_results_summary;
     NoiseRateResults noise_rate_results_summary;
+    ToTResults tot_results_summary;                         // Average ToT for all hits
+    ToTResults tot_results_track_summary;                   // Average ToT for all hits and for hits that are part of any valid track
+    MultiplicityResults multiplicity_results_summary;       // Average Multiplicity for all hits
+    MultiplicityResults multiplicity_results_track_summary; // Average Multiplicity for hits that are part of any valid track
 
     // Set up branches for the summary tree
     summary_tree->Branch("name", &entry_name);
@@ -658,6 +752,26 @@ void DataAnalyzer::produceSummaryStats() {
     summary_tree->Branch("noise_rate_error", &noise_rate_results_summary.noise_rate_error, "noise_rate_error[2]/D");
     summary_tree->Branch("noise_rate_eta1_error", noise_rate_results_summary.noise_rate_eta1_error, "noise_rate_eta1_error[6]/D");
     summary_tree->Branch("noise_rate_eta2_error", noise_rate_results_summary.noise_rate_eta2_error, "noise_rate_eta2_error[6]/D");
+
+    summary_tree->Branch("avg_tot_eta1_layers", tot_results_summary.avg_tot_eta1_layers, Form("avg_tot_eta1_layers[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+    summary_tree->Branch("avg_tot_eta2_layers", tot_results_summary.avg_tot_eta2_layers, Form("avg_tot_eta2_layers[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+    summary_tree->Branch("avg_tot_eta1_layers_error", tot_results_summary.avg_tot_eta1_layers_error, Form("avg_tot_eta1_layers_error[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+    summary_tree->Branch("avg_tot_eta2_layers_error", tot_results_summary.avg_tot_eta2_layers_error, Form("avg_tot_eta2_layers_error[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+
+    summary_tree->Branch("track_avg_tot_eta1_layers", tot_results_track_summary.avg_tot_eta1_layers, Form("track_avg_tot_eta1_layers[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+    summary_tree->Branch("track_avg_tot_eta2_layers", tot_results_track_summary.avg_tot_eta2_layers, Form("track_avg_tot_eta2_layers[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+    summary_tree->Branch("track_avg_tot_eta1_layers_error", tot_results_track_summary.avg_tot_eta1_layers_error, Form("track_avg_tot_eta1_layers_error[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+    summary_tree->Branch("track_avg_tot_eta2_layers_error", tot_results_track_summary.avg_tot_eta2_layers_error, Form("track_avg_tot_eta2_layers_error[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+
+    summary_tree->Branch("avg_multiplicity_eta1_layers", multiplicity_results_summary.avg_multiplicity_eta1_layers, Form("avg_multiplicity_eta1_layers[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+    summary_tree->Branch("avg_multiplicity_eta2_layers", multiplicity_results_summary.avg_multiplicity_eta2_layers, Form("avg_multiplicity_eta2_layers[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+    summary_tree->Branch("avg_multiplicity_eta1_layers_error", multiplicity_results_summary.avg_multiplicity_eta1_layers_error, Form("avg_multiplicity_eta1_layers_error[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+    summary_tree->Branch("avg_multiplicity_eta2_layers_error", multiplicity_results_summary.avg_multiplicity_eta2_layers_error, Form("avg_multiplicity_eta2_layers_error[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+
+    summary_tree->Branch("track_avg_multiplicity_eta1_layers", multiplicity_results_track_summary.avg_multiplicity_eta1_layers, Form("track_avg_multiplicity_eta1_layers[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+    summary_tree->Branch("track_avg_multiplicity_eta2_layers", multiplicity_results_track_summary.avg_multiplicity_eta2_layers, Form("track_avg_multiplicity_eta2_layers[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+    summary_tree->Branch("track_avg_multiplicity_eta1_layers_error", multiplicity_results_track_summary.avg_multiplicity_eta1_layers_error, Form("track_avg_multiplicity_eta1_layers_error[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
+    summary_tree->Branch("track_avg_multiplicity_eta2_layers_error", multiplicity_results_track_summary.avg_multiplicity_eta2_layers_error, Form("track_avg_multiplicity_eta2_layers_error[%d][%d]/D", STRIPS_PER_LAYER, LAYER_COUNT));
 
     // Process each measurement entry in this config file
     for (const auto& metadata_entry : scan.metadata) {
@@ -1009,10 +1123,14 @@ void DataAnalyzer::produceSummaryStats() {
         }   // Close the scope for rate calculation to avoid variable name conflicts
 
         // ----------------------------------------------------------------------------------
+        // Average ToT calculation
+        summaryHelpers::getAverageToT(input_file, stats.tot_results_summary, stats.tot_results_track_summary);
+
+        // ----------------------------------------------------------------------------------
         // Fill the summary tree with the extracted statistics for this measurement entry
 
         // Layer-specific cluster size and efficiency results
-        for (int layer = 0; layer < 3; ++layer) {
+        for (int layer = 0; layer < LAYER_COUNT; layer++) {
 
             // Efficiency results
             efficiency_results_summary.eta1_efficiency_external[layer] = stats.efficiency_results.eta1_efficiency_external[layer];
@@ -1068,6 +1186,21 @@ void DataAnalyzer::produceSummaryStats() {
 
             noise_rate_results_summary.noise_rate_eta1_error[layer] = stats.noise_rate_results.noise_rate_eta1_error[layer];
             noise_rate_results_summary.noise_rate_eta2_error[layer] = stats.noise_rate_results.noise_rate_eta2_error[layer];
+
+            // Average ToT results
+            for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
+                tot_results_summary.avg_tot_eta1_layers[strip][layer] = stats.tot_results_summary.avg_tot_eta1_layers[strip][layer];
+                tot_results_summary.avg_tot_eta2_layers[strip][layer] = stats.tot_results_summary.avg_tot_eta2_layers[strip][layer];
+
+                tot_results_summary.avg_tot_eta1_layers_error[strip][layer] = stats.tot_results_summary.avg_tot_eta1_layers_error[strip][layer];
+                tot_results_summary.avg_tot_eta2_layers_error[strip][layer] = stats.tot_results_summary.avg_tot_eta2_layers_error[strip][layer];
+
+                tot_results_track_summary.avg_tot_eta1_layers[strip][layer] = stats.tot_results_track_summary.avg_tot_eta1_layers[strip][layer];
+                tot_results_track_summary.avg_tot_eta2_layers[strip][layer] = stats.tot_results_track_summary.avg_tot_eta2_layers[strip][layer];
+
+                tot_results_track_summary.avg_tot_eta1_layers_error[strip][layer] = stats.tot_results_track_summary.avg_tot_eta1_layers_error[strip][layer];
+                tot_results_track_summary.avg_tot_eta2_layers_error[strip][layer] = stats.tot_results_track_summary.avg_tot_eta2_layers_error[strip][layer];
+            }
         }
 
         // Detector-wide cluster size
