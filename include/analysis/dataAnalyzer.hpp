@@ -60,6 +60,26 @@ namespace perFileHelpers {
     void plotMultiplicityAndDelayVsStrip(TFile* input_file);
 }
 
+/// @namespace summaryHelpers
+/// @brief Namespace for helper functions to calculate summary statistics for each
+/// measurement entry
+namespace summaryHelpers {
+
+    /// @struct Accumulator
+    /// @brief Struct to accumulate sums and counts for calculating averages and errors
+    struct Accumulator {
+        double sum{0.0};  ///< Sum of values accumulated
+        size_t hits{0};   ///< Count of hits accumulated
+    };
+
+    /// @brief Helper function to calculate average ToT for each strip and layer, along with
+    /// associated error ranges, and store the results in the provided ToTResults structures
+    /// @param input_file Pointer to the input ROOT file containing processed DCT data for a
+    /// specific measurement entry
+    /// @param stats Reference to a MeasurementData structure to store the calculated average
+    /// ToT and error ranges for all hits
+    void getAverageToT(TFile* input_file, MeasurementData& stats);
+}
 
 // ==========================================================================================
 // DataAnalyzer Class: Main data analysis section
