@@ -131,23 +131,19 @@ struct NoiseRateResults {
 };
 
 struct ToTResults {
-    double avg_tot_eta1_layers[STRIPS_PER_LAYER][LAYER_COUNT] = {};
-    double avg_tot_eta2_layers[STRIPS_PER_LAYER][LAYER_COUNT] = {};
+    double avg_tot_eta1_layers[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    double avg_tot_eta2_layers[LAYER_COUNT][STRIPS_PER_LAYER] = {};
 
-    ErrorRange avg_tot_eta1_layers_error[STRIPS_PER_LAYER][LAYER_COUNT] = {};
-    ErrorRange avg_tot_eta2_layers_error[STRIPS_PER_LAYER][LAYER_COUNT] = {};
+    ErrorRange avg_tot_eta1_layers_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    ErrorRange avg_tot_eta2_layers_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
 };
 
 struct MultiplicityResults {
-    double avg_multiplicity_eta1[STRIPS_PER_LAYER] = {};
-    double avg_multiplicity_eta2[STRIPS_PER_LAYER] = {};
-    double avg_multiplicity_eta1_layers[STRIPS_PER_LAYER][LAYER_COUNT] = {};
-    double avg_multiplicity_eta2_layers[STRIPS_PER_LAYER][LAYER_COUNT] = {};
+    double avg_multiplicity_eta1_layers[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    double avg_multiplicity_eta2_layers[LAYER_COUNT][STRIPS_PER_LAYER] = {};
 
-    ErrorRange avg_multiplicity_eta1_error[STRIPS_PER_LAYER] = {};
-    ErrorRange avg_multiplicity_eta2_error[STRIPS_PER_LAYER] = {};
-    ErrorRange avg_multiplicity_eta1_layers_error[STRIPS_PER_LAYER][LAYER_COUNT] = {};
-    ErrorRange avg_multiplicity_eta2_layers_error[STRIPS_PER_LAYER][LAYER_COUNT] = {};
+    ErrorRange avg_multiplicity_eta1_layers_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    ErrorRange avg_multiplicity_eta2_layers_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
 };
 
 // ==========================================================================================
