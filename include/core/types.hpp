@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+#include "core/constants.hpp"
+
 // ==========================================================================================
 // Common types, structures and enums used across the project
 
