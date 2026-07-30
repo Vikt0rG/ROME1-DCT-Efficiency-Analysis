@@ -521,10 +521,10 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
 
 namespace summaryHelpers {
 
-void getAverageToT(TFile* input_file, MeasurementData& stats) {
+void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_track_only) {
     TTree* processed_tree = input_file->Get<TTree>("ProcessedData");
     TTree* track_tree = input_file->Get<TTree>("TrackReconstruction");
-    
+
     if (!processed_tree || !track_tree) {
         std::cerr << "Error: Required trees not found in file " << input_file->GetName() << "\n";
         std::exit(EXIT_FAILURE);
@@ -541,69 +541,60 @@ void getAverageToT(TFile* input_file, MeasurementData& stats) {
     TTreeReaderValue<std::vector<bool>> is_valid_eta2(reader_track, "in_valid_track_eta2");
 
     // Local accumulators
-    Accumulator eta1_all[LAYER_COUNT][STRIPS_PER_LAYER];
-    Accumulator eta2_all[LAYER_COUNT][STRIPS_PER_LAYER];
-    Accumulator eta1_trk[LAYER_COUNT][STRIPS_PER_LAYER];
-    Accumulator eta2_trk[LAYER_COUNT][STRIPS_PER_LAYER];
+    Accumulator eta1[LAYER_COUNT][STRIPS_PER_LAYER];
+    Accumulator eta2[LAYER_COUNT][STRIPS_PER_LAYER];
 
     while (reader_processed.Next() && reader_track.Next()) {
         if (tot1.GetSetupStatus() != 0 || is_valid_eta1.GetSetupStatus() != 0) continue;
 
         const size_t n_entries = std::min({tot1->size(), tot2->size(), strips->size(), layers->size(), 
                                            is_valid_eta1->size(), is_valid_eta2->size()});
-                                           
+
         for (size_t i = 0; i < n_entries; ++i) {
             int layer = (*layers)[i];
             int strip = (*strips)[i];
 
             if (layer < 0 || layer >= LAYER_COUNT || strip < 0 || strip >= STRIPS_PER_LAYER) continue;
 
-            // Accumulate for all hits
-            eta1_all[layer][strip].sum += (*tot1)[i];
-            eta1_all[layer][strip].hits++;
-            
-            eta2_all[layer][strip].sum += (*tot2)[i];
-            eta2_all[layer][strip].hits++;
-
-            // Accumulate exclusively for valid tracks
-            if ((*is_valid_eta1)[i] || (*is_valid_eta2)[i]) {
-                eta1_trk[layer][strip].sum += (*tot1)[i];
-                eta1_trk[layer][strip].hits++;
+            // Accumulate for all hits or only for hits that are part of valid tracks based on the flag
+            if (!in_valid_track_only) {
+                eta1[layer][strip].sum += (*tot1)[i];
+                eta1[layer][strip].hits++;
                 
-                eta2_trk[layer][strip].sum += (*tot2)[i];
-                eta2_trk[layer][strip].hits++;
+                eta2[layer][strip].sum += (*tot2)[i];
+                eta2[layer][strip].hits++;
+            } else {
+                if ((*is_valid_eta1)[i] || (*is_valid_eta2)[i]) {
+                    eta1[layer][strip].sum += (*tot1)[i];
+                    eta1[layer][strip].hits++;
+
+                    eta2[layer][strip].sum += (*tot2)[i];
+                    eta2[layer][strip].hits++;
+                }
             }
         }
     }
 
-    auto assignAverageAndError = [](const Accumulator& acc, double& avg, double& err) {
+    auto assignAverageAndError = [](const Accumulator& acc, double& avg, ErrorRange& err) {
         if (acc.hits == 0) {
             avg = 0.0;
-            err = 0.0;
+            err = ErrorRange(0.0);
         } else {
             avg = static_cast<double>(acc.sum) / acc.hits;
-            err = std::sqrt(avg) / acc.hits;
+            err = ErrorRange(std::sqrt(avg) / acc.hits);
         }
     };
 
     for (int layer = 0; layer < LAYER_COUNT; ++layer) {
         for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
 
-            assignAverageAndError(eta1_all[layer][strip], 
-                                  stats.tot_results.avg_tot_eta1_layers[layer][strip], 
-                                  stats.tot_results.avg_tot_eta1_layers_error[layer][strip]);
+            assignAverageAndError(eta1[layer][strip],
+                                  tot_results.avg_tot_eta1_layers[layer][strip],
+                                  tot_results.avg_tot_eta1_layers_error[layer][strip]);
 
-            assignAverageAndError(eta2_all[layer][strip], 
-                                  stats.tot_results.avg_tot_eta2_layers[layer][strip], 
-                                  stats.tot_results.avg_tot_eta2_layers_error[layer][strip]);
-
-            assignAverageAndError(eta1_trk[layer][strip], 
-                                  stats.tot_results_tracks.avg_tot_eta1_layers[layer][strip], 
-                                  stats.tot_results_tracks.avg_tot_eta1_layers_error[layer][strip]);
-
-            assignAverageAndError(eta2_trk[layer][strip], 
-                                  stats.tot_results_tracks.avg_tot_eta2_layers[layer][strip], 
-                                  stats.tot_results_tracks.avg_tot_eta2_layers_error[layer][strip]);
+            assignAverageAndError(eta2[layer][strip],
+                                  tot_results.avg_tot_eta2_layers[layer][strip],
+                                  tot_results.avg_tot_eta2_layers_error[layer][strip]);
         }
     }
 }
@@ -1124,7 +1115,8 @@ void DataAnalyzer::produceSummaryStats() {
 
         // ----------------------------------------------------------------------------------
         // Average ToT calculation
-        summaryHelpers::getAverageToT(input_file, stats.tot_results_summary, stats.tot_results_track_summary);
+        summaryHelpers::getAverageToT(input_file, stats.tot_results, false);
+        summaryHelpers::getAverageToT(input_file, stats.tot_results_tracks, true);
 
         // ----------------------------------------------------------------------------------
         // Fill the summary tree with the extracted statistics for this measurement entry
@@ -1189,17 +1181,17 @@ void DataAnalyzer::produceSummaryStats() {
 
             // Average ToT results
             for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
-                tot_results_summary.avg_tot_eta1_layers[strip][layer] = stats.tot_results_summary.avg_tot_eta1_layers[strip][layer];
-                tot_results_summary.avg_tot_eta2_layers[strip][layer] = stats.tot_results_summary.avg_tot_eta2_layers[strip][layer];
+                tot_results_summary.avg_tot_eta1_layers[strip][layer] = stats.tot_results.avg_tot_eta1_layers[strip][layer];
+                tot_results_summary.avg_tot_eta2_layers[strip][layer] = stats.tot_results.avg_tot_eta2_layers[strip][layer];
 
-                tot_results_summary.avg_tot_eta1_layers_error[strip][layer] = stats.tot_results_summary.avg_tot_eta1_layers_error[strip][layer];
-                tot_results_summary.avg_tot_eta2_layers_error[strip][layer] = stats.tot_results_summary.avg_tot_eta2_layers_error[strip][layer];
+                tot_results_summary.avg_tot_eta1_layers_error[strip][layer] = stats.tot_results.avg_tot_eta1_layers_error[strip][layer];
+                tot_results_summary.avg_tot_eta2_layers_error[strip][layer] = stats.tot_results.avg_tot_eta2_layers_error[strip][layer];
 
-                tot_results_track_summary.avg_tot_eta1_layers[strip][layer] = stats.tot_results_track_summary.avg_tot_eta1_layers[strip][layer];
-                tot_results_track_summary.avg_tot_eta2_layers[strip][layer] = stats.tot_results_track_summary.avg_tot_eta2_layers[strip][layer];
+                tot_results_track_summary.avg_tot_eta1_layers[strip][layer] = stats.tot_results_tracks.avg_tot_eta1_layers[strip][layer];
+                tot_results_track_summary.avg_tot_eta2_layers[strip][layer] = stats.tot_results_tracks.avg_tot_eta2_layers[strip][layer];
 
-                tot_results_track_summary.avg_tot_eta1_layers_error[strip][layer] = stats.tot_results_track_summary.avg_tot_eta1_layers_error[strip][layer];
-                tot_results_track_summary.avg_tot_eta2_layers_error[strip][layer] = stats.tot_results_track_summary.avg_tot_eta2_layers_error[strip][layer];
+                tot_results_track_summary.avg_tot_eta1_layers_error[strip][layer] = stats.tot_results_tracks.avg_tot_eta1_layers_error[strip][layer];
+                tot_results_track_summary.avg_tot_eta2_layers_error[strip][layer] = stats.tot_results_tracks.avg_tot_eta2_layers_error[strip][layer];
             }
         }
 

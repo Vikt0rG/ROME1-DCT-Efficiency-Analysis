@@ -76,9 +76,11 @@ namespace summaryHelpers {
     /// associated error ranges, and store the results in the provided ToTResults structures
     /// @param input_file Pointer to the input ROOT file containing processed DCT data for a
     /// specific measurement entry
-    /// @param stats Reference to a MeasurementData structure to store the calculated average
+    /// @param tot_results Reference to a ToTResults structure to store the calculated average
     /// ToT and error ranges for all hits
-    void getAverageToT(TFile* input_file, MeasurementData& stats);
+    /// @param in_valid_track_only Flag to indicate whether to calculate averages for all hits
+    /// or only for hits that are part of valid tracks
+    void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_track_only);
 }
 
 // ==========================================================================================
