@@ -6,7 +6,7 @@
 
 // Detector geometry constants
 constexpr int LAYER_COUNT = 3;                      // Number of detector layers (L0, L1, L2)
-constexpr int STRIPS_PER_LAYER = 48;                // Number of strips per layer
+constexpr int STRIPS_PER_LAYER = 24;                // Number of strips per layer
 constexpr float STRIP_WIDTH_CM = 2.5;               // Width of each strip in cm
 constexpr float DETECTOR_LENGTH_CM = 180;           // Detector length (cm) for rate calculations
 
