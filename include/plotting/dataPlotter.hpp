@@ -8,6 +8,9 @@
 
 #include "core/types.hpp"
 
+class TFile;
+class TDirectory;
+
 // ==========================================================================================
 // Utilities Namespace: General utility functions for plotting
 // ==========================================================================================
@@ -22,6 +25,16 @@ namespace Utilities {
         std::array<std::vector<double>, 3> y;
         std::array<std::vector<double>, 3> y_errors_low;
         std::array<std::vector<double>, 3> y_errors_high;
+    };
+
+    /// @struct StripSeries
+    /// @brief Struct to hold x and y, as well as y_errors data for a specific metric across
+    /// different strips in a layer
+    struct StripSeries {
+        std::vector<double> x;
+        std::vector<double> y;
+        std::vector<double> y_error_low;
+        std::vector<double> y_error_high;
     };
     
     /// @brief Utility function to parse measurement entries from provided configuration paths
@@ -47,6 +60,21 @@ public:
         const std::filesystem::path& output_directory
     );
 
+    struct MetricsData {
+        std::map<std::string, Utilities::LayerSeries> layer_metrics;
+        std::map<std::string, std::map<int, std::map<int, Utilities::StripSeries>>> strip_metrics;
+
+        // For the scalar metrics
+        std::map<std::string, std::vector<double>> scalar_x;
+        std::map<std::string, std::vector<double>> scalar_y;
+    };
+
+    TFile* initializeAnalysisFile();
+    TDirectory* setupScanDirectories(TDirectory* config_dir, int scan_layer);
+    void plotLayerMetrics(TDirectory* scan_dir, const std::map<std::string, Utilities::LayerSeries>& layer_metrics);
+    void plotStripMetrics(TDirectory* scan_dir, const std::map<std::string, std::map<int, std::map<int, Utilities::StripSeries>>>& strip_metrics);
+    std::map<int, MetricsData> extractScanData(const std::string& summary_file_path);
+
     void produceSummaryPlots();
     void exportPlotsToATLASPDF();
 
@@ -57,7 +85,4 @@ private:
     /// @brief Map to hold parsed ConfigData structs for each scan, indexed by the configuration
     /// file path
     std::map<std::string, ConfigData> _parsed_configs;
-
-    /// @brief String path to the summary ROOT of a scan
-    std::string _summary_root_file;
 };
