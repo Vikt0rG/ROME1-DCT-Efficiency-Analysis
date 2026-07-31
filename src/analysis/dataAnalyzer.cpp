@@ -31,14 +31,11 @@
 // ==========================================================================================
 namespace perFileHelpers {
 
-// Anonymous namespace for internal helper functions for per-file plotting
-namespace {
-    int remapStrip(int rawStrip) {
-        for (const auto& col : columnShifts)
-            if (rawStrip >= col.start && rawStrip <= col.end)
-                return rawStrip + col.shift;
-        return rawStrip;
-    }
+int remapStrip(int rawStrip) {
+    for (const auto& col : columnShifts)
+        if (rawStrip >= col.start && rawStrip <= col.end)
+            return rawStrip + col.shift;
+    return rawStrip;
 }
 
 void plotStrip(TFile* input_file) {
@@ -552,7 +549,7 @@ void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_tra
 
         for (size_t i = 0; i < n_entries; ++i) {
             int layer = (*layers)[i];
-            int strip = (*strips)[i];
+            int strip = perFileHelpers::remapStrip((*strips)[i]);
 
             if (layer < 0 || layer >= LAYER_COUNT || strip < 0 || strip >= STRIPS_PER_LAYER) continue;
 

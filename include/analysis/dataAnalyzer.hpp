@@ -17,6 +17,11 @@ class TFile;
 /// for each measurement entry
 namespace perFileHelpers {
 
+    /// @brief Helper function to remap raw strip numbers to a continuous range for plotting
+    /// @param rawStrip The raw strip number to remap
+    /// @return The remapped strip number
+    int remapStrip(int rawStrip);
+
     /// @struct ColumnsShift
     /// @brief Struct to define the start and end of a column and the shift to apply
     /// for remapping raw strip numbers to a continuous range for plotting
