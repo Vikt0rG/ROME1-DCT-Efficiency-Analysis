@@ -555,18 +555,24 @@ void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_tra
 
             // Accumulate for all hits or only for hits that are part of valid tracks based on the flag
             if (!in_valid_track_only) {
-                eta1[layer][strip].sum += (*tot1)[i];
-                eta1[layer][strip].hits++;
-                
-                eta2[layer][strip].sum += (*tot2)[i];
-                eta2[layer][strip].hits++;
-            } else {
-                if ((*is_valid_eta1)[i] || (*is_valid_eta2)[i]) {
+                if ((*tot1)[i] > 0) {
                     eta1[layer][strip].sum += (*tot1)[i];
                     eta1[layer][strip].hits++;
-
+                }
+                if ((*tot2)[i] > 0) {
                     eta2[layer][strip].sum += (*tot2)[i];
                     eta2[layer][strip].hits++;
+                }
+            } else {
+                if ((*is_valid_eta1)[i] || (*is_valid_eta2)[i]) {
+                    if ((*tot1)[i] > 0) {
+                        eta1[layer][strip].sum += (*tot1)[i];
+                        eta1[layer][strip].hits++;
+                    }
+                    if ((*tot2)[i] > 0) {
+                        eta2[layer][strip].sum += (*tot2)[i];
+                        eta2[layer][strip].hits++;
+                    }
                 }
             }
         }
