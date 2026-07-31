@@ -75,10 +75,10 @@ namespace {
     };
 
     const std::vector<std::string> strip_layer_metrics = {
-        "avg_tot_eta1_layers", "avg_tot_eta2_layers",
-        "track_avg_tot_eta1_layers", "track_avg_tot_eta2_layers",
-        "avg_multiplicity_eta1_layers", "avg_multiplicity_eta2_layers",
-        "track_avg_multiplicity_eta1_layers", "track_avg_multiplicity_eta2_layers"
+        "avg_tot_eta1", "avg_tot_eta2",
+        "track_avg_tot_eta1", "track_avg_tot_eta2",
+        "avg_multiplicity_eta1", "avg_multiplicity_eta2",
+        "track_avg_multiplicity_eta1", "track_avg_multiplicity_eta2"
     };
 }   // anonymous namespace
 
