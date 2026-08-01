@@ -686,32 +686,6 @@ namespace PlotStyler {
                     axes[1] = mg->GetYaxis();
                     TList* graph_list = mg->GetListOfGraphs();
                     if (!graph_list) return axes;
-
-                    TIter next_graph(graph_list);
-                    TGraph* sub_graph = nullptr;
-                    int color_index = 0;
-
-                    while ((sub_graph = static_cast<TGraph*>(next_graph()))) {
-                        sub_graph->SetMarkerStyle(5);
-                        sub_graph->SetMarkerSize(1.0);
-
-                        std::string g_name = sub_graph->GetName();
-                        int layer_id = 0; // Default fallback
-
-                        if (g_name.find("layer0") != std::string::npos) layer_id = 0;
-                        else if (g_name.find("layer1") != std::string::npos) layer_id = 1;
-                        else if (g_name.find("layer2") != std::string::npos) layer_id = 2;
-
-                        Color_t assigned_color = ATLAS_PALETTE[0]; // Default to kBlack
-                        if (layer_id >= 0 && layer_id < static_cast<int>(ATLAS_PALETTE.size())) {
-                            assigned_color = ATLAS_PALETTE[layer_id];
-                        }
-
-                        sub_graph->SetMarkerColor(assigned_color);
-                        sub_graph->SetLineColor(assigned_color);
-
-                        color_index++;
-                    }
                 }
                 else if (auto g = dynamic_cast<TGraph*>(obj)) {
                     axes[0] = g->GetXaxis();
