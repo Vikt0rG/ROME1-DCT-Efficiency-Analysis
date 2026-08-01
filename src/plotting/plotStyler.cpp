@@ -595,6 +595,9 @@ namespace PlotStyler {
                 } else if (auto g = dynamic_cast<TGraph*>(obj)) {
                     if (axisType == AxisType::X)      { axis = g->GetXaxis(); maxVal = g->GetXaxis()->GetXmax(); }
                     else if (axisType == AxisType::Y) { axis = g->GetYaxis(); maxVal = g->GetYaxis()->GetXmax(); }
+                } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
+                    if (axisType == AxisType::X)      { axis = mg->GetXaxis(); maxVal = mg->GetXaxis()->GetXmax(); }
+                    else if (axisType == AxisType::Y) { axis = mg->GetYaxis(); maxVal = mg->GetYaxis()->GetXmax(); }
                 }
 
                 if (!axis) return;
