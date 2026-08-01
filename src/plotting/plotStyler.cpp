@@ -556,7 +556,7 @@ namespace PlotStyler {
                     else                  { settings.margin = 0.14; settings.titleOffset = 0.70; }
                 } else if (type == AxisType::Y) { // Y-Axis (Left margin & Y-title offset)
                     if (digits > 5)       { settings.margin = 0.18; settings.titleOffset = 1.40; }
-                    else if (digits >= 4) { settings.margin = 0.26; settings.titleOffset = 1.25; }
+                    else if (digits >= 4) { settings.margin = 0.16; settings.titleOffset = 1.25; }
                     else if (digits == 3) { settings.margin = 0.14; settings.titleOffset = 1.10; }
                     else if (digits == 2) { settings.margin = 0.12; settings.titleOffset = 0.95; }
                     else                  { settings.margin = 0.10; settings.titleOffset = 0.80; }
