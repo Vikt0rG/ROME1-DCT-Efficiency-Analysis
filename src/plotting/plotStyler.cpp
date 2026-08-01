@@ -278,7 +278,8 @@ namespace PlotStyler {
             static_cast<Color_t>(TColor::GetColor("#e28843"))     // Burnt Orange
         };
 
-        std::vector<TLatex*> drawATLASLabel(float ndc_x, float ndc_y, const std::string& status, short alignment = 11) {
+        std::vector<TLatex*> drawATLASLabel(float ndc_x, float ndc_y,
+            const std::string& status, short alignment = 11) {
             std::vector<TLatex*> drawn_objects;
             if (!gPad) return drawn_objects;
 
@@ -521,8 +522,6 @@ namespace PlotStyler {
         }
         // ----------------------------------------------------------------------------------
         namespace {
-
-            enum class AxisType { X, Y, Z };
 
             struct SpacingSettings {
                 double margin;      // Suggested pad margin (left for Y, right for Z, bottom for X)
@@ -1030,12 +1029,6 @@ namespace PlotStyler {
     }
 
     void styleStripDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
-        canvas->SetLeftMargin(0.16);
-        canvas->SetRightMargin(0.05);
-        canvas->SetTopMargin(0.05);
-        canvas->SetBottomMargin(0.14);
-
-        applyATLASStyle(obj, canvas);
 
         auto h1 = dynamic_cast<TH1*>(obj);
         h1->SetLineColor(kBlack);
@@ -1049,16 +1042,13 @@ namespace PlotStyler {
 
         h1->Draw("HIST");
 
-        canvas->Modified();
-        canvas->Update();
+        applyATLASStyle(obj, canvas);
 
         drawATLASLabel(0.21, 0.86, "Work in Progress");
         drawPlotTitle(obj, 0.21, 0.82);
     }
 
     void styleToTDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
-
-        applyATLASStyle(obj, canvas);
 
         auto h1 = dynamic_cast<TH1*>(obj);
         h1->SetLineColor(kBlack);
@@ -1071,8 +1061,7 @@ namespace PlotStyler {
 
         h1->Draw("HIST");
 
-        canvas->Modified();
-        canvas->Update();
+        applyATLASStyle(obj, canvas);
 
         std::string plot_title = obj ? obj->GetTitle() : "";
         drawATLASHeaderBlock(
@@ -1088,6 +1077,7 @@ namespace PlotStyler {
 
     void styleToTCombinedDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
         auto stack = dynamic_cast<THStack*>(obj);
+        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), stack);
         if (!stack) return;
 
         TList* hist_list = stack->GetHists();
@@ -1195,8 +1185,11 @@ namespace PlotStyler {
             0.01                      // Inner padding
         );
 
-        double legend_y = header ? header->GetY1NDC() - 0.02 : 0.70;
-        drawATLASLegend(obj, 0.92, legend_y, 33);
+        pad1->Modified();
+        pad1->Update();
+
+        double legend_y = header ? header->GetY1NDC() - 0.15 : 0.70;
+        drawATLASLegend(stack, legend_entries, 0.92, legend_y, 31);
 
         // Calculate & Draw Bottom Pad (Ratio Plot)
         pad2->cd();
@@ -1303,7 +1296,7 @@ namespace PlotStyler {
         }
 
         std::string plot_title = obj ? obj->GetTitle() : "";
-        TPaveText* header = drawATLASHeaderBlock(
+        drawATLASHeaderBlock(
             0.15, 0.86,               // Coordinates for the header box
             "Work in Progress",       // Status string
             plot_title,               // Title string
@@ -1312,9 +1305,6 @@ namespace PlotStyler {
             kBlack, 1,                // Black 1px border line
             0.01                      // Inner padding
         );
-
-        double legend_y = header ? header->GetY1NDC() - 0.02 : 0.70;
-        drawATLASLegend(obj, 0.15, legend_y, 33);
     }
 
     static const std::vector<std::pair<PlotCategory, StylerFnPtr>> styler_map = {
