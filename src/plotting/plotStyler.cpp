@@ -123,12 +123,147 @@ namespace PlotStyler {
         if (metric_name.find("external") != std::string::npos)   trigger = "External Trigger";
         else if (metric_name.find("rpc") != std::string::npos)   trigger = "RPC Coincidence";
 
+        // Build a subtitle string
+        /// TODO: Rewrite using regex
+        if (metric_name.find("avg_tot_", 0) == 0 || metric_name.find("track_avg_tot_", 0) == 0 || metric_name.find("avg_multiplicity_", 0) == 0 || metric_name.find("track_avg_multiplicity_", 0) == 0) {
+            out_title +=  metric_name.find("track", 0) == 0 ? "Track Reco: " : "";
+            out_title += "Layer " + matchLabels(metric_name, "layer(\\d+)") + ": ";
+        }
         if (!side.empty()) out_title += side;
         if (!trigger.empty()) {
             if (!out_title.empty()) out_title += ": ";
             out_title += trigger;
         }
-        return std::make_tuple(out_title, out_xaxis, out_yaxis);
+
+        return std::make_tuple(out_title, out_xaxis, out_yaxis, legend_entries);
+    }
+
+    enum class AxisType { X, Y, Z };
+
+    void setRange(TObject* obj, TAxis* axis, AxisType axis_type,
+        double default_min, double default_max, double x_floor_limit = -1e9) {
+        if (!obj || !axis) return;
+
+        double true_min = INT_MAX;
+        double true_max = INT_MIN;
+        bool found_valid_points = false;
+
+        // Recursive lambda to dynamically parse any ROOT object for min/max limits
+        std::function<void(TObject*)> extractBounds = [&](TObject* current_obj) {
+            if (!current_obj) return;
+
+            // CONTAINERS 1: TMultiGraph (Unpack and recurse)
+            if (auto mg = dynamic_cast<TMultiGraph*>(current_obj)) {
+                if (mg->GetListOfGraphs()) {
+                    for (TObject* child : *mg->GetListOfGraphs()) {
+                        extractBounds(child);
+                    }
+                }
+            }
+            // CONTAINERS 2: THStack (Unpack and recurse)
+            else if (auto stack = dynamic_cast<THStack*>(current_obj)) {
+                if (stack->GetHists()) {
+                    for (TObject* child : *stack->GetHists()) {
+                        extractBounds(child);
+                    }
+                }
+            }
+            // DATA 1: TGraphs (Handles standard, Errors, and AsymmErrors)
+            else if (auto gr = dynamic_cast<TGraph*>(current_obj)) {
+                auto* gr_err = dynamic_cast<TGraphErrors*>(gr);
+                auto* gr_asymm = dynamic_cast<TGraphAsymmErrors*>(gr);
+
+                int n_points = gr->GetN();
+                for (int i = 0; i < n_points; ++i) {
+                    double x_val = gr->GetX()[i];
+                    if (x_val <= x_floor_limit) continue;
+
+                    double val_low = 0.0, val_high = 0.0;
+                    if (axis_type == AxisType::X) {
+                        val_low = val_high = x_val;
+                        if (gr_asymm) {
+                            val_low -= gr_asymm->GetErrorXlow(i);
+                            val_high += gr_asymm->GetErrorXhigh(i);
+                        } else if (gr_err) {
+                            val_low -= gr_err->GetErrorX(i);
+                            val_high += gr_err->GetErrorX(i);
+                        }
+                    } else { // Y axis
+                        val_low = val_high = gr->GetY()[i];
+                        if (gr_asymm) {
+                            val_low -= gr_asymm->GetErrorYlow(i);
+                            val_high += gr_asymm->GetErrorYhigh(i);
+                        } else if (gr_err) {
+                            val_low -= gr_err->GetErrorY(i);
+                            val_high += gr_err->GetErrorY(i);
+                        }
+                    }
+
+                    if (val_low < true_min) true_min = val_low;
+                    if (val_high > true_max) true_max = val_high;
+                    found_valid_points = true;
+                }
+            }
+            // DATA 2: Histograms (Handles TH1, TH2, TH3 seamlessly)
+            else if (auto h = dynamic_cast<TH1*>(current_obj)) {
+                int n_bins_x = h->GetNbinsX();
+                int n_bins_y = h->GetNbinsY();
+                int n_bins_z = h->GetNbinsZ();
+
+                for (int x = 1; x <= n_bins_x; ++x) {
+                    double x_center = h->GetXaxis()->GetBinCenter(x);
+                    if (x_center <= x_floor_limit) continue;
+
+                    // For 1D histograms, Y and Z loops run exactly once (GetNbinsY/Z return 1)
+                    for (int y = 1; y <= n_bins_y; ++y) {
+                        for (int z = 1; z <= n_bins_z; ++z) {
+                            int global_bin = h->GetBin(x, y, z);
+                            double content = h->GetBinContent(global_bin);
+                            double error = h->GetBinError(global_bin);
+
+                            // Skip perfectly empty bins so they don't drag the Y-axis to 0
+                            if (content == 0 && error == 0) continue; 
+
+                            double val_low = 0.0, val_high = 0.0;
+                            if (axis_type == AxisType::X) {
+                                val_low = h->GetXaxis()->GetBinLowEdge(x);
+                                val_high = h->GetXaxis()->GetBinUpEdge(x);
+                            } else {
+                                val_low = content - error;
+                                val_high = content + error;
+                            }
+
+                            if (val_low < true_min) true_min = val_low;
+                            if (val_high > true_max) true_max = val_high;
+                            found_valid_points = true;
+                        }
+                    }
+                }
+            }
+        };
+
+        // Start the recursive extraction from the provided object
+        extractBounds(obj);
+
+        // Apply dynamic margins if valid points were found
+        if (found_valid_points && true_max >= true_min) {
+            double safety_buffer = (true_max > true_min) ? (true_max - true_min) * 0.05 : 50.0;
+
+            double dynamic_min = true_min - safety_buffer;
+            double dynamic_max = true_max + safety_buffer;
+
+            // For Y-axis, clamp to the absolute floor (e.g., 0.0) if it shouldn't dip negative
+            if (axis_type == AxisType::Y && dynamic_min < default_min) {
+                dynamic_min = default_min; 
+            }
+
+            axis->SetLimits(dynamic_min, dynamic_max);
+            axis->SetRangeUser(dynamic_min, dynamic_max);
+        } else {
+            // Fallback to absolute defaults if no valid points pass the threshold
+            axis->SetLimits(default_min, default_max);
+            axis->SetRangeUser(default_min, default_max);
+        }
     }
 
     // --------------------------------------------------------------------------------------
