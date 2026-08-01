@@ -43,7 +43,9 @@ namespace PlotStyler {
         {"track_eff",        TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
         {"eff",              TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
         {"avg_cluster_size", TMultiGraph::Class(),          PlotCategory::MeanClusterSizeVsHV},
-        {"noise_rate",       TMultiGraph::Class(),          PlotCategory::NoiseRateVsHV}
+        {"noise_rate",       TMultiGraph::Class(),          PlotCategory::NoiseRateVsHV},
+        {"avg_tot",          TMultiGraph::Class(),          PlotCategory::AvgToTVsHV},
+        {"avg_multiplicity", TMultiGraph::Class(),          PlotCategory::AvgMultVsHV}
     };
 
     PlotCategory getPlotCategory(const TObject* obj) {
@@ -1322,6 +1324,7 @@ namespace PlotStyler {
         {PlotCategory::EfficiencyVsHV,          &styleEfficiencyVsHV},
         {PlotCategory::MeanClusterSizeVsHV,     &styleEfficiencyVsHV},
         {PlotCategory::NoiseRateVsHV,           &styleEfficiencyVsHV},
+        {PlotCategory::AvgToTVsHV,              &styleAvgToTVsHV},
         {PlotCategory::StripDistribution,       &styleStripDistribution},
         {PlotCategory::ToTDistribution,         &styleToTDistribution},
         {PlotCategory::ToTCombinedDistribution, &styleToTCombinedDistribution},

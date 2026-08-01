@@ -27,6 +27,8 @@ enum class PlotCategory {
     ToT,
     MeanClusterSizeVsHV,
     NoiseRateVsHV,
+    AvgToTVsHV,
+    AvgMultVsHV,
     Default
 };
 
