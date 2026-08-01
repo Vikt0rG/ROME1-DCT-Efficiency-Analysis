@@ -263,7 +263,8 @@ void DataPlotter::plotLayerMetrics(
                 nullptr, nullptr, series.y_errors_low[layer].data(), series.y_errors_high[layer].data()
             );
 
-            layer_graph->SetName(metric_name.c_str());
+            // Here set a beautiful identifier for the graph to be used as a label in the legend
+            layer_graph->SetName(Form("Layer %d", layer));
             layer_graph->SetMarkerStyle(20 + layer);
             layer_graph->SetMarkerColor(1 + layer);
             layer_graph->SetLineColor(1 + layer);
@@ -287,26 +288,35 @@ void DataPlotter::plotLayerMetrics(
 void DataPlotter::plotStripMetrics(
     TDirectory* scan_dir, const std::map<std::string, std::map<int,
     std::map<int, Utilities::StripSeries>>>& strip_metrics) {
+
     if (!scan_dir) return;
 
     TDirectory* tot_dir = scan_dir->GetDirectory("tot_analysis");
     TDirectory* mult_dir = scan_dir->GetDirectory("multiplicity_analysis");
 
     for (const auto& [metric_name, layer_map] : strip_metrics) {
-        // Determine target directory based on name
-        TDirectory* metric_dir = scan_dir; // default fallback
-        if (metric_name.find("tot", 0) != std::string::npos) metric_dir = tot_dir;
-        else if (metric_name.find("multiplicity", 0) != std::string::npos) metric_dir = mult_dir;
 
+        // Route to the correct parent analysis directory (e.g., tot_analysis)
+        TDirectory* metric_dir = scan_dir;
+        if (metric_name.find("tot") != std::string::npos) metric_dir = tot_dir;
+        else if (metric_name.find("multiplicity") != std::string::npos) metric_dir = mult_dir;
+
+        if (!metric_dir) continue;
+
+        // Loop through each layer to create a dedicated TMultiGraph
         for (const auto& [layer, strip_map] : layer_map) {
+
             std::string layer_folder = "layer" + std::to_string(layer);
             TDirectory* l_dir = PathUtils::ensureDirectory(metric_dir, layer_folder.c_str());
-            l_dir->cd();
+            if (!l_dir) continue;
 
-            TMultiGraph* multi_graph = new TMultiGraph();
-            multi_graph->SetName(Form("%s_layer%d", metric_name.c_str(), layer));
-            multi_graph->SetTitle(Form("%s (Layer %d);HV;Value", metric_name.c_str(), layer));
+            // Create the MultiGraph strictly for this layer (holding 24 strips)
+            TMultiGraph* layer_multi_graph = new TMultiGraph();
+            std::string mg_name = metric_name + "_layer" + std::to_string(layer);
+            layer_multi_graph->SetName(mg_name.c_str());
+            layer_multi_graph->SetTitle((mg_name + ";HV;Value").c_str());
 
+            // Populate it with all the strips for this layer
             for (const auto& [strip, data] : strip_map) {
                 if (data.x.empty()) continue;
 
@@ -315,17 +325,24 @@ void DataPlotter::plotStripMetrics(
                     nullptr, nullptr, data.y_error_low.data(), data.y_error_high.data()
                 );
 
-                g->SetName(Form("%s_layer%d_strip%d", metric_name.c_str(), layer, strip));
+                g->SetName(Form("%s_strip%d", metric_name.c_str(), strip));
+                g->SetTitle(Form("Strip %d", strip));
                 g->SetMarkerStyle(20 + (strip % 4));
                 g->SetMarkerColor(1 + (strip % 9));
                 g->SetLineColor(1 + (strip % 9));
 
-                multi_graph->Add(g, "P");
-                g->Write("", TObject::kOverwrite); // Save individual
+                layer_multi_graph->Add(g, "P");
+
+                // Switch into the layer folder to drop off the single-strip graph
+                l_dir->cd();
+                g->Write("", TObject::kOverwrite);
             }
 
-            multi_graph->Write("", TObject::kOverwrite); // Save combo
-            delete multi_graph;
+            // Switch back up to the analysis folder (e.g., tot_analysis) 
+            // to save the assembled MultiGraph alongside the layer folders
+            metric_dir->cd();
+            layer_multi_graph->Write("", TObject::kOverwrite);
+            delete layer_multi_graph;
         }
     }
 }
