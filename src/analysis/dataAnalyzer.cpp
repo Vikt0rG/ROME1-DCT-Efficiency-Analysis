@@ -132,10 +132,10 @@ void plotToT(TFile* input_file) {
     const int nConfigs = 8;
     const char* categories[nConfigs] = { "tot_eta1", "tot_eta2",
         "tot_eta1_valid1", "tot_eta2_valid1", "tot_eta1_valid2", "tot_eta2_valid2", "tot_eta1_valid_all", "tot_eta2_valid_all" };
-    const char* comments[nConfigs] = { "All hits", "All hits",
-        "After track reconstruction (#eta1)", "After track reconstruction (#eta2)",
-        "After track reconstruction (#eta1)", "After track reconstruction (#eta2)",
-        "After track reconstruction (All)", "After track reconstruction (All)" };
+    const char* comments[nConfigs] = { "Before Track Reco", "Before Track Reco",
+        "After Track Reco (#eta1)", "After Track Reco (#eta2)",
+        "After Track Reco (#eta1)", "After Track Reco (#eta2)",
+        "After Track Reco (#eta1 & #eta2)", "After Track Reco (#eta1 & #eta2)" };
 
     const int nBins = 25;
     const float xMin = 0.0;
@@ -144,7 +144,7 @@ void plotToT(TFile* input_file) {
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH1F(Form("h1d_%s_layer%d", categories[c], layer),
-                            Form("Layer %d %s;ToT [ns];Hits", layer, comments[c]),
+                            Form("Layer %d: %s;ToT [ns];Hits", layer, comments[c]),
                             nBins, xMin, xMax);
             strip_histograms[categories[c]][layer] = hist;
         }
@@ -178,9 +178,9 @@ void plotToT(TFile* input_file) {
     };
 
     std::vector<StackPairing> pairings = {
-        {"tot_eta1",        "tot_eta2",        "all",    "All Hits"},
-        {"tot_eta1_valid1", "tot_eta2_valid1", "valid1", "Track Reco (#eta1 Valid)"},
-        {"tot_eta1_valid2", "tot_eta2_valid2", "valid2", "Track Reco (#eta2 Valid)"},
+        {"tot_eta1",           "tot_eta2",           "all",       "Before Track Reco"},
+        {"tot_eta1_valid1",    "tot_eta2_valid1",    "valid1",    "Track Reco (#eta1 Valid)"},
+        {"tot_eta1_valid2",    "tot_eta2_valid2",    "valid2",    "Track Reco (#eta2 Valid)"},
         {"tot_eta1_valid_all", "tot_eta2_valid_all", "valid_all", "Track Reco (#eta1 and #eta2 Valid)"}
     };
 
