@@ -845,137 +845,47 @@ namespace PlotStyler {
     using namespace ATLASStyler;
 
     void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
-        // Margins
-        canvas->SetLeftMargin(0.15);
-        canvas->SetRightMargin(0.05);
-        canvas->SetTopMargin(0.05);
-        canvas->SetBottomMargin(0.14);
 
         // Extract title and axis labels from the object's title string
-        auto [title, x_label, y_label] = compilePlotLabels(obj->GetTitle());
-
-        // Draw first to generate internal axis frame
-        obj->Draw("APZ");
-
         auto mg = dynamic_cast<TMultiGraph*>(obj);
+        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+
+        obj->Draw("AP0Z");
 
         // Set axis ranges and labels
         if (mg && mg->GetHistogram()) {
-            double floor_limit = 4500.0; // Keep floor_limit in parent scope for both axes
 
-            TAxis* xAxis = mg->GetHistogram()->GetXaxis();
-            if (xAxis) {
-                double dynamic_lower_bound = floor_limit;
-                double dynamic_upper_bound = floor_limit;
-
-                if (mg->GetListOfGraphs()) {
-                    double true_min_x = INT_MAX;
-                    double true_max_x = INT_MIN;
-
-                    TIter next(mg->GetListOfGraphs());
-                    TObject* gr_obj = nullptr;
-
-                    while ((gr_obj = next())) {
-                        auto* gr = dynamic_cast<TGraph*>(gr_obj);
-                        if (gr && gr->GetN() > 0) {
-                            int n_points = gr->GetN();
-                            double* x_vals = gr->GetX();
-
-                            for (int i = 0; i < n_points; ++i) {
-                                double x_val = x_vals[i];
-                                
-                                // Check each individual point against the floor limit
-                                if (x_val > floor_limit) {
-                                    if (x_val < true_min_x) {
-                                        true_min_x = x_val;
-                                    }
-                                    if (x_val > true_max_x) {
-                                        true_max_x = x_val;
-                                    }
-                                }
-                            }
-                        } else if (gr) {
-                            std::cout << "  Graph: \"" << gr->GetName() << "\" <-- WARNING: Graph is empty (0 points)!" << std::endl;
-                        }
-                    }
-
-                    if (true_min_x < INT_MAX && true_max_x > INT_MIN && true_max_x >= true_min_x) {
-                        double safety_buffer = (true_max_x > true_min_x) ? (true_max_x - true_min_x) * 0.05 : 50.0; 
-
-                        dynamic_lower_bound = true_min_x - safety_buffer;
-                        dynamic_upper_bound = true_max_x + safety_buffer;
-                    } else {
-                        std::cout << "  -> WARNING: No valid points found above " << floor_limit << ". Falling back to default limits." << std::endl;
-                    }
-                }
-
-                xAxis->SetLimits(dynamic_lower_bound, dynamic_upper_bound);
-                xAxis->SetRangeUser(dynamic_lower_bound, dynamic_upper_bound);
+            // Setup X Axis
+            if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
+                setRange(mg, xAxis, AxisType::X, 0.0, 10e3, 4500.0);
                 xAxis->SetTitle(x_label.c_str());
             }
 
-            TAxis* yAxis = mg->GetHistogram()->GetYaxis();
-            if (yAxis) {
-                double dynamic_ymin = 0.0;
-                double dynamic_ymax = 1.0;
-
-                if (mg->GetListOfGraphs()) {
-                    double true_min_y = INT_MAX;
-                    double true_max_y = INT_MIN;
-
-                    TIter next(mg->GetListOfGraphs());
-                    TObject* gr_obj = nullptr;
-                    while ((gr_obj = next())) {
-                        auto* gr = dynamic_cast<TGraph*>(gr_obj);
-                        if (!gr || gr->GetN() <= 0) continue;
-
-                        // Try to cast to error-bearing graph subclasses
-                        auto* gr_err = dynamic_cast<TGraphErrors*>(gr);
-                        auto* gr_asymm = dynamic_cast<TGraphAsymmErrors*>(gr);
-
-                        int n_points = gr->GetN();
-                        double* x_vals = gr->GetX();
-                        double* y_vals = gr->GetY();
-
-                        for (int i = 0; i < n_points; ++i) {
-                            // Skip y-values for any high-voltage points below or equal to the floor
-                            if (x_vals && x_vals[i] <= floor_limit) {
-                                continue; 
-                            }
-
-                            double val_y = y_vals[i];
-                            double low_y = val_y;
-                            double high_y = val_y;
-
-                            if (gr_asymm) {
-                                low_y  -= gr_asymm->GetErrorYlow(i);
-                                high_y += gr_asymm->GetErrorYhigh(i);
-                            } else if (gr_err) {
-                                double err_y = gr_err->GetErrorY(i);
-                                low_y  -= err_y;
-                                high_y += err_y;
-                            }
-
-                            if (low_y < true_min_y) {
-                                true_min_y = low_y;
-                            }
-                            if (high_y > true_max_y) {
-                                true_max_y = high_y;
-                            }
-                        }
-                    }
-
-                    if (true_min_y < INT_MAX && true_max_y > INT_MIN && true_max_y > true_min_y) {
-                        double safety_buffer = (true_max_y - true_min_y) * 0.05;
-
-                        dynamic_ymin = std::max(true_min_y - safety_buffer, 0.0);
-                        dynamic_ymax = true_max_y + safety_buffer;
-                    }
-                }
-
-                yAxis->SetLimits(dynamic_ymin, dynamic_ymax);
-                yAxis->SetRangeUser(dynamic_ymin, dynamic_ymax);
+            // Setup Y Axis (Default fallback 0.0 to 1.0, obeying the same X-floor)
+            if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
+                setRange(mg, yAxis, AxisType::Y, 0.0, 1.0);
                 yAxis->SetTitle(y_label.c_str());
+            }
+        }
+
+        // Set color and marker style for the graphs in the multigraph
+        const std::vector<Color_t> palette = {kAzure + 2, kGreen + 2, kOrange + 10};
+        if (mg && mg->GetListOfGraphs()) {
+            TIter next(mg->GetListOfGraphs());
+            TObject* gr_obj;
+            int color_idx = 0;
+            while ((gr_obj = next())) {
+                if (auto gr = dynamic_cast<TGraph*>(gr_obj)) {
+                    Color_t color = palette[color_idx % palette.size()];
+
+                    gr->SetMarkerStyle(52);
+                    gr->SetMarkerSize(1.8);
+                    gr->SetMarkerColor(color);
+                    gr->SetLineColor(color);
+                    gr->SetLineWidth(1);
+
+                    color_idx++;
+                }
             }
         }
 
@@ -988,13 +898,135 @@ namespace PlotStyler {
         canvas->Modified();
         canvas->Update();
 
-        float start_x = 0.21;
-        float start_y = 0.85;
-        float offset_y = 0.04;
-        drawATLASLabel(start_x, start_y, "Work in Progress");
-        bool title_drawn = drawPlotTitle(obj, start_x, start_y - offset_y);
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        TPaveText* header = drawATLASHeaderBlock(
+            0.18, 0.86,               // Coordinates for the header box
+            "Work in Progress",       // Status string
+            plot_title,               // Title string
+            12,                       // Alignment
+            kWhite, 0.70,             // semi-transparent white background
+            kBlack, 1,                // Black 1px border line
+            0.01                      // Inner padding
+        );
 
-        drawATLASLegend(obj, start_x, title_drawn ? start_y - 2 * offset_y : start_y - offset_y, 13);
+        canvas->Modified();
+        canvas->Update();
+
+        double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
+        drawATLASLegend(obj, legend_entries, 0.18, legend_y, 13);
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleAvgToTVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
+
+        auto mg = dynamic_cast<TMultiGraph*>(obj);
+        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+
+        // Differentiate between a 24-strip plot and a 3-layer plot
+        bool is_strip_plot = (mg && mg->GetListOfGraphs() && mg->GetListOfGraphs()->GetSize() > 10);
+
+        if (is_strip_plot) gStyle->SetPalette(kViridis);
+
+        obj->Draw("APZ");
+
+        if (mg && mg->GetHistogram()) {
+            if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
+                setRange(mg, xAxis, AxisType::X, 0.0, 10e3, 4500.0);
+                xAxis->SetTitle(x_label.c_str());
+            }
+            if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
+                setRange(mg, yAxis, AxisType::Y, 0.0, 1.0);
+                yAxis->SetTitle(y_label.c_str());
+            }
+        }
+
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
+            named_obj->SetTitle(title.c_str());
+        }
+
+        applyATLASStyle(obj, canvas);
+
+        // Add a strip colorbar
+        if (is_strip_plot) {
+            canvas->SetRightMargin(0.16); 
+
+            int n_colors = TColor::GetNumberOfColors();
+            int max_strip = STRIPS_PER_LAYER - 1;
+
+            // Recolor the 24 graphs to match the continuous palette
+            TIter next(mg->GetListOfGraphs());
+            TObject* gr_obj;
+            while ((gr_obj = next())) {
+                if (auto gr = dynamic_cast<TGraph*>(gr_obj)) {
+                    int strip_idx = 0;
+                    std::smatch match;
+                    std::string gr_title = gr->GetTitle();
+
+                    // Extract the strip number from the title (e.g. "Strip 5")
+                    if (std::regex_search(gr_title, match, std::regex("Strip (\\d+)"))) {
+                        strip_idx = std::stoi(match[1].str());
+                    }
+                    strip_idx = std::max(0, std::min(strip_idx, max_strip)); // Safety clamp
+
+                    // Map the strip number [0, 23] to the palette index [0, 255]
+                    int color_idx = TColor::GetColorPalette((strip_idx * (n_colors - 1)) / max_strip);
+
+                    gr->SetMarkerColor(color_idx);
+                    gr->SetMarkerStyle(70);
+                    gr->SetMarkerSize(1.8);
+                    gr->SetLineColor(color_idx);
+                    gr->SetLineWidth(2.0);
+                }
+            }
+
+            // Create a dummy histogram specifically to draw the Z-axis (Colorbar)
+            TH2D* dummy_z = new TH2D(Form("dummy_z_%p", mg), "", 1, -2000, -1000, 1, -2000, -1000);
+            dummy_z->SetDirectory(nullptr); 
+            dummy_z->SetBinContent(1, 1, 0.0);
+            dummy_z->SetMinimum(0);
+            dummy_z->SetMaximum(STRIPS_PER_LAYER);
+
+            TAxis* zAxis = dummy_z->GetZaxis();
+            zAxis->SetTitle("Strip Number");
+            zAxis->SetTitleOffset(1.0);
+            zAxis->SetTitleSize(0.05);
+            zAxis->SetLabelSize(0.04);
+            zAxis->SetNdivisions(6, 4, 0, kFALSE);
+
+            dummy_z->Draw("COL Z SAME");
+        }
+
+        canvas->Modified();
+        canvas->Update();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        TPaveText* header = drawATLASHeaderBlock(
+            0.18, 0.86,
+            "Work in Progress",
+            plot_title,
+            12,
+            kWhite, 0.70,
+            kBlack, 1,
+            0.01
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        if (!is_strip_plot) {
+            double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
+            TLegend* leg = drawATLASLegend(obj, legend_entries, 0.18, legend_y, 13);
+            if (leg) {
+                leg->SetBorderSize(1);
+                leg->SetLineWidth(1);
+                leg->SetLineColor(kBlack);
+            }
+        }
+
+        canvas->Modified();
+        canvas->Update();
     }
 
     void styleStripDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
