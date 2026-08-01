@@ -47,9 +47,10 @@ namespace PlotStyler {
 
     /// @brief Helper function to compile plot labels from a given title string
     /// @param metric_name Metric name string from which to derive plot labels
-    /// @return A tuple containing the plot title, x-axis label, and y-axis label
-    std::tuple<std::string, std::string, std::string> compilePlotLabels(
-        const std::string& metric_name
+    /// @param obj Optional pointer to a ROOT object for legend entries (default: nullptr)
+    /// @return A tuple containing the plot title, x-axis label, y-axis label, and legend entries
+    std::tuple<std::string, std::string, std::string, std::vector<std::string>> compilePlotLabels(
+        const std::string& metric_name, TObject* obj = nullptr
     );
 
     /// @brief Helper function to retrieve a custom styler function based on the plot category
