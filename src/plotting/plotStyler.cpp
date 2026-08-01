@@ -2,6 +2,7 @@
 #include <utility>
 
 #include <iostream>
+#include <regex>
 
 #include <TObject.h>
 #include <TCanvas.h>
@@ -57,18 +58,63 @@ namespace PlotStyler {
         return PlotCategory::Default;
     }
 
-    std::tuple<std::string, std::string, std::string> compilePlotLabels(const std::string& metric_name) {
+    std::tuple<std::string, std::string, std::string, std::vector<std::string>> compilePlotLabels(
+        const std::string& metric_name,
+        TObject* obj)
+    {
         std::string out_title = "", out_xaxis = "", out_yaxis = "";
         std::string side = "", trigger = "";
 
+        // Match metric name patterns to determine axis labels and (sub)titles
         if (metric_name.rfind("track_eff_", 0) == 0 || metric_name.rfind("eff_", 0) == 0) {
             out_xaxis = "High Voltage [V]"; out_yaxis = "Efficiency";
         } else if (metric_name.rfind("avg_cluster_size_", 0) == 0) {
             out_xaxis = "High Voltage [V]"; out_yaxis = "#LTCluster Size#GT [Hits]";
         } else if (metric_name.rfind("noise_rate_", 0) == 0) {
             out_xaxis = "High Voltage [V]"; out_yaxis = "Noise Rate [Hz/cm^{2}]";
+        } else if (metric_name.rfind("track_avg_tot_", 0) == 0 || metric_name.rfind("avg_tot_", 0) == 0) {
+            out_xaxis = "High Voltage [V]"; out_yaxis = "#LTToT#GT [ns]";
+        } else if (metric_name.rfind( "track_avg_multiplicity_", 0) == 0 || metric_name.rfind( "avg_multiplicity_", 0) == 0) {
+            out_xaxis = "High Voltage [V]"; out_yaxis = "#LTMultiplicity#GT [Hits]";
         }
 
+        auto matchLabels = [](const std::string& name, const std::string& pattern) -> std::string {
+            std::regex re(pattern);
+            std::smatch match;
+            if (std::regex_search(name, match, re)) {
+                return match[1].str();
+            }
+            return "";
+        };
+
+        /// Build legend entries if object is a container (TMultiGraph or THStack)
+        std::vector<std::string> legend_entries;
+        if (TMultiGraph* mg = dynamic_cast<TMultiGraph*>(obj)) {
+            TIter next(mg->GetListOfGraphs());
+            TObject* obj;
+            while ((obj = next())) {
+                if (auto gr = dynamic_cast<TGraph*>(obj)) {
+                    std::string gr_name = gr->GetName();
+                    std::string layer = "", strip = "";
+
+                    layer = matchLabels(gr_name, "layer(\\d+)");
+                    strip = matchLabels(gr_name, "strip(\\d+)");
+                    std::string legend_entry;
+                    if (!layer.empty()) {
+                        legend_entry = "Layer " + layer;
+                    }
+                    if (!strip.empty()) {
+                        legend_entry = "Strip" + strip;
+                    }
+                    legend_entries.push_back(legend_entry);
+                }
+            }
+        } else if (dynamic_cast<THStack*>(obj)) {
+            legend_entries.push_back("Side #eta_{1}");
+            legend_entries.push_back("Side #eta_{2}");
+        }
+
+        // Get side and trigger information directly from metric name
         if (metric_name.find("eta1") != std::string::npos)       side = "#eta_{1} Side";
         else if (metric_name.find("eta2") != std::string::npos)  side = "#eta_{2} Side";
         else if (metric_name.find("or_") != std::string::npos)   side = "OR(#eta_{1}, #eta_{2})";
