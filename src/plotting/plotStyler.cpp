@@ -444,17 +444,17 @@ namespace PlotStyler {
             return pave;
         }
 
-        TLegend* drawATLASLegend(TObject* obj, float ndc_x, float ndc_y, short alignment = 11) {
+        TLegend* drawATLASLegend(TObject* obj, const std::vector<std::string>& legend_entries,
+            float ndc_x, float ndc_y, short alignment) {
+
             if (!obj || !gPad) return nullptr;
 
             TList* items_list = nullptr;
-            bool is_graph = false;
             bool is_stack = false;
 
             // Check container type
             if (auto* mg = dynamic_cast<TMultiGraph*>(obj)) {
                 items_list = mg->GetListOfGraphs();
-                is_graph = true;
             } else if (auto* stack = dynamic_cast<THStack*>(obj)) {
                 items_list = stack->GetHists();
                 is_stack = true;
@@ -469,34 +469,26 @@ namespace PlotStyler {
 
             double x1 = 0.0, y1 = 0.0, x2 = 0.0, y2 = 0.0;
 
-            // Parse the 2-digit alignment code:
-            // First digit:  1 = Left, 2 = Center, 3 = Right
-            // Second digit: 1 = Bottom, 2 = Middle, 3 = Top
+            // Parse the 2-digit alignment code
             int h_align = alignment / 10;
             int v_align = alignment % 10;
 
             // Horizontal anchoring
-            if (h_align == 3) {        // Right-aligned: ndc_x is the RIGHT edge
-                x2 = ndc_x;
-                x1 = ndc_x - leg_width;
-            } else if (h_align == 2) { // Centered: ndc_x is the CENTER
-                x1 = ndc_x - (leg_width / 2.0);
-                x2 = ndc_x + (leg_width / 2.0);
-            } else {                   // Left-aligned (1 or default): ndc_x is the LEFT edge
-                x1 = ndc_x;
-                x2 = ndc_x + leg_width;
+            if (h_align == 3) {
+                x2 = ndc_x; x1 = ndc_x - leg_width;
+            } else if (h_align == 2) {
+                x1 = ndc_x - (leg_width / 2.0); x2 = ndc_x + (leg_width / 2.0);
+            } else {
+                x1 = ndc_x; x2 = ndc_x + leg_width;
             }
 
             // Vertical anchoring
-            if (v_align == 3) {        // Top-aligned: ndc_y is the TOP edge
-                y2 = ndc_y;
-                y1 = ndc_y - leg_height;
-            } else if (v_align == 2) { // Middle-aligned: ndc_y is the CENTER
-                y1 = ndc_y - (leg_height / 2.0);
-                y2 = ndc_y + (leg_height / 2.0);
-            } else {                   // Bottom-aligned (1 or default): ndc_y is the BOTTOM edge
-                y1 = ndc_y;
-                y2 = ndc_y + leg_height;
+            if (v_align == 3) {
+                y2 = ndc_y; y1 = ndc_y - leg_height;
+            } else if (v_align == 2) {
+                y1 = ndc_y - (leg_height / 2.0); y2 = ndc_y + (leg_height / 2.0);
+            } else {
+                y1 = ndc_y; y2 = ndc_y + leg_height;
             }
 
             TLegend* leg = new TLegend(x1, y1, x2, y2);
@@ -507,30 +499,26 @@ namespace PlotStyler {
 
             TIter next_item(items_list);
             TObject* child = nullptr;
+            size_t idx = 0;
 
             while ((child = next_item())) {
-                std::string name = child->GetName();
-                std::string label = child->GetTitle(); // Use configured title by default
+                // Fallback to title if the vector is empty or out of bounds
+                std::string label = child->GetTitle();
 
-                if (is_graph) {
-                    if (name.find("layer0") != std::string::npos) label = "Layer 0";
-                    else if (name.find("layer1") != std::string::npos) label = "Layer 1";
-                    else if (name.find("layer2") != std::string::npos) label = "Layer 2";
-
-                    leg->AddEntry(child, label.c_str(), "pe");
-                } 
-                else if (is_stack) {
-                    if (name.find("tot_eta1") != std::string::npos) label = "#eta1 Side";
-                    else if (name.find("tot_eta2") != std::string::npos) label = "#eta2 Side";
-                    
-                    leg->AddEntry(child, label.c_str(), "f");
+                // Inject the dynamically compiled label if available
+                if (idx < legend_entries.size() && !legend_entries[idx].empty()) {
+                    label = legend_entries[idx];
                 }
+
+                std::string draw_option = is_stack ? "f" : "pe";
+                leg->AddEntry(child, label.c_str(), draw_option.c_str());
+
+                idx++;
             }
 
             leg->Draw();
             return leg;
         }
-
         // ----------------------------------------------------------------------------------
         namespace {
 

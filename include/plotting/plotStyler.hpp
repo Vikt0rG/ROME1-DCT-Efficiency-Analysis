@@ -101,11 +101,13 @@ namespace PlotStyler {
 
         /// @brief Helper function to draw a legend on a plot
         /// @param obj A pointer to the ROOT object for which the legend will be drawn
-        /// @param x_offset The horizontal offset for the legend position
-        /// @param y_offset The vertical offset for the legend position
+        /// @param legend_entries A vector of strings containing the legend entry texts
+        /// @param ndc_x The x-coordinate in NDC for the legend position
+        /// @param ndc_y The y-coordinate in NDC for the legend position
         /// @param alignment The text alignment for the legend (default: 11 for left-aligned)
         /// @return A pointer to the created TLegend object, or nullptr if no legend was drawn
-        TLegend* drawATLASLegend(TObject* obj, float x_offset, float y_offset, short alignment);
+        TLegend* drawATLASLegend(TObject* obj, const std::vector<std::string>& legend_entries,
+            float ndc_x, float ndc_y, short alignment = 11);
 
         /// @brief Helper function to apply ATLAS styling to a given plot object and canvas
         /// @param obj The ROOT object (e.g., TGraph, TH1) to which the style will be applied
