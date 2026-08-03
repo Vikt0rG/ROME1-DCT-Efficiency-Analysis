@@ -128,7 +128,7 @@ namespace PlotStyler {
         // Build a subtitle string
         /// TODO: Rewrite using regex
         if (metric_name.find("avg_tot_", 0) == 0 || metric_name.find("track_avg_tot_", 0) == 0 || metric_name.find("avg_multiplicity_", 0) == 0 || metric_name.find("track_avg_multiplicity_", 0) == 0) {
-            out_title +=  metric_name.find("track", 0) == 0 ? "Track Reco: " : "";
+            out_title +=  metric_name.find("track", 0) == 0 ? "Track Reco: " : "Before Track Reco: ";
             out_title += "Layer " + matchLabels(metric_name, "layer(\\d+)") + ": ";
         }
         if (!side.empty()) out_title += side;
