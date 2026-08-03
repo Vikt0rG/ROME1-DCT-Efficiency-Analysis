@@ -633,6 +633,114 @@ void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_tra
         }
     }
 }
+
+void getAverageMultiplicity(TFile* input_file, MultiplicityResults& mult_results, bool in_valid_track_only) {
+    TTree* input_tree = input_file->Get<TTree>("InputData");
+    TTree* processed_tree = input_file->Get<TTree>("ProcessedData");
+    TTree* track_tree = input_file->Get<TTree>("TrackReconstruction");
+
+    if (!input_tree || !processed_tree || !track_tree) {
+        std::cerr << "Error: Required trees not found in file " << input_file->GetName() << "\n";
+        std::exit(EXIT_FAILURE);
+    }
+
+    TTreeReader reader_input(input_tree);
+    TTreeReader reader_processed(processed_tree);
+    TTreeReader reader_track(track_tree);
+
+    TTreeReaderValue<std::vector<int>>  raw_time1(reader_input, "hit_raw_time1");
+    TTreeReaderValue<std::vector<int>>  raw_time2(reader_input, "hit_raw_time2");
+    TTreeReaderValue<std::vector<int>>  rise(reader_input, "hit_rise");
+    TTreeReaderValue<std::vector<int>>  strips(reader_processed, "proc_strip");
+    TTreeReaderValue<std::vector<int>>  layers(reader_processed, "proc_layer");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(reader_track, "in_valid_track_eta1");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(reader_track, "in_valid_track_eta2");
+
+    // Local counters
+    int n_events = 0;
+    int eta1_per_layer_strip[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
+    int eta2_per_layer_strip[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
+
+    // Track how many events actually had at least 1 hit on a specific strip
+    int active_events_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {0};
+    int active_events_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {0};
+
+    while (reader_input.Next() && reader_processed.Next() && reader_track.Next()) {
+        if (in_valid_track_eta1.GetSetupStatus() != 0 || in_valid_track_eta2.GetSetupStatus() != 0) continue;
+
+        const size_t n_hits = std::min({strips->size(), layers->size(), in_valid_track_eta1->size(), in_valid_track_eta2->size()});
+
+        // Temporary flags to see if a strip fired in this event
+        bool hit_in_event_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {false};
+        bool hit_in_event_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {false};
+
+        for (size_t i = 0; i < n_hits; ++i) {
+            if ((*rise)[i] == 0) continue; // Skip falling edge hits
+
+            int layer = (*layers)[i];
+            int strip = perFileHelpers::remapStrip((*strips)[i]);
+
+            if (layer < 0 || layer >= LAYER_COUNT || strip < 0 || strip >= STRIPS_PER_LAYER) continue;
+
+            // Accumulate for all hits or only for hits that are part of valid tracks based on the flag
+            if (!in_valid_track_only) {
+                if ((*raw_time1)[i] != 0) {
+                    eta1_per_layer_strip[layer][strip]++;
+                    hit_in_event_eta1[layer][strip] = true;
+                }
+                if ((*raw_time2)[i] != 0) {
+                    eta2_per_layer_strip[layer][strip]++;
+                    hit_in_event_eta2[layer][strip] = true;
+                }
+            } else {
+                if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
+                    if ((*raw_time1)[i] != 0) {
+                        eta1_per_layer_strip[layer][strip]++;
+                        hit_in_event_eta1[layer][strip] = true;
+                    }
+                    if ((*raw_time2)[i] != 0) {
+                        eta2_per_layer_strip[layer][strip]++;
+                        hit_in_event_eta2[layer][strip] = true;
+                    }
+                }
+            }
+        }
+        for (int layer = 0; layer < LAYER_COUNT; ++layer) {
+            for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
+                if (hit_in_event_eta1[layer][strip]) active_events_eta1[layer][strip]++;
+                if (hit_in_event_eta2[layer][strip]) active_events_eta2[layer][strip]++;
+            }
+        }
+        n_events++;
+    }
+
+    auto assignAverageAndError = [](int count, int active_events, double& avg, ErrorRange& err) {
+        if (active_events == 0) {
+            avg = 0.0;
+            err = ErrorRange(0.0);
+        } else {
+            avg = static_cast<double>(count) / active_events;
+            // The standard error of the mean
+            err = ErrorRange(std::sqrt(count) / active_events); 
+        }
+    };
+
+    for (int layer = 0; layer < LAYER_COUNT; ++layer) {
+        for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
+
+            assignAverageAndError(eta1_per_layer_strip[layer][strip],
+                                  active_events_eta1[layer][strip],
+                                  mult_results.avg_multiplicity_eta1[layer][strip],
+                                  mult_results.avg_multiplicity_eta1_error[layer][strip]);
+
+            assignAverageAndError(eta2_per_layer_strip[layer][strip],
+                                  active_events_eta2[layer][strip],
+                                  mult_results.avg_multiplicity_eta2[layer][strip],
+                                  mult_results.avg_multiplicity_eta2_error[layer][strip]);
+        }
+    }
+}
+
 }
 
 // ==========================================================================================
@@ -1154,6 +1262,11 @@ void DataAnalyzer::produceSummaryStats() {
         summaryHelpers::getAverageToT(input_file, stats.tot_results_tracks, true);
 
         // ----------------------------------------------------------------------------------
+        // Average multiplicity calculation
+        summaryHelpers::getAverageMultiplicity(input_file, stats.multiplicity_results, false);
+        summaryHelpers::getAverageMultiplicity(input_file, stats.multiplicity_results_tracks, true);
+
+        // ----------------------------------------------------------------------------------
         // Fill the summary tree with the extracted statistics for this measurement entry
 
         // Layer-specific cluster size and efficiency results
@@ -1227,6 +1340,21 @@ void DataAnalyzer::produceSummaryStats() {
 
                 tot_results_track_summary.avg_tot_eta1_error[layer][strip] = stats.tot_results_tracks.avg_tot_eta1_error[layer][strip];
                 tot_results_track_summary.avg_tot_eta2_error[layer][strip] = stats.tot_results_tracks.avg_tot_eta2_error[layer][strip];
+            }
+
+            // Average multiplicity results
+            for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
+                multiplicity_results_summary.avg_multiplicity_eta1[layer][strip] = stats.multiplicity_results.avg_multiplicity_eta1[layer][strip];
+                multiplicity_results_summary.avg_multiplicity_eta2[layer][strip] = stats.multiplicity_results.avg_multiplicity_eta2[layer][strip];
+
+                multiplicity_results_summary.avg_multiplicity_eta1_error[layer][strip] = stats.multiplicity_results.avg_multiplicity_eta1_error[layer][strip];
+                multiplicity_results_summary.avg_multiplicity_eta2_error[layer][strip] = stats.multiplicity_results.avg_multiplicity_eta2_error[layer][strip];
+
+                multiplicity_results_track_summary.avg_multiplicity_eta1[layer][strip] = stats.multiplicity_results_tracks.avg_multiplicity_eta1[layer][strip];
+                multiplicity_results_track_summary.avg_multiplicity_eta2[layer][strip] = stats.multiplicity_results_tracks.avg_multiplicity_eta2[layer][strip];
+
+                multiplicity_results_track_summary.avg_multiplicity_eta1_error[layer][strip] = stats.multiplicity_results_tracks.avg_multiplicity_eta1_error[layer][strip];
+                multiplicity_results_track_summary.avg_multiplicity_eta2_error[layer][strip] = stats.multiplicity_results_tracks.avg_multiplicity_eta2_error[layer][strip];
             }
         }
 
