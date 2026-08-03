@@ -1,6 +1,8 @@
 #include <iostream>
 #include <algorithm>
+#include <stdexcept>
 #include <unordered_set>
+#include <initializer_list>
 
 #include <TFile.h>
 #include <TTree.h>
@@ -517,6 +519,25 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
 }
 
 namespace summaryHelpers {
+
+inline void requireEqualSizes(std::initializer_list<std::pair<std::string, size_t>> named_sizes) {
+    if (named_sizes.size() <= 1) return;
+
+    auto it = named_sizes.begin();
+    const std::string& expected_name = it->first;
+    size_t expected_size = it->second;
+
+    for (++it; it != named_sizes.end(); ++it) {
+        if (it->second != expected_size) {
+            throw std::runtime_error(
+                "Data size mismatch detected! '" + expected_name +
+                "' has size " + std::to_string(expected_size) +
+                ", but '" + it->first +
+                "' has size " + std::to_string(it->second) + "."
+            );
+        }
+    }
+}
 
 void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_track_only) {
     TTree* processed_tree = input_file->Get<TTree>("ProcessedData");
