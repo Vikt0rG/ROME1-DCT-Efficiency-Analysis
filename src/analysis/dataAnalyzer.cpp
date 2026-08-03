@@ -555,20 +555,31 @@ void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_tra
     TTreeReaderValue<std::vector<int>>  tot2(reader_processed, "proc_tot2");
     TTreeReaderValue<std::vector<int>>  strips(reader_processed, "proc_strip");
     TTreeReaderValue<std::vector<int>>  layers(reader_processed, "proc_layer");
-    TTreeReaderValue<std::vector<bool>> is_valid_eta1(reader_track, "in_valid_track_eta1");
-    TTreeReaderValue<std::vector<bool>> is_valid_eta2(reader_track, "in_valid_track_eta2");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(reader_track, "in_valid_track_eta1");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(reader_track, "in_valid_track_eta2");
 
     // Local accumulators
     Accumulator eta1[LAYER_COUNT][STRIPS_PER_LAYER];
     Accumulator eta2[LAYER_COUNT][STRIPS_PER_LAYER];
 
     while (reader_processed.Next() && reader_track.Next()) {
-        if (tot1.GetSetupStatus() != 0 || is_valid_eta1.GetSetupStatus() != 0) continue;
+        if (tot1.GetSetupStatus() != 0 || in_valid_track_eta1.GetSetupStatus() != 0) continue;
 
-        const size_t n_entries = std::min({tot1->size(), tot2->size(), strips->size(), layers->size(), 
-                                           is_valid_eta1->size(), is_valid_eta2->size()});
+        /* WIP: Figuring out why track reco leads to fewer entries per event than the processed data, which is causing size mismatches
+        requireEqualSizes({
+            {"tot1", tot1->size()},
+            {"tot2", tot2->size()},
+            {"strips", strips->size()},
+            {"layers", layers->size()},
+            {"in_valid_track_eta1", in_valid_track_eta1->size()},
+            {"in_valid_track_eta2", in_valid_track_eta2->size()}
+        });
+        */
 
-        for (size_t i = 0; i < n_entries; ++i) {
+        const size_t n_hits = std::min({tot1->size(), tot2->size(), strips->size(), layers->size(),
+            in_valid_track_eta1->size(), in_valid_track_eta2->size()});
+
+        for (size_t i = 0; i < n_hits; ++i) {
             int layer = (*layers)[i];
             int strip = perFileHelpers::remapStrip((*strips)[i]);
 
@@ -585,7 +596,7 @@ void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_tra
                     eta2[layer][strip].hits++;
                 }
             } else {
-                if ((*is_valid_eta1)[i] || (*is_valid_eta2)[i]) {
+                if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
                     if ((*tot1)[i] > 0) {
                         eta1[layer][strip].sum += (*tot1)[i];
                         eta1[layer][strip].hits++;
