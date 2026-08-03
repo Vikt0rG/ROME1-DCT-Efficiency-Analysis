@@ -949,7 +949,7 @@ namespace PlotStyler {
 
         // Add a strip colorbar
         if (is_strip_plot) {
-            canvas->SetRightMargin(0.16); 
+            canvas->SetRightMargin(0.16);
 
             int n_colors = TColor::GetNumberOfColors();
             int max_strip = STRIPS_PER_LAYER - 1;
@@ -982,10 +982,122 @@ namespace PlotStyler {
 
             // Create a dummy histogram specifically to draw the Z-axis (Colorbar)
             TH2D* dummy_z = new TH2D(Form("dummy_z_%p", mg), "", 1, -2000, -1000, 1, -2000, -1000);
-            dummy_z->SetDirectory(nullptr); 
+            dummy_z->SetDirectory(nullptr);
             dummy_z->SetBinContent(1, 1, 0.0);
             dummy_z->SetMinimum(0);
             dummy_z->SetMaximum(STRIPS_PER_LAYER);
+            dummy_z->SetContour(STRIPS_PER_LAYER);
+
+            TAxis* zAxis = dummy_z->GetZaxis();
+            zAxis->SetTitle("Strip Number");
+            zAxis->SetTitleOffset(1.0);
+            zAxis->SetTitleSize(0.05);
+            zAxis->SetLabelSize(0.04);
+            zAxis->SetNdivisions(6, 4, 0, kFALSE);
+
+            dummy_z->Draw("COL Z SAME");
+        }
+
+        canvas->Modified();
+        canvas->Update();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        TPaveText* header = drawATLASHeaderBlock(
+            0.18, 0.86,
+            "Work in Progress",
+            plot_title,
+            12,
+            kWhite, 0.70,
+            kBlack, 1,
+            0.01
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        if (!is_strip_plot) {
+            double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
+            TLegend* leg = drawATLASLegend(obj, legend_entries, 0.18, legend_y, 13);
+            if (leg) {
+                leg->SetBorderSize(1);
+                leg->SetLineWidth(1);
+                leg->SetLineColor(kBlack);
+            }
+        }
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleAvgMulVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
+
+        auto mg = dynamic_cast<TMultiGraph*>(obj);
+        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+
+        // Differentiate between a 24-strip plot and a 3-layer plot
+        bool is_strip_plot = (mg && mg->GetListOfGraphs() && mg->GetListOfGraphs()->GetSize() > 10);
+
+        if (is_strip_plot) gStyle->SetPalette(kViridis);
+
+        obj->Draw("APZ");
+
+        if (mg && mg->GetHistogram()) {
+            if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
+                setRange(mg, xAxis, AxisType::X, 0.0, 10e3, 4500.0);
+                xAxis->SetTitle(x_label.c_str());
+            }
+            if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
+                setRange(mg, yAxis, AxisType::Y, 0.8, 2.0);
+                yAxis->SetTitle(y_label.c_str());
+            }
+        }
+
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
+            named_obj->SetTitle(title.c_str());
+        }
+
+        applyATLASStyle(obj, canvas);
+
+        // Add a strip colorbar
+        if (is_strip_plot) {
+            canvas->SetRightMargin(0.16);
+
+            int n_colors = TColor::GetNumberOfColors();
+            int max_strip = STRIPS_PER_LAYER - 1;
+
+            // Recolor the 24 graphs to match the continuous palette
+            TIter next(mg->GetListOfGraphs());
+            TObject* gr_obj;
+            while ((gr_obj = next())) {
+                if (auto gr = dynamic_cast<TGraph*>(gr_obj)) {
+                    int strip_idx = 0;
+                    std::smatch match;
+                    std::string gr_title = gr->GetTitle();
+
+                    // Extract the strip number from the title (e.g. "Strip 5")
+                    if (std::regex_search(gr_title, match, std::regex("Strip (\\d+)"))) {
+                        strip_idx = std::stoi(match[1].str());
+                    }
+                    strip_idx = std::max(0, std::min(strip_idx, max_strip)); // Safety clamp
+
+                    // Map the strip number [0, 23] to the palette index [0, 255]
+                    int color_idx = TColor::GetColorPalette((strip_idx * (n_colors - 1)) / max_strip);
+
+                    gr->SetMarkerColor(color_idx);
+                    gr->SetMarkerStyle(70);
+                    gr->SetMarkerSize(1.8);
+                    gr->SetLineColor(color_idx);
+                    gr->SetLineWidth(2.0);
+                }
+            }
+
+            // Create a dummy histogram specifically to draw the Z-axis (Colorbar)
+            TH2D* dummy_z = new TH2D(Form("dummy_z_%p", mg), "", 1, -2000, -1000, 1, -2000, -1000);
+            dummy_z->SetDirectory(nullptr);
+            dummy_z->SetBinContent(1, 1, 0.0);
+            dummy_z->SetMinimum(0);
+            dummy_z->SetMaximum(STRIPS_PER_LAYER);
+            dummy_z->SetContour(STRIPS_PER_LAYER);
 
             TAxis* zAxis = dummy_z->GetZaxis();
             zAxis->SetTitle("Strip Number");
@@ -1312,6 +1424,7 @@ namespace PlotStyler {
         {PlotCategory::MeanClusterSizeVsHV,     &styleEfficiencyVsHV},
         {PlotCategory::NoiseRateVsHV,           &styleEfficiencyVsHV},
         {PlotCategory::AvgToTVsHV,              &styleAvgToTVsHV},
+        {PlotCategory::AvgMultVsHV,             &styleAvgMulVsHV},
         {PlotCategory::StripDistribution,       &styleStripDistribution},
         {PlotCategory::ToTDistribution,         &styleToTDistribution},
         {PlotCategory::ToTCombinedDistribution, &styleToTCombinedDistribution},
