@@ -121,13 +121,21 @@ struct ClusterSizeResults {
 };
 
 struct NoiseRateResults {
+    // Detector-wide noise rate results
     double noise_rate = 0.0;
-    double noise_rate_eta1[3] = {};
-    double noise_rate_eta2[3] = {};
-
     ErrorRange noise_rate_error = {};
-    ErrorRange noise_rate_eta1_error[3] = {};
-    ErrorRange noise_rate_eta2_error[3] = {};
+
+    // Layer-wide noise rate results
+    double noise_rate_eta1[LAYER_COUNT] = {};
+    double noise_rate_eta2[LAYER_COUNT] = {};
+    ErrorRange noise_rate_eta1_error[LAYER_COUNT] = {};
+    ErrorRange noise_rate_eta2_error[LAYER_COUNT] = {};
+
+    // Strip-wide noise rate results
+    double noise_rate_eta1_strips[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    double noise_rate_eta2_strips[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    double noise_rate_eta1_strips_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    double noise_rate_eta2_strips_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
 };
 
 struct ToTResults {
