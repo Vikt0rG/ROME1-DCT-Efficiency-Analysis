@@ -520,6 +520,96 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
 
 namespace summaryHelpers {
 
+void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, MeasurementData& data) {
+    summary_tree->Branch("name", &metadata.name);
+    summary_tree->Branch("measurement_type", &metadata.measurement_type);
+    summary_tree->Branch("mixture", &metadata.mixture);
+    summary_tree->Branch("source", &metadata.source);
+    summary_tree->Branch("filter", &metadata.filter);
+    summary_tree->Branch("lv_setting", &metadata.lv_setting);
+    summary_tree->Branch("scanned_layer", &metadata.scanned_layer);
+    summary_tree->Branch("scanned_hv", &metadata.scanned_hv);
+    summary_tree->Branch("other_hv", &metadata.other_hv);
+
+    summary_tree->Branch("eff_eta1_external", &data.efficiency_results.eta1_efficiency_external, "eff_eta1_external[3]/D");
+    summary_tree->Branch("eff_eta2_external", &data.efficiency_results.eta2_efficiency_external, "eff_eta2_external[3]/D");
+    summary_tree->Branch("eff_or_external", &data.efficiency_results.eta_or_efficiency_external, "eff_or_external[3]/D");
+    summary_tree->Branch("eff_and_external", &data.efficiency_results.eta_and_efficiency_external, "eff_and_external[3]/D");
+    summary_tree->Branch("eff_eta1_external_error", &data.efficiency_results.eta1_efficiency_external_error, "eff_eta1_external_error[6]/D");
+    summary_tree->Branch("eff_eta2_external_error", &data.efficiency_results.eta2_efficiency_external_error, "eff_eta2_external_error[6]/D");
+    summary_tree->Branch("eff_or_external_error", &data.efficiency_results.eta_or_efficiency_external_error, "eff_or_external_error[6]/D");
+    summary_tree->Branch("eff_and_external_error", &data.efficiency_results.eta_and_efficiency_external_error, "eff_and_external_error[6]/D");
+
+    summary_tree->Branch("eff_eta1_rpc", &data.efficiency_results.eta1_efficiency_rpc, "eff_eta1_rpc[3]/D");
+    summary_tree->Branch("eff_eta2_rpc", &data.efficiency_results.eta2_efficiency_rpc, "eff_eta2_rpc[3]/D");
+    summary_tree->Branch("eff_or_rpc", &data.efficiency_results.eta_or_efficiency_rpc, "eff_or_rpc[3]/D");
+    summary_tree->Branch("eff_and_rpc", &data.efficiency_results.eta_and_efficiency_rpc, "eff_and_rpc[3]/D");
+    summary_tree->Branch("eff_eta1_rpc_error", &data.efficiency_results.eta1_efficiency_rpc_error, "eff_eta1_rpc_error[6]/D");
+    summary_tree->Branch("eff_eta2_rpc_error", &data.efficiency_results.eta2_efficiency_rpc_error, "eff_eta2_rpc_error[6]/D");
+    summary_tree->Branch("eff_or_rpc_error", &data.efficiency_results.eta_or_efficiency_rpc_error, "eff_or_rpc_error[6]/D");
+    summary_tree->Branch("eff_and_rpc_error", &data.efficiency_results.eta_and_efficiency_rpc_error, "eff_and_rpc_error[6]/D");
+
+    summary_tree->Branch("track_eff_eta1_external", &data.efficiency_results_tracks.eta1_efficiency_external, "track_eff_eta1_external[3]/D");
+    summary_tree->Branch("track_eff_eta2_external", &data.efficiency_results_tracks.eta2_efficiency_external, "track_eff_eta2_external[3]/D");
+    summary_tree->Branch("track_eff_or_external", &data.efficiency_results_tracks.eta_or_efficiency_external, "track_eff_or_external[3]/D");
+    summary_tree->Branch("track_eff_and_external", &data.efficiency_results_tracks.eta_and_efficiency_external, "track_eff_and_external[3]/D");
+    summary_tree->Branch("track_eff_eta1_external_error", &data.efficiency_results_tracks.eta1_efficiency_external_error, "track_eff_eta1_external_error[6]/D");
+    summary_tree->Branch("track_eff_eta2_external_error", &data.efficiency_results_tracks.eta2_efficiency_external_error, "track_eff_eta2_external_error[6]/D");
+    summary_tree->Branch("track_eff_or_external_error", &data.efficiency_results_tracks.eta_or_efficiency_external_error, "track_eff_or_external_error[6]/D");
+    summary_tree->Branch("track_eff_and_external_error", &data.efficiency_results_tracks.eta_and_efficiency_external_error, "track_eff_and_external_error[6]/D");
+
+    summary_tree->Branch("track_eff_eta1_rpc", &data.efficiency_results_tracks.eta1_efficiency_rpc, "track_eff_eta1_rpc[3]/D");
+    summary_tree->Branch("track_eff_eta2_rpc", &data.efficiency_results_tracks.eta2_efficiency_rpc, "track_eff_eta2_rpc[3]/D");
+    summary_tree->Branch("track_eff_or_rpc", &data.efficiency_results_tracks.eta_or_efficiency_rpc, "track_eff_or_rpc[3]/D");
+    summary_tree->Branch("track_eff_and_rpc", &data.efficiency_results_tracks.eta_and_efficiency_rpc, "track_eff_and_rpc[3]/D");
+    summary_tree->Branch("track_eff_eta1_rpc_error", &data.efficiency_results_tracks.eta1_efficiency_rpc_error, "track_eff_eta1_rpc_error[6]/D");
+    summary_tree->Branch("track_eff_eta2_rpc_error", &data.efficiency_results_tracks.eta2_efficiency_rpc_error, "track_eff_eta2_rpc_error[6]/D");
+    summary_tree->Branch("track_eff_or_rpc_error", &data.efficiency_results_tracks.eta_or_efficiency_rpc_error, "track_eff_or_rpc_error[6]/D");
+    summary_tree->Branch("track_eff_and_rpc_error", &data.efficiency_results_tracks.eta_and_efficiency_rpc_error, "track_eff_and_rpc_error[6]/D");
+
+    summary_tree->Branch("avg_cluster_size_eta1", &data.cluster_size_results.avg_cluster_size_eta1);
+    summary_tree->Branch("avg_cluster_size_eta2", &data.cluster_size_results.avg_cluster_size_eta2);
+    summary_tree->Branch("avg_cluster_size_eta1_layers", &data.cluster_size_results.avg_cluster_size_eta1_layers, "avg_cluster_size_eta1_layers[3]/D");
+    summary_tree->Branch("avg_cluster_size_eta2_layers", &data.cluster_size_results.avg_cluster_size_eta2_layers, "avg_cluster_size_eta2_layers[3]/D");
+    summary_tree->Branch("avg_cluster_size_eta1_error", &data.cluster_size_results.avg_cluster_size_eta1_error, "avg_cluster_size_eta1_error[2]/D");
+    summary_tree->Branch("avg_cluster_size_eta2_error", &data.cluster_size_results.avg_cluster_size_eta2_error, "avg_cluster_size_eta2_error[2]/D");
+    summary_tree->Branch("avg_cluster_size_eta1_layers_error", &data.cluster_size_results.avg_cluster_size_eta1_layers_error, "avg_cluster_size_eta1_layers_error[6]/D");
+    summary_tree->Branch("avg_cluster_size_eta2_layers_error", &data.cluster_size_results.avg_cluster_size_eta2_layers_error, "avg_cluster_size_eta2_layers_error[6]/D");
+
+    summary_tree->Branch("noise_rate", &data.noise_rate_results.noise_rate);
+    summary_tree->Branch("noise_rate_error", &data.noise_rate_results.noise_rate_error, "noise_rate_error[2]/D");
+
+    summary_tree->Branch("noise_rate_eta1", &data.noise_rate_results.noise_rate_eta1, "noise_rate_eta1[3]/D");
+    summary_tree->Branch("noise_rate_eta2", &data.noise_rate_results.noise_rate_eta2, "noise_rate_eta2[3]/D");
+    summary_tree->Branch("noise_rate_eta1_error", &data.noise_rate_results.noise_rate_eta1_error, "noise_rate_eta1_error[6]/D");
+    summary_tree->Branch("noise_rate_eta2_error", &data.noise_rate_results.noise_rate_eta2_error, "noise_rate_eta2_error[6]/D");
+
+    summary_tree->Branch("noise_rate_strips_eta1", &data.noise_rate_results.noise_rate_eta1_strips, Form("noise_rate_eta1_strips[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("noise_rate_strips_eta2", &data.noise_rate_results.noise_rate_eta2_strips, Form("noise_rate_eta2_strips[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("noise_rate_strips_eta1_error", &data.noise_rate_results.noise_rate_eta1_strips_error, Form("noise_rate_eta1_strips_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("noise_rate_strips_eta2_error", &data.noise_rate_results.noise_rate_eta2_strips_error, Form("noise_rate_eta2_strips_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+
+    summary_tree->Branch("avg_tot_eta1", &data.tot_results.avg_tot_eta1, Form("avg_tot_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_tot_eta2", &data.tot_results.avg_tot_eta2, Form("avg_tot_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_tot_eta1_error", &data.tot_results.avg_tot_eta1_error, Form("avg_tot_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_tot_eta2_error", &data.tot_results.avg_tot_eta2_error, Form("avg_tot_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+
+    summary_tree->Branch("track_avg_tot_eta1", &data.tot_results_tracks.avg_tot_eta1, Form("track_avg_tot_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("track_avg_tot_eta2", &data.tot_results_tracks.avg_tot_eta2, Form("track_avg_tot_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("track_avg_tot_eta1_error", &data.tot_results_tracks.avg_tot_eta1_error, Form("track_avg_tot_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("track_avg_tot_eta2_error", &data.tot_results_tracks.avg_tot_eta2_error, Form("track_avg_tot_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+
+    summary_tree->Branch("avg_multiplicity_eta1", &data.multiplicity_results.avg_multiplicity_eta1, Form("avg_multiplicity_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_multiplicity_eta2", &data.multiplicity_results.avg_multiplicity_eta2, Form("avg_multiplicity_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_multiplicity_eta1_error", &data.multiplicity_results.avg_multiplicity_eta1_error, Form("avg_multiplicity_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_multiplicity_eta2_error", &data.multiplicity_results.avg_multiplicity_eta2_error, Form("avg_multiplicity_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+
+    summary_tree->Branch("track_avg_multiplicity_eta1", &data.multiplicity_results_tracks.avg_multiplicity_eta1, Form("track_avg_multiplicity_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("track_avg_multiplicity_eta2", &data.multiplicity_results_tracks.avg_multiplicity_eta2, Form("track_avg_multiplicity_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("track_avg_multiplicity_eta1_error", &data.multiplicity_results_tracks.avg_multiplicity_eta1_error, Form("track_avg_multiplicity_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("track_avg_multiplicity_eta2_error", &data.multiplicity_results_tracks.avg_multiplicity_eta2_error, Form("track_avg_multiplicity_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+}
+
 inline void requireEqualSizes(std::initializer_list<std::pair<std::string, size_t>> named_sizes) {
     if (named_sizes.size() <= 1) return;
 
@@ -785,6 +875,8 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
 
 void DataAnalyzer::produceSummaryStats() {
 
+    using namespace summaryHelpers;
+
     // Process each config file and build the list of measurement entries and summaries
     std::cout << _output_directory << std::endl;
     std::filesystem::create_directories(_output_directory / "root_summaries");
@@ -802,110 +894,11 @@ void DataAnalyzer::produceSummaryStats() {
     TFile summary_root_file(summary_root_path.string().c_str(), "RECREATE");
     TTree* summary_tree = new TTree("summary", "summary");
 
-    // Metadata variables to be stored in the summary tree
-    std::string entry_name;
-    std::string measurement_type;
-
-    std::string mixture;
-    bool source;
-    double filter;
-    int lv_setting;
-
-    int scanned_layer;
-    double scanned_hv = 0.0;
-    double other_hv = 0.0;
-
-    EfficiencyResults efficiency_results_summary;
-    EfficiencyResults efficiency_results_track_summary;
-    ClusterSizeResults cluster_size_results_summary;
-    NoiseRateResults noise_rate_results_summary;
-    ToTResults tot_results_summary;                         // Average ToT for all hits
-    ToTResults tot_results_track_summary;                   // Average ToT for all hits and for hits that are part of any valid track
-    MultiplicityResults multiplicity_results_summary;       // Average Multiplicity for all hits
-    MultiplicityResults multiplicity_results_track_summary; // Average Multiplicity for hits that are part of any valid track
+    MeasurementMetadata metadata;
+    MeasurementData data;
 
     // Set up branches for the summary tree
-    summary_tree->Branch("name", &entry_name);
-    summary_tree->Branch("measurement_type", &measurement_type);
-    summary_tree->Branch("mixture", &mixture);
-    summary_tree->Branch("source", &source);
-    summary_tree->Branch("filter", &filter);
-    summary_tree->Branch("lv_setting", &lv_setting);
-    summary_tree->Branch("scanned_layer", &scanned_layer);
-    summary_tree->Branch("scanned_hv", &scanned_hv);
-    summary_tree->Branch("other_hv", &other_hv);
-
-    summary_tree->Branch("eff_eta1_external", efficiency_results_summary.eta1_efficiency_external, "eff_eta1_external[3]/D");
-    summary_tree->Branch("eff_eta2_external", efficiency_results_summary.eta2_efficiency_external, "eff_eta2_external[3]/D");
-    summary_tree->Branch("eff_or_external", efficiency_results_summary.eta_or_efficiency_external, "eff_or_external[3]/D");
-    summary_tree->Branch("eff_and_external", efficiency_results_summary.eta_and_efficiency_external, "eff_and_external[3]/D");
-    summary_tree->Branch("eff_eta1_external_error", efficiency_results_summary.eta1_efficiency_external_error, "eff_eta1_external_error[6]/D");
-    summary_tree->Branch("eff_eta2_external_error", efficiency_results_summary.eta2_efficiency_external_error, "eff_eta2_external_error[6]/D");
-    summary_tree->Branch("eff_or_external_error", efficiency_results_summary.eta_or_efficiency_external_error, "eff_or_external_error[6]/D");
-    summary_tree->Branch("eff_and_external_error", efficiency_results_summary.eta_and_efficiency_external_error, "eff_and_external_error[6]/D");
-
-    summary_tree->Branch("eff_eta1_rpc", efficiency_results_summary.eta1_efficiency_rpc, "eff_eta1_rpc[3]/D");
-    summary_tree->Branch("eff_eta2_rpc", efficiency_results_summary.eta2_efficiency_rpc, "eff_eta2_rpc[3]/D");
-    summary_tree->Branch("eff_or_rpc", efficiency_results_summary.eta_or_efficiency_rpc, "eff_or_rpc[3]/D");
-    summary_tree->Branch("eff_and_rpc", efficiency_results_summary.eta_and_efficiency_rpc, "eff_and_rpc[3]/D");
-    summary_tree->Branch("eff_eta1_rpc_error", efficiency_results_summary.eta1_efficiency_rpc_error, "eff_eta1_rpc_error[6]/D");
-    summary_tree->Branch("eff_eta2_rpc_error", efficiency_results_summary.eta2_efficiency_rpc_error, "eff_eta2_rpc_error[6]/D");
-    summary_tree->Branch("eff_or_rpc_error", efficiency_results_summary.eta_or_efficiency_rpc_error, "eff_or_rpc_error[6]/D");
-    summary_tree->Branch("eff_and_rpc_error", efficiency_results_summary.eta_and_efficiency_rpc_error, "eff_and_rpc_error[6]/D");
-
-    summary_tree->Branch("track_eff_eta1_external", efficiency_results_track_summary.eta1_efficiency_external, "track_eff_eta1_external[3]/D");
-    summary_tree->Branch("track_eff_eta2_external", efficiency_results_track_summary.eta2_efficiency_external, "track_eff_eta2_external[3]/D");
-    summary_tree->Branch("track_eff_or_external", efficiency_results_track_summary.eta_or_efficiency_external, "track_eff_or_external[3]/D");
-    summary_tree->Branch("track_eff_and_external", efficiency_results_track_summary.eta_and_efficiency_external, "track_eff_and_external[3]/D");
-    summary_tree->Branch("track_eff_eta1_external_error", efficiency_results_track_summary.eta1_efficiency_external_error, "track_eff_eta1_external_error[6]/D");
-    summary_tree->Branch("track_eff_eta2_external_error", efficiency_results_track_summary.eta2_efficiency_external_error, "track_eff_eta2_external_error[6]/D");
-    summary_tree->Branch("track_eff_or_external_error", efficiency_results_track_summary.eta_or_efficiency_external_error, "track_eff_or_external_error[6]/D");
-    summary_tree->Branch("track_eff_and_external_error", efficiency_results_track_summary.eta_and_efficiency_external_error, "track_eff_and_external_error[6]/D");
-
-    summary_tree->Branch("track_eff_eta1_rpc", efficiency_results_track_summary.eta1_efficiency_rpc, "track_eff_eta1_rpc[3]/D");
-    summary_tree->Branch("track_eff_eta2_rpc", efficiency_results_track_summary.eta2_efficiency_rpc, "track_eff_eta2_rpc[3]/D");
-    summary_tree->Branch("track_eff_or_rpc", efficiency_results_track_summary.eta_or_efficiency_rpc, "track_eff_or_rpc[3]/D");
-    summary_tree->Branch("track_eff_and_rpc", efficiency_results_track_summary.eta_and_efficiency_rpc, "track_eff_and_rpc[3]/D");
-    summary_tree->Branch("track_eff_eta1_rpc_error", efficiency_results_track_summary.eta1_efficiency_rpc_error, "track_eff_eta1_rpc_error[6]/D");
-    summary_tree->Branch("track_eff_eta2_rpc_error", efficiency_results_track_summary.eta2_efficiency_rpc_error, "track_eff_eta2_rpc_error[6]/D");
-    summary_tree->Branch("track_eff_or_rpc_error", efficiency_results_track_summary.eta_or_efficiency_rpc_error, "track_eff_or_rpc_error[6]/D");
-    summary_tree->Branch("track_eff_and_rpc_error", efficiency_results_track_summary.eta_and_efficiency_rpc_error, "track_eff_and_rpc_error[6]/D");
-
-    summary_tree->Branch("avg_cluster_size_eta1", &cluster_size_results_summary.avg_cluster_size_eta1);
-    summary_tree->Branch("avg_cluster_size_eta2", &cluster_size_results_summary.avg_cluster_size_eta2);
-    summary_tree->Branch("avg_cluster_size_eta1_layers", cluster_size_results_summary.avg_cluster_size_eta1_layers, "avg_cluster_size_eta1_layers[3]/D");
-    summary_tree->Branch("avg_cluster_size_eta2_layers", cluster_size_results_summary.avg_cluster_size_eta2_layers, "avg_cluster_size_eta2_layers[3]/D");
-    summary_tree->Branch("avg_cluster_size_eta1_error", &cluster_size_results_summary.avg_cluster_size_eta1_error, "avg_cluster_size_eta1_error[2]/D");
-    summary_tree->Branch("avg_cluster_size_eta2_error", &cluster_size_results_summary.avg_cluster_size_eta2_error, "avg_cluster_size_eta2_error[2]/D");
-    summary_tree->Branch("avg_cluster_size_eta1_layers_error", cluster_size_results_summary.avg_cluster_size_eta1_layers_error, "avg_cluster_size_eta1_layers_error[6]/D");
-    summary_tree->Branch("avg_cluster_size_eta2_layers_error", cluster_size_results_summary.avg_cluster_size_eta2_layers_error, "avg_cluster_size_eta2_layers_error[6]/D");
-
-    summary_tree->Branch("noise_rate", &noise_rate_results_summary.noise_rate);
-    summary_tree->Branch("noise_rate_eta1", noise_rate_results_summary.noise_rate_eta1, "noise_rate_eta1[3]/D");
-    summary_tree->Branch("noise_rate_eta2", noise_rate_results_summary.noise_rate_eta2, "noise_rate_eta2[3]/D");
-    summary_tree->Branch("noise_rate_error", &noise_rate_results_summary.noise_rate_error, "noise_rate_error[2]/D");
-    summary_tree->Branch("noise_rate_eta1_error", noise_rate_results_summary.noise_rate_eta1_error, "noise_rate_eta1_error[6]/D");
-    summary_tree->Branch("noise_rate_eta2_error", noise_rate_results_summary.noise_rate_eta2_error, "noise_rate_eta2_error[6]/D");
-
-    summary_tree->Branch("avg_tot_eta1", tot_results_summary.avg_tot_eta1, Form("avg_tot_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_tot_eta2", tot_results_summary.avg_tot_eta2, Form("avg_tot_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_tot_eta1_error", tot_results_summary.avg_tot_eta1_error, Form("avg_tot_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_tot_eta2_error", tot_results_summary.avg_tot_eta2_error, Form("avg_tot_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-
-    summary_tree->Branch("track_avg_tot_eta1", tot_results_track_summary.avg_tot_eta1, Form("track_avg_tot_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_tot_eta2", tot_results_track_summary.avg_tot_eta2, Form("track_avg_tot_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_tot_eta1_error", tot_results_track_summary.avg_tot_eta1_error, Form("track_avg_tot_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_tot_eta2_error", tot_results_track_summary.avg_tot_eta2_error, Form("track_avg_tot_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-
-    summary_tree->Branch("avg_multiplicity_eta1", multiplicity_results_summary.avg_multiplicity_eta1, Form("avg_multiplicity_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_multiplicity_eta2", multiplicity_results_summary.avg_multiplicity_eta2, Form("avg_multiplicity_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_multiplicity_eta1_error", multiplicity_results_summary.avg_multiplicity_eta1_error, Form("avg_multiplicity_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_multiplicity_eta2_error", multiplicity_results_summary.avg_multiplicity_eta2_error, Form("avg_multiplicity_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-
-    summary_tree->Branch("track_avg_multiplicity_eta1", multiplicity_results_track_summary.avg_multiplicity_eta1, Form("track_avg_multiplicity_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_multiplicity_eta2", multiplicity_results_track_summary.avg_multiplicity_eta2, Form("track_avg_multiplicity_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_multiplicity_eta1_error", multiplicity_results_track_summary.avg_multiplicity_eta1_error, Form("track_avg_multiplicity_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_multiplicity_eta2_error", multiplicity_results_track_summary.avg_multiplicity_eta2_error, Form("track_avg_multiplicity_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    setupBranches(summary_tree, metadata, data);
 
     // Process each measurement entry in this config file
     for (const auto& metadata_entry : scan.metadata) {
