@@ -918,22 +918,11 @@ void DataAnalyzer::produceSummaryStats() {
             continue;
         }
 
+        data = MeasurementData();   // Reset data for this entry
+        metadata = metadata_entry;  // Copy metadata for this entry
+
         // Calculate and fill per-file relevant statistics for this measurement entry and save into the input ROOT file
         producePerFileStats(input_file);
-
-        // Extract metadata values for this measurement entry
-        entry_name = metadata_entry.name;
-        measurement_type = metadata_entry.measurement_type;
-        mixture = metadata_entry.mixture;
-        source = metadata_entry.source;
-        filter = metadata_entry.filter;
-        lv_setting = metadata_entry.lv_setting;
-        scanned_layer = metadata_entry.scanned_layer;
-        scanned_hv = metadata_entry.scanned_hv;
-        other_hv = metadata_entry.other_hv;
-
-        // Extract relevant data/statistics from the input ROOT file for this measurement entry
-        MeasurementData stats;
 
         // ----------------------------------------------------------------------------------
         // Extract efficiency values from histograms for this measurement entry
@@ -961,15 +950,15 @@ void DataAnalyzer::produceSummaryStats() {
                 ErrorRange errs[4];
                 extractGraphData(graph_ext, effs, errs);
 
-                stats.efficiency_results.eta1_efficiency_external[layer] = effs[0];
-                stats.efficiency_results.eta2_efficiency_external[layer] = effs[1];
-                stats.efficiency_results.eta_or_efficiency_external[layer] = effs[2];
-                stats.efficiency_results.eta_and_efficiency_external[layer] = effs[3];
+                data.efficiency_results.eta1_efficiency_external[layer] = effs[0];
+                data.efficiency_results.eta2_efficiency_external[layer] = effs[1];
+                data.efficiency_results.eta_or_efficiency_external[layer] = effs[2];
+                data.efficiency_results.eta_and_efficiency_external[layer] = effs[3];
 
-                stats.efficiency_results.eta1_efficiency_external_error[layer] = errs[0];
-                stats.efficiency_results.eta2_efficiency_external_error[layer] = errs[1];
-                stats.efficiency_results.eta_or_efficiency_external_error[layer] = errs[2];
-                stats.efficiency_results.eta_and_efficiency_external_error[layer] = errs[3];
+                data.efficiency_results.eta1_efficiency_external_error[layer] = errs[0];
+                data.efficiency_results.eta2_efficiency_external_error[layer] = errs[1];
+                data.efficiency_results.eta_or_efficiency_external_error[layer] = errs[2];
+                data.efficiency_results.eta_and_efficiency_external_error[layer] = errs[3];
             }
 
             // ------------------------------------------------------------------------------
@@ -981,15 +970,15 @@ void DataAnalyzer::produceSummaryStats() {
                 ErrorRange errs[4];
                 extractGraphData(graph_rpc, effs, errs);
 
-                stats.efficiency_results.eta1_efficiency_rpc[layer] = effs[0];
-                stats.efficiency_results.eta2_efficiency_rpc[layer] = effs[1];
-                stats.efficiency_results.eta_or_efficiency_rpc[layer] = effs[2];
-                stats.efficiency_results.eta_and_efficiency_rpc[layer] = effs[3];
+                data.efficiency_results.eta1_efficiency_rpc[layer] = effs[0];
+                data.efficiency_results.eta2_efficiency_rpc[layer] = effs[1];
+                data.efficiency_results.eta_or_efficiency_rpc[layer] = effs[2];
+                data.efficiency_results.eta_and_efficiency_rpc[layer] = effs[3];
 
-                stats.efficiency_results.eta1_efficiency_rpc_error[layer] = errs[0];
-                stats.efficiency_results.eta2_efficiency_rpc_error[layer] = errs[1];
-                stats.efficiency_results.eta_or_efficiency_rpc_error[layer] = errs[2];
-                stats.efficiency_results.eta_and_efficiency_rpc_error[layer] = errs[3];
+                data.efficiency_results.eta1_efficiency_rpc_error[layer] = errs[0];
+                data.efficiency_results.eta2_efficiency_rpc_error[layer] = errs[1];
+                data.efficiency_results.eta_or_efficiency_rpc_error[layer] = errs[2];
+                data.efficiency_results.eta_and_efficiency_rpc_error[layer] = errs[3];
             }
 
             // ------------------------------------------------------------------------------
@@ -1001,15 +990,15 @@ void DataAnalyzer::produceSummaryStats() {
                 ErrorRange errs[4];
                 extractGraphData(graph_track, effs, errs);
 
-                stats.efficiency_results_tracks.eta1_efficiency_external[layer] = effs[0];
-                stats.efficiency_results_tracks.eta2_efficiency_external[layer] = effs[1];
-                stats.efficiency_results_tracks.eta_or_efficiency_external[layer] = effs[2];
-                stats.efficiency_results_tracks.eta_and_efficiency_external[layer] = effs[3];
+                data.efficiency_results_tracks.eta1_efficiency_external[layer] = effs[0];
+                data.efficiency_results_tracks.eta2_efficiency_external[layer] = effs[1];
+                data.efficiency_results_tracks.eta_or_efficiency_external[layer] = effs[2];
+                data.efficiency_results_tracks.eta_and_efficiency_external[layer] = effs[3];
 
-                stats.efficiency_results_tracks.eta1_efficiency_external_error[layer] = errs[0];
-                stats.efficiency_results_tracks.eta2_efficiency_external_error[layer] = errs[1];
-                stats.efficiency_results_tracks.eta_or_efficiency_external_error[layer] = errs[2];
-                stats.efficiency_results_tracks.eta_and_efficiency_external_error[layer] = errs[3];
+                data.efficiency_results_tracks.eta1_efficiency_external_error[layer] = errs[0];
+                data.efficiency_results_tracks.eta2_efficiency_external_error[layer] = errs[1];
+                data.efficiency_results_tracks.eta_or_efficiency_external_error[layer] = errs[2];
+                data.efficiency_results_tracks.eta_and_efficiency_external_error[layer] = errs[3];
             }
 
             // ------------------------------------------------------------------------------
@@ -1021,15 +1010,15 @@ void DataAnalyzer::produceSummaryStats() {
                 ErrorRange errs[4];
                 extractGraphData(graph_track_rpc, effs, errs);
 
-                stats.efficiency_results_tracks.eta1_efficiency_rpc[layer] = effs[0];
-                stats.efficiency_results_tracks.eta2_efficiency_rpc[layer] = effs[1];
-                stats.efficiency_results_tracks.eta_or_efficiency_rpc[layer] = effs[2];
-                stats.efficiency_results_tracks.eta_and_efficiency_rpc[layer] = effs[3];
+                data.efficiency_results_tracks.eta1_efficiency_rpc[layer] = effs[0];
+                data.efficiency_results_tracks.eta2_efficiency_rpc[layer] = effs[1];
+                data.efficiency_results_tracks.eta_or_efficiency_rpc[layer] = effs[2];
+                data.efficiency_results_tracks.eta_and_efficiency_rpc[layer] = effs[3];
 
-                stats.efficiency_results_tracks.eta1_efficiency_rpc_error[layer] = errs[0];
-                stats.efficiency_results_tracks.eta2_efficiency_rpc_error[layer] = errs[1];
-                stats.efficiency_results_tracks.eta_or_efficiency_rpc_error[layer] = errs[2];
-                stats.efficiency_results_tracks.eta_and_efficiency_rpc_error[layer] = errs[3];
+                data.efficiency_results_tracks.eta1_efficiency_rpc_error[layer] = errs[0];
+                data.efficiency_results_tracks.eta2_efficiency_rpc_error[layer] = errs[1];
+                data.efficiency_results_tracks.eta_or_efficiency_rpc_error[layer] = errs[2];
+                data.efficiency_results_tracks.eta_and_efficiency_rpc_error[layer] = errs[3];
             }
         }
 
@@ -1113,26 +1102,26 @@ void DataAnalyzer::produceSummaryStats() {
 
         // Calculate global metrics
         calcMeanAndError(total_clusters_eta1, total_cluster_size_eta1, sum_sq_cluster_size_eta1, 
-                         stats.cluster_size_results.avg_cluster_size_eta1, 
-                         stats.cluster_size_results.avg_cluster_size_eta1_error);
+                         data.cluster_size_results.avg_cluster_size_eta1, 
+                         data.cluster_size_results.avg_cluster_size_eta1_error);
 
         calcMeanAndError(total_clusters_eta2, total_cluster_size_eta2, sum_sq_cluster_size_eta2, 
-                         stats.cluster_size_results.avg_cluster_size_eta2, 
-                         stats.cluster_size_results.avg_cluster_size_eta2_error);
+                         data.cluster_size_results.avg_cluster_size_eta2, 
+                         data.cluster_size_results.avg_cluster_size_eta2_error);
 
         // Calculate layer-by-layer metrics
         for (int layer_idx = 0; layer_idx < 3; ++layer_idx) {
             calcMeanAndError(total_clusters_eta1_layers[layer_idx], 
                              total_cluster_size_eta1_layers[layer_idx], 
                              sum_sq_cluster_size_eta1_layers[layer_idx],
-                             stats.cluster_size_results.avg_cluster_size_eta1_layers[layer_idx],
-                             stats.cluster_size_results.avg_cluster_size_eta1_layers_error[layer_idx]);
+                             data.cluster_size_results.avg_cluster_size_eta1_layers[layer_idx],
+                             data.cluster_size_results.avg_cluster_size_eta1_layers_error[layer_idx]);
 
             calcMeanAndError(total_clusters_eta2_layers[layer_idx], 
                              total_cluster_size_eta2_layers[layer_idx], 
                              sum_sq_cluster_size_eta2_layers[layer_idx],
-                             stats.cluster_size_results.avg_cluster_size_eta2_layers[layer_idx],
-                             stats.cluster_size_results.avg_cluster_size_eta2_layers_error[layer_idx]);
+                             data.cluster_size_results.avg_cluster_size_eta2_layers[layer_idx],
+                             data.cluster_size_results.avg_cluster_size_eta2_layers_error[layer_idx]);
         }
         }   // Close the scope for cluster size calculation to avoid variable name conflicts
 
@@ -1188,7 +1177,7 @@ void DataAnalyzer::produceSummaryStats() {
         int n_strips = static_cast<int>(unique_strips.size());
         int n_layers = static_cast<int>(unique_layers.size());
 
-        std::tie(stats.noise_rate_results.noise_rate, stats.noise_rate_results.noise_rate_error) = 
+        std::tie(data.noise_rate_results.noise_rate, data.noise_rate_results.noise_rate_error) = 
                 calculateRate(total_hits, event_count, n_strips, n_layers);
 
         // Calculate noise rates per layer per side using raw hit times from InputData
@@ -1241,129 +1230,27 @@ void DataAnalyzer::produceSummaryStats() {
             for (int layer_idx = 0; layer_idx < 3; ++layer_idx) {
                 const int n_strips_eta1 = static_cast<int>(unique_strips_eta1[layer_idx].size());
                 const int n_strips_eta2 = static_cast<int>(unique_strips_eta2[layer_idx].size());
-                std::tie(stats.noise_rate_results.noise_rate_eta1[layer_idx],
-                         stats.noise_rate_results.noise_rate_eta1_error[layer_idx]) = calculateRate(total_hits_eta1[layer_idx], event_count, n_strips_eta1, 1);
-                std::tie(stats.noise_rate_results.noise_rate_eta2[layer_idx],
-                         stats.noise_rate_results.noise_rate_eta2_error[layer_idx]) = calculateRate(total_hits_eta2[layer_idx], event_count, n_strips_eta2, 1);
+                std::tie(data.noise_rate_results.noise_rate_eta1[layer_idx],
+                         data.noise_rate_results.noise_rate_eta1_error[layer_idx]) = calculateRate(total_hits_eta1[layer_idx], event_count, n_strips_eta1, 1);
+                std::tie(data.noise_rate_results.noise_rate_eta2[layer_idx],
+                         data.noise_rate_results.noise_rate_eta2_error[layer_idx]) = calculateRate(total_hits_eta2[layer_idx], event_count, n_strips_eta2, 1);
             }
         }
         }   // Close the scope for rate calculation to avoid variable name conflicts
 
         // ----------------------------------------------------------------------------------
         // Average ToT calculation
-        summaryHelpers::getAverageToT(input_file, stats.tot_results, false);
-        summaryHelpers::getAverageToT(input_file, stats.tot_results_tracks, true);
+        summaryHelpers::getAverageToT(input_file, data.tot_results, false);
+        summaryHelpers::getAverageToT(input_file, data.tot_results_tracks, true);
 
         // ----------------------------------------------------------------------------------
         // Average multiplicity calculation
-        summaryHelpers::getAverageMultiplicity(input_file, stats.multiplicity_results, false);
-        summaryHelpers::getAverageMultiplicity(input_file, stats.multiplicity_results_tracks, true);
-
-        // ----------------------------------------------------------------------------------
-        // Fill the summary tree with the extracted statistics for this measurement entry
-
-        // Layer-specific cluster size and efficiency results
-        for (int layer = 0; layer < LAYER_COUNT; layer++) {
-
-            // Efficiency results
-            efficiency_results_summary.eta1_efficiency_external[layer] = stats.efficiency_results.eta1_efficiency_external[layer];
-            efficiency_results_summary.eta2_efficiency_external[layer] = stats.efficiency_results.eta2_efficiency_external[layer];
-            efficiency_results_summary.eta_or_efficiency_external[layer] = stats.efficiency_results.eta_or_efficiency_external[layer];
-            efficiency_results_summary.eta_and_efficiency_external[layer] = stats.efficiency_results.eta_and_efficiency_external[layer];
-
-            efficiency_results_summary.eta1_efficiency_external_error[layer] = stats.efficiency_results.eta1_efficiency_external_error[layer];
-            efficiency_results_summary.eta2_efficiency_external_error[layer] = stats.efficiency_results.eta2_efficiency_external_error[layer];
-            efficiency_results_summary.eta_or_efficiency_external_error[layer] = stats.efficiency_results.eta_or_efficiency_external_error[layer];
-            efficiency_results_summary.eta_and_efficiency_external_error[layer] = stats.efficiency_results.eta_and_efficiency_external_error[layer];
-
-            efficiency_results_summary.eta1_efficiency_rpc[layer] = stats.efficiency_results.eta1_efficiency_rpc[layer];
-            efficiency_results_summary.eta2_efficiency_rpc[layer] = stats.efficiency_results.eta2_efficiency_rpc[layer];
-            efficiency_results_summary.eta_or_efficiency_rpc[layer] = stats.efficiency_results.eta_or_efficiency_rpc[layer];
-            efficiency_results_summary.eta_and_efficiency_rpc[layer] = stats.efficiency_results.eta_and_efficiency_rpc[layer];
-
-            efficiency_results_summary.eta1_efficiency_rpc_error[layer] = stats.efficiency_results.eta1_efficiency_rpc_error[layer];
-            efficiency_results_summary.eta2_efficiency_rpc_error[layer] = stats.efficiency_results.eta2_efficiency_rpc_error[layer];
-            efficiency_results_summary.eta_or_efficiency_rpc_error[layer] = stats.efficiency_results.eta_or_efficiency_rpc_error[layer];
-            efficiency_results_summary.eta_and_efficiency_rpc_error[layer] = stats.efficiency_results.eta_and_efficiency_rpc_error[layer];
-
-            efficiency_results_track_summary.eta1_efficiency_external[layer] = stats.efficiency_results_tracks.eta1_efficiency_external[layer];
-            efficiency_results_track_summary.eta2_efficiency_external[layer] = stats.efficiency_results_tracks.eta2_efficiency_external[layer];
-            efficiency_results_track_summary.eta_or_efficiency_external[layer] = stats.efficiency_results_tracks.eta_or_efficiency_external[layer];
-            efficiency_results_track_summary.eta_and_efficiency_external[layer] = stats.efficiency_results_tracks.eta_and_efficiency_external[layer];
-
-            efficiency_results_track_summary.eta1_efficiency_external_error[layer] = stats.efficiency_results_tracks.eta1_efficiency_external_error[layer];
-            efficiency_results_track_summary.eta2_efficiency_external_error[layer] = stats.efficiency_results_tracks.eta2_efficiency_external_error[layer];
-            efficiency_results_track_summary.eta_or_efficiency_external_error[layer] = stats.efficiency_results_tracks.eta_or_efficiency_external_error[layer];
-            efficiency_results_track_summary.eta_and_efficiency_external_error[layer] = stats.efficiency_results_tracks.eta_and_efficiency_external_error[layer];
-
-            efficiency_results_track_summary.eta1_efficiency_rpc[layer] = stats.efficiency_results_tracks.eta1_efficiency_rpc[layer];
-            efficiency_results_track_summary.eta2_efficiency_rpc[layer] = stats.efficiency_results_tracks.eta2_efficiency_rpc[layer];
-            efficiency_results_track_summary.eta_or_efficiency_rpc[layer] = stats.efficiency_results_tracks.eta_or_efficiency_rpc[layer];
-            efficiency_results_track_summary.eta_and_efficiency_rpc[layer] = stats.efficiency_results_tracks.eta_and_efficiency_rpc[layer];
-
-            efficiency_results_track_summary.eta1_efficiency_rpc_error[layer] = stats.efficiency_results_tracks.eta1_efficiency_rpc_error[layer];
-            efficiency_results_track_summary.eta2_efficiency_rpc_error[layer] = stats.efficiency_results_tracks.eta2_efficiency_rpc_error[layer];
-            efficiency_results_track_summary.eta_or_efficiency_rpc_error[layer] = stats.efficiency_results_tracks.eta_or_efficiency_rpc_error[layer];
-            efficiency_results_track_summary.eta_and_efficiency_rpc_error[layer] = stats.efficiency_results_tracks.eta_and_efficiency_rpc_error[layer];
-
-            // Cluster size results
-            cluster_size_results_summary.avg_cluster_size_eta1_layers[layer] = stats.cluster_size_results.avg_cluster_size_eta1_layers[layer];
-            cluster_size_results_summary.avg_cluster_size_eta2_layers[layer] = stats.cluster_size_results.avg_cluster_size_eta2_layers[layer];
-
-            cluster_size_results_summary.avg_cluster_size_eta1_layers_error[layer] = stats.cluster_size_results.avg_cluster_size_eta1_layers_error[layer];
-            cluster_size_results_summary.avg_cluster_size_eta2_layers_error[layer] = stats.cluster_size_results.avg_cluster_size_eta2_layers_error[layer];
-
-            // Noise rate results
-            noise_rate_results_summary.noise_rate_eta1[layer] = stats.noise_rate_results.noise_rate_eta1[layer];
-            noise_rate_results_summary.noise_rate_eta2[layer] = stats.noise_rate_results.noise_rate_eta2[layer];
-
-            noise_rate_results_summary.noise_rate_eta1_error[layer] = stats.noise_rate_results.noise_rate_eta1_error[layer];
-            noise_rate_results_summary.noise_rate_eta2_error[layer] = stats.noise_rate_results.noise_rate_eta2_error[layer];
-
-            // Average ToT results
-            for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
-                tot_results_summary.avg_tot_eta1[layer][strip] = stats.tot_results.avg_tot_eta1[layer][strip];
-                tot_results_summary.avg_tot_eta2[layer][strip] = stats.tot_results.avg_tot_eta2[layer][strip];
-
-                tot_results_summary.avg_tot_eta1_error[layer][strip] = stats.tot_results.avg_tot_eta1_error[layer][strip];
-                tot_results_summary.avg_tot_eta2_error[layer][strip] = stats.tot_results.avg_tot_eta2_error[layer][strip];
-
-                tot_results_track_summary.avg_tot_eta1[layer][strip] = stats.tot_results_tracks.avg_tot_eta1[layer][strip];
-                tot_results_track_summary.avg_tot_eta2[layer][strip] = stats.tot_results_tracks.avg_tot_eta2[layer][strip];
-
-                tot_results_track_summary.avg_tot_eta1_error[layer][strip] = stats.tot_results_tracks.avg_tot_eta1_error[layer][strip];
-                tot_results_track_summary.avg_tot_eta2_error[layer][strip] = stats.tot_results_tracks.avg_tot_eta2_error[layer][strip];
-            }
-
-            // Average multiplicity results
-            for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
-                multiplicity_results_summary.avg_multiplicity_eta1[layer][strip] = stats.multiplicity_results.avg_multiplicity_eta1[layer][strip];
-                multiplicity_results_summary.avg_multiplicity_eta2[layer][strip] = stats.multiplicity_results.avg_multiplicity_eta2[layer][strip];
-
-                multiplicity_results_summary.avg_multiplicity_eta1_error[layer][strip] = stats.multiplicity_results.avg_multiplicity_eta1_error[layer][strip];
-                multiplicity_results_summary.avg_multiplicity_eta2_error[layer][strip] = stats.multiplicity_results.avg_multiplicity_eta2_error[layer][strip];
-
-                multiplicity_results_track_summary.avg_multiplicity_eta1[layer][strip] = stats.multiplicity_results_tracks.avg_multiplicity_eta1[layer][strip];
-                multiplicity_results_track_summary.avg_multiplicity_eta2[layer][strip] = stats.multiplicity_results_tracks.avg_multiplicity_eta2[layer][strip];
-
-                multiplicity_results_track_summary.avg_multiplicity_eta1_error[layer][strip] = stats.multiplicity_results_tracks.avg_multiplicity_eta1_error[layer][strip];
-                multiplicity_results_track_summary.avg_multiplicity_eta2_error[layer][strip] = stats.multiplicity_results_tracks.avg_multiplicity_eta2_error[layer][strip];
-            }
-        }
-
-        // Detector-wide cluster size
-        cluster_size_results_summary.avg_cluster_size_eta1 = stats.cluster_size_results.avg_cluster_size_eta1;
-        cluster_size_results_summary.avg_cluster_size_eta2 = stats.cluster_size_results.avg_cluster_size_eta2;
-        cluster_size_results_summary.avg_cluster_size_eta1_error = stats.cluster_size_results.avg_cluster_size_eta1_error;
-        cluster_size_results_summary.avg_cluster_size_eta2_error = stats.cluster_size_results.avg_cluster_size_eta2_error;
-
-        // Detector-wide noise rate
-        noise_rate_results_summary.noise_rate = stats.noise_rate_results.noise_rate;
-        noise_rate_results_summary.noise_rate_error = stats.noise_rate_results.noise_rate_error;
+        summaryHelpers::getAverageMultiplicity(input_file, data.multiplicity_results, false);
+        summaryHelpers::getAverageMultiplicity(input_file, data.multiplicity_results_tracks, true);
 
         // Fill the summary tree with the extracted statistics for this measurement entry
         summary_tree->Fill();
-        scan.data.push_back(stats);
+        scan.data.push_back(data);
 
         // Clean up and close the input ROOT file for this measurement entry
         input_file->Close();
