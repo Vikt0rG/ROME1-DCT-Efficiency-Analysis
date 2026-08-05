@@ -132,10 +132,10 @@ struct NoiseRateResults {
     ErrorRange noise_rate_eta2_error[LAYER_COUNT] = {};
 
     // Strip-wide noise rate results
-    double noise_rate_eta1_strips[LAYER_COUNT][STRIPS_PER_LAYER] = {};
-    double noise_rate_eta2_strips[LAYER_COUNT][STRIPS_PER_LAYER] = {};
-    double noise_rate_eta1_strips_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
-    double noise_rate_eta2_strips_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    double noise_rate_strips_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    double noise_rate_strips_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    ErrorRange noise_rate_strips_eta1_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    ErrorRange noise_rate_strips_eta2_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
 };
 
 struct ToTResults {
