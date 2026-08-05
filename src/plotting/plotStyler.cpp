@@ -127,11 +127,16 @@ namespace PlotStyler {
         else if (metric_name.find("rpc") != std::string::npos)   trigger = "RPC Coincidence";
 
         // Build a subtitle string
-        /// TODO: Rewrite using regex
-        if (metric_name.find("avg_tot_", 0) == 0 || metric_name.find("track_avg_tot_", 0) == 0 || metric_name.find("avg_multiplicity_", 0) == 0 || metric_name.find("track_avg_multiplicity_", 0) == 0) {
-            out_title +=  metric_name.find("track", 0) == 0 ? "Track Reco: " : "Before Track Reco: ";
+        // This applies only for those metrics that depend on the track reconstruction step
+        std::smatch match;
+        if (std::regex_search(metric_name, match, std::regex("^(track_)?(avg_tot|avg_multiplicity|eff)_"))) {
+            out_title += match[1].matched ? "After Track Reco: " : "Before Track Reco: ";
+        }
+
+        if (std::regex_search(metric_name, match, std::regex("^(track_)?(avg_tot|avg_multiplicity|noise_rate_strips)_"))) {
             out_title += "Layer " + matchLabels(metric_name, "layer(\\d+)") + ": ";
         }
+
         if (!side.empty()) out_title += side;
         if (!trigger.empty()) {
             if (!out_title.empty()) out_title += ": ";
