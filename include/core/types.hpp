@@ -37,6 +37,9 @@ struct SelectionMask {
         : name(n), mask(std::move(m)) {}
 };
 
+// ==========================================================================================
+// Structs for error calculation
+
 /// @enum ErrorMethod
 /// @brief Enum to specify the method for calculating efficiency errors.
 ///
@@ -48,8 +51,6 @@ enum class ErrorMethod {
     ClopperPearson = 1
 };
 
-// ==========================================================================================
-// Efficiency calculation related structures
 struct ErrorRange {
     double low = 0.0;
     double high = 0.0;
@@ -63,6 +64,9 @@ struct ErrorRange {
     // Two-argument constructor: sets them independently
     ErrorRange(double l, double h) : low(l), high(h) {}
 };
+
+// ==========================================================================================
+// Efficiency flags and counters for data processing
 
 struct EfficiencyFlags {
     bool eta1_layer[3] = {false, false, false};         // Layer 0, 1, 2 for η1 side
@@ -86,6 +90,8 @@ struct EfficiencyCounters {
     int eta_and_efficiency_counter_rpc[3] = {};
 };
 
+// ==========================================================================================
+// Results structures for analysis
 struct EfficiencyResults {
     double eta1_efficiency_external[3] = {};
     double eta2_efficiency_external[3] = {};
@@ -162,6 +168,7 @@ struct MultiplicityResults {
 /// @param name Name of the measurement entry/file
 /// @param measurement_type Type of the measurement (e.g. "efficiency_scan")
 /// @param root_file Path to the ROOT file containing the measurement data
+/// @param group_name Name of the group or category for the measurement (e.g. "layer_0")
 /// @param mixture Gas mixture used in the measurement
 /// @param source Whether the source was on during the measurement
 /// @param filter Filter setting used during the measurement
@@ -173,6 +180,7 @@ struct MeasurementMetadata {
     std::string name;
     std::string measurement_type;
     std::string root_file;
+    std::string group_name;
 
     std::string mixture;
     bool source;
