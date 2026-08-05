@@ -155,7 +155,7 @@ int main(int argc, char** argv) {
         try {
             DataPlotter plotter(config_paths, output_directory);
             plotter.cumulativeAnalysisRootFile();   // Generate the cumulative analysis ROOT file with summary statistics
-            plotter.cummulativeAnalysisPlots();     // Produce cummulative analysis plots from the analysis ROOT file
+            plotter.cumulativeAnalysisPlots();      // Produce cumulative analysis plots from the analysis ROOT file
         } catch (const std::exception& e) {
             std::cerr << "Error plotting data: " << e.what() << std::endl;
             return 1;
