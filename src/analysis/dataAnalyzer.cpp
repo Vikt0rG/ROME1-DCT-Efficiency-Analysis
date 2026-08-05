@@ -1043,7 +1043,7 @@ void DataAnalyzer::produceSummaryStats() {
 
         // ----------------------------------------------------------------------------------
         // Extract efficiency values from histograms for this measurement entry
-        for (int layer = 0; layer < 3; ++layer) {
+        for (int layer = 0; layer < LAYER_COUNT; ++layer) {
 
             // Helper lambda to safely read points and asymmetric errors out of a TGraphAsymmErrors object
             auto extractGraphData = [](TGraphAsymmErrors* graph, double effs[4], ErrorRange errs[4]) {
