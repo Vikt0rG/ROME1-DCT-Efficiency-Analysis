@@ -160,9 +160,6 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                     TIter next_strip(layer_dir->GetListOfKeys());
                     TKey* strip_key = nullptr;
 
-                    // Flag to check if this layer's strips are actually being scanned over
-                    bool is_scanned_layer = true;
-
                     while ((strip_key = static_cast<TKey*>(next_strip()))) {
                         TObject* obj = strip_key->ReadObj();
                         if (auto g = dynamic_cast<TGraph*>(obj)) {
@@ -175,7 +172,6 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
 
                             // Skip graphs that have no meaningful scan range (e.g., flatlined layers)
                             if (std::abs(x_end - x_start) < 1.0 && std::abs(x_middle - x_start) < 1.0) {
-                                is_scanned_layer = false; // X didn't change -> flat baseline
                                 delete obj;
                                 break;
                             }
