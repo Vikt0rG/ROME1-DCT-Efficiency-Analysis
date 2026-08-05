@@ -138,7 +138,6 @@ std::map<int, DataPlotter::MetricsData> DataPlotter::extractScanData(
         throw std::runtime_error("Failed to open summary root file: " + summary_file_path);
     }
 
-    // Safely grab the tree (removed the duplicate declaration here)
     TTree* summary_tree = summary_root_file->Get<TTree>("summary");
     if (!summary_tree) {
         summary_root_file->Close(); delete summary_root_file;
@@ -199,7 +198,6 @@ std::map<int, DataPlotter::MetricsData> DataPlotter::extractScanData(
                 layer_series.x[layer].push_back(x_value);
                 layer_series.y[layer].push_back(vals[layer]);
 
-                // Asymmetric errors are stored sequentially: [low0, high0, low1, high1, ...]
                 layer_series.y_errors_low[layer].push_back(errs[2 * layer]);
                 layer_series.y_errors_high[layer].push_back(errs[2 * layer + 1]);
             }
@@ -215,7 +213,6 @@ std::map<int, DataPlotter::MetricsData> DataPlotter::extractScanData(
                 double x_value = (layer == scan_lyr) ? scan_hv : oth_hv;
                 for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
 
-                    // C++ struct memory layout is [LAYER_COUNT][STRIPS_PER_LAYER]
                     int flat_idx = layer * STRIPS_PER_LAYER + strip;
 
                     auto& strip_series = current_scan.strip_metrics[metric_name][layer][strip];
