@@ -357,13 +357,14 @@ namespace PlotStyler {
             return title_drawn ? title_drawn : t; 
         }
 
-        TPaveText* drawATLASHeaderBlock(double ndc_x, double ndc_y,
-                                        const std::string& status = "",
-                                        const std::string& title = "",
-                                        short alignment = 33,
-                                        Color_t fillColor = kWhite, double fillAlpha = 0.70,
-                                        Color_t borderColor = kBlack, int borderWidth = 1,
-                                        double innerPadding = 0.01)
+        TPaveText* drawATLASHeaderBlock(
+            double ndc_x, double ndc_y,
+            const std::string& status = "",
+            const std::string& title = "",
+            short alignment = 33,
+            Color_t fillColor = kWhite, double fillAlpha = 0.70,
+            Color_t borderColor = kBlack, int borderWidth = 1,
+            double innerPadding = 0.01)
         {
             if (!gPad) return nullptr;
 
@@ -897,9 +898,13 @@ namespace PlotStyler {
         canvas->Modified();
         canvas->Update();
 
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
         std::string plot_title = obj ? obj->GetTitle() : "";
         TPaveText* header = drawATLASHeaderBlock(
-            0.18, 0.86,               // Coordinates for the header box
+            ndc_x0 + 0.03,
+            ndc_y0 - 0.09,            // Coordinates for the header box
             "Work in Progress",       // Status string
             plot_title,               // Title string
             12,                       // Alignment
@@ -1001,9 +1006,12 @@ namespace PlotStyler {
         canvas->Modified();
         canvas->Update();
 
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
         std::string plot_title = obj ? obj->GetTitle() : "";
         TPaveText* header = drawATLASHeaderBlock(
-            0.18, 0.86,
+            ndc_x0 + 0.03, ndc_y0 - 0.10,
             "Work in Progress",
             plot_title,
             12,
@@ -1112,9 +1120,12 @@ namespace PlotStyler {
         canvas->Modified();
         canvas->Update();
 
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
         std::string plot_title = obj ? obj->GetTitle() : "";
         TPaveText* header = drawATLASHeaderBlock(
-            0.18, 0.86,
+            ndc_x0 + 0.03, ndc_y0 - 0.10,
             "Work in Progress",
             plot_title,
             12,
@@ -1175,15 +1186,18 @@ namespace PlotStyler {
 
         applyATLASStyle(obj, canvas);
 
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
         std::string plot_title = obj ? obj->GetTitle() : "";
         drawATLASHeaderBlock(
-            0.92, 0.82,               // Coordinates for the header box
-            "Work in Progress",       // Status string
-            plot_title,               // Title string
-            32,                       // Alignment
-            kWhite, 0.00,             // transparent background
-            kBlack, 0,                // No border line
-            0.01                      // Inner padding
+            ndc_x0 + 0.03, ndc_y0 - 0.10,
+            "Work in Progress",
+            plot_title,
+            32,
+            kWhite, 0.00,
+            kBlack, 0,
+            0.01
         );
     }
 
@@ -1286,9 +1300,13 @@ namespace PlotStyler {
             mean_line->Draw();
         }
 
+        double ndc_x0 = pad1->GetLeftMargin();
+        double ndc_y0 = 1.0 - pad1->GetTopMargin();
+
         std::string plot_title = obj ? obj->GetTitle() : "";
         TPaveText* header = drawATLASHeaderBlock(
-            0.92, 0.82,               // Coordinates for the header box
+            ndc_x0 + 0.92,
+            ndc_y0 - 0.05,            // Coordinates for the header box
             "Work in Progress",       // Status string
             plot_title,               // Title string
             32,                       // Alignment
@@ -1407,15 +1425,18 @@ namespace PlotStyler {
             enforceIntegerMinorTicks(h1->GetXaxis());
         }
 
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
         std::string plot_title = obj ? obj->GetTitle() : "";
         drawATLASHeaderBlock(
-            0.15, 0.86,               // Coordinates for the header box
-            "Work in Progress",       // Status string
-            plot_title,               // Title string
-            12,                       // Alignment
-            kWhite, 0.70,             // semi-transparent white background
-            kBlack, 1,                // Black 1px border line
-            0.01                      // Inner padding
+            ndc_x0 + 0.03, ndc_y0 - 0.10,
+            "Work in Progress",
+            plot_title,
+            12,
+            kWhite, 0.70,
+            kBlack, 1,
+            0.01
         );
     }
 
