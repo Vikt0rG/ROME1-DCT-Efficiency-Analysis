@@ -928,9 +928,7 @@ void getAverageMultiplicity(TFile* input_file, MultiplicityResults& mult_results
             err = ErrorRange(0.0);
         } else {
             avg = static_cast<double>(count) / active_events;
-
-            // Shifted Poisson Error: Only the "extra" hits above the baseline of 1 vary
-            err = ErrorRange(std::sqrt(count - active_events) / active_events); 
+            err = ErrorRange(std::sqrt(count) / active_events);
         }
     };
 
