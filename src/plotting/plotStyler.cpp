@@ -1306,13 +1306,13 @@ namespace PlotStyler {
             mean_line->Draw();
         }
 
-        double ndc_x0 = pad1->GetLeftMargin();
+        double ndc_x0 = 1.0 - pad1->GetRightMargin();
         double ndc_y0 = 1.0 - pad1->GetTopMargin();
 
         std::string plot_title = obj ? obj->GetTitle() : "";
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 + 0.92,
-            ndc_y0 - 0.05,            // Coordinates for the header box
+            ndc_x0 - 0.05,
+            ndc_y0 - 0.09,            // Coordinates for the header box
             "Work in Progress",       // Status string
             plot_title,               // Title string
             32,                       // Alignment
