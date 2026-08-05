@@ -75,6 +75,7 @@ namespace {
     };
 
     const std::vector<std::string> strip_layer_metrics = {
+        "noise_rate_strips_eta1", "noise_rate_strips_eta2",
         "avg_tot_eta1", "avg_tot_eta2",
         "track_avg_tot_eta1", "track_avg_tot_eta2",
         "avg_multiplicity_eta1", "avg_multiplicity_eta2",
@@ -118,7 +119,8 @@ TDirectory* DataPlotter::setupScanDirectories(TDirectory* config_dir, int scan_l
 
     PathUtils::ensureDirectory(scan_dir, "efficiency_analysis");
     PathUtils::ensureDirectory(scan_dir, "cluster_analysis");
-    PathUtils::ensureDirectory(scan_dir, "noise_rate_analysis");
+    PathUtils::ensureDirectory(scan_dir, "noise_rate_layers_analysis");
+    PathUtils::ensureDirectory(scan_dir, "noise_rate_strips_analysis");
     PathUtils::ensureDirectory(scan_dir, "tot_analysis");
     PathUtils::ensureDirectory(scan_dir, "multiplicity_analysis");
 
@@ -148,6 +150,12 @@ std::map<int, DataPlotter::MetricsData> DataPlotter::extractScanData(
     TTreeReaderValue<double> scanned_hv(readerSummary, "scanned_hv");
     TTreeReaderValue<double> other_hv(readerSummary, "other_hv");
 
+    // Readers for Scalar Metrics
+    std::vector<std::unique_ptr<TTreeReaderValue<double>>> scalar_values;
+    for (const auto& name : scalar_metrics) {
+        scalar_values.push_back(std::make_unique<TTreeReaderValue<double>>(readerSummary, name.c_str()));
+    }
+
     // Readers for Layer Metrics
     std::vector<std::unique_ptr<TTreeReaderArray<double>>> layer_arrays;
     std::vector<std::unique_ptr<TTreeReaderArray<double>>> layer_error_arrays;
@@ -164,18 +172,19 @@ std::map<int, DataPlotter::MetricsData> DataPlotter::extractScanData(
         strip_error_arrays.push_back(std::make_unique<TTreeReaderArray<double>>(readerSummary, (name + "_error").c_str()));
     }
 
-    // Readers for Scalar Metrics
-    std::vector<std::unique_ptr<TTreeReaderValue<double>>> scalar_values;
-    for (const auto& name : scalar_metrics) {
-        scalar_values.push_back(std::make_unique<TTreeReaderValue<double>>(readerSummary, name.c_str()));
-    }
-
     while (readerSummary.Next()) {
         int scan_lyr = *scanned_layer;
         double scan_hv = *scanned_hv;
         double oth_hv = *other_hv;
 
         auto& current_scan = result[scan_lyr];
+
+        // Extract Scalar Metrics (0D)
+        for (size_t i = 0; i < scalar_metrics.size(); ++i) {
+            const auto& metric_name = scalar_metrics[i];
+            current_scan.scalar_x[metric_name].push_back(scan_hv);
+            current_scan.scalar_y[metric_name].push_back(**scalar_values[i]);
+        }
 
         // Extract Layer Metrics (1D)
         for (size_t i = 0; i < layer_metrics.size(); ++i) {
@@ -194,13 +203,6 @@ std::map<int, DataPlotter::MetricsData> DataPlotter::extractScanData(
                 layer_series.y_errors_low[layer].push_back(errs[2 * layer]);
                 layer_series.y_errors_high[layer].push_back(errs[2 * layer + 1]);
             }
-        }
-
-        // Extract Scalar Metrics (0D)
-        for (size_t i = 0; i < scalar_metrics.size(); ++i) {
-            const auto& metric_name = scalar_metrics[i];
-            current_scan.scalar_x[metric_name].push_back(scan_hv);
-            current_scan.scalar_y[metric_name].push_back(**scalar_values[i]);
         }
 
         // Extract Strip Metrics (2D)
@@ -238,7 +240,7 @@ void DataPlotter::plotLayerMetrics(
     // Grab the pre-created subdirectories
     TDirectory* eff_dir  = scan_dir->GetDirectory("efficiency_analysis");
     TDirectory* clus_dir = scan_dir->GetDirectory("cluster_analysis");
-    TDirectory* nois_dir = scan_dir->GetDirectory("noise_rate_analysis");
+    TDirectory* nois_dir = scan_dir->GetDirectory("noise_rate_layers_analysis");
 
     for (const auto& [metric_name, series] : layer_metrics) {
 
@@ -246,7 +248,7 @@ void DataPlotter::plotLayerMetrics(
         TDirectory* metric_dir = scan_dir; // default fallback
         if (metric_name.rfind("eff_", 0) == 0 || metric_name.rfind("track_eff_", 0) == 0) metric_dir = eff_dir;
         else if (metric_name.rfind("avg_cluster", 0) == 0) metric_dir = clus_dir;
-        else if (metric_name.rfind("noise_rate", 0) == 0) metric_dir = nois_dir;
+        else if (metric_name.rfind("noise_rate_eta", 0) == 0) metric_dir = nois_dir;
 
         if (!metric_dir) continue;
         metric_dir->cd();
@@ -291,6 +293,7 @@ void DataPlotter::plotStripMetrics(
 
     if (!scan_dir) return;
 
+    TDirectory* nois_dir = scan_dir->GetDirectory("noise_rate_strips_analysis");
     TDirectory* tot_dir = scan_dir->GetDirectory("tot_analysis");
     TDirectory* mult_dir = scan_dir->GetDirectory("multiplicity_analysis");
 
@@ -298,7 +301,8 @@ void DataPlotter::plotStripMetrics(
 
         // Route to the correct parent analysis directory (e.g., tot_analysis)
         TDirectory* metric_dir = scan_dir;
-        if (metric_name.find("tot") != std::string::npos) metric_dir = tot_dir;
+        if (metric_name.find("noise_rate_strips_eta") != std::string::npos) metric_dir = nois_dir;
+        else if (metric_name.find("tot") != std::string::npos) metric_dir = tot_dir;
         else if (metric_name.find("multiplicity") != std::string::npos) metric_dir = mult_dir;
 
         if (!metric_dir) continue;

@@ -134,8 +134,9 @@ namespace {
             if (!analysis_dir) continue;
 
             // Differentiate between Strip Metrics and Layer Metrics
-            bool is_strip_analysis = (analysis_subdir_name == "tot_analysis" || 
-                                    analysis_subdir_name == "multiplicity_analysis");
+            bool is_strip_analysis = (analysis_subdir_name == "tot_analysis" ||
+                                      analysis_subdir_name == "multiplicity_analysis" ||
+                                      analysis_subdir_name == "noise_rate_strips_analysis");
 
             if (is_strip_analysis) {
                 // STRIP METRIC LOGIC: Fetch directly from layerX folders and assemble MGs per metric
