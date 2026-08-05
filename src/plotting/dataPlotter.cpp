@@ -109,11 +109,11 @@ TFile* DataPlotter::initializeAnalysisFile() {
     return analysis_root;
 }
 
-TDirectory* DataPlotter::setupScanDirectories(TDirectory* config_dir, int scan_layer) {
+TDirectory* DataPlotter::setupScanDirectories(TDirectory* config_dir, const std::string& grp_name) {
     if (!config_dir) return nullptr;
 
-    std::string scan_layer_str = "scanned_layer_" + std::to_string(scan_layer);
-    TDirectory* scan_dir = PathUtils::ensureDirectory(config_dir, scan_layer_str.c_str());
+    std::string scan_group_str = "group_" + grp_name;
+    TDirectory* scan_dir = PathUtils::ensureDirectory(config_dir, scan_group_str.c_str());
 
     if (!scan_dir) return nullptr;
 
@@ -127,10 +127,11 @@ TDirectory* DataPlotter::setupScanDirectories(TDirectory* config_dir, int scan_l
     return scan_dir;
 }
 
-std::map<int, DataPlotter::MetricsData> DataPlotter::extractScanData(
+// Helper function to extract scan data from a summary ROOT file and return a map of MetricsData
+std::map<std::string, DataPlotter::MetricsData> DataPlotter::extractScanData(
     const std::string& summary_file_path)
 {
-    std::map<int, MetricsData> result;
+    std::map<std::string, MetricsData> result;
 
     TFile* summary_root_file = TFile::Open(summary_file_path.c_str(), "READ");
     if (!summary_root_file || summary_root_file->IsZombie()) {
@@ -145,6 +146,8 @@ std::map<int, DataPlotter::MetricsData> DataPlotter::extractScanData(
     }
 
     TTreeReader readerSummary(summary_tree);
+
+    TTreeReaderValue<std::string> group_name(readerSummary, "group_name");
     TTreeReaderValue<int> scanned_layer(readerSummary, "scanned_layer");
     TTreeReaderValue<double> scanned_hv(readerSummary, "scanned_hv");
     TTreeReaderValue<double> other_hv(readerSummary, "other_hv");
@@ -172,11 +175,12 @@ std::map<int, DataPlotter::MetricsData> DataPlotter::extractScanData(
     }
 
     while (readerSummary.Next()) {
+        std::string grp_name = *group_name;
         int scan_lyr = *scanned_layer;
         double scan_hv = *scanned_hv;
         double oth_hv = *other_hv;
 
-        auto& current_scan = result[scan_lyr];
+        auto& current_scan = result[grp_name];
 
         // Extract Scalar Metrics (0D)
         for (size_t i = 0; i < scalar_metrics.size(); ++i) {
@@ -263,7 +267,8 @@ void DataPlotter::plotLayerMetrics(
             );
 
             // Here set a beautiful identifier for the graph to be used as a label in the legend
-            layer_graph->SetName(Form("Layer %d", layer));
+            layer_graph->SetName(Form("%s_layer%d", metric_name.c_str(), layer));
+            layer_graph->SetTitle(Form("Layer %d", layer));
             layer_graph->SetMarkerStyle(20 + layer);
             layer_graph->SetMarkerColor(1 + layer);
             layer_graph->SetLineColor(1 + layer);
@@ -348,8 +353,8 @@ void DataPlotter::plotStripMetrics(
     }
 }
 
-void DataPlotter::produceSummaryPlots() {
-     // Handle file and basic directories
+void DataPlotter::cumulativeAnalysisRootFile() {
+    // Handle file and basic directories
     TFile* analysis_root = initializeAnalysisFile();
 
     for (const auto& [config_path, config_data] : _parsed_configs) {
@@ -357,11 +362,11 @@ void DataPlotter::produceSummaryPlots() {
         TDirectory* config_dir = analysis_root->GetDirectory(config_name.c_str());
 
         // Extract scan data from the summary ROOT file
-        std::map<int, MetricsData> scan_data_map = extractScanData(config_data.summary_root_file);
+        auto scan_data_map = extractScanData(config_data.summary_root_file);
 
         // Plot metrics for each scan layer
-        for (const auto& [scan_layer, scan_data] : scan_data_map) {
-            TDirectory* scan_dir = setupScanDirectories(config_dir, scan_layer);
+        for (const auto& [group_name, scan_data] : scan_data_map) {
+            TDirectory* scan_dir = setupScanDirectories(config_dir, group_name);
 
             plotLayerMetrics(scan_dir, scan_data.layer_metrics);
             plotStripMetrics(scan_dir, scan_data.strip_metrics);
@@ -372,7 +377,7 @@ void DataPlotter::produceSummaryPlots() {
     delete analysis_root;
 }
 
-void DataPlotter::exportPlotsToATLASPDF() {
+void DataPlotter::cumulativeAnalysisPlots() {
     std::string timestamp = Utilities::getTimestamp();
     std::filesystem::path target_plots_dir = _output_directory / "plots";
     std::filesystem::create_directories(target_plots_dir);

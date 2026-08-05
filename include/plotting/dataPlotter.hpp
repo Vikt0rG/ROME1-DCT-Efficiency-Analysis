@@ -70,13 +70,13 @@ public:
     };
 
     TFile* initializeAnalysisFile();
-    TDirectory* setupScanDirectories(TDirectory* config_dir, int scan_layer);
+    TDirectory* setupScanDirectories(TDirectory* config_dir, const std::string& group_name);
     void plotLayerMetrics(TDirectory* scan_dir, const std::map<std::string, Utilities::LayerSeries>& layer_metrics);
     void plotStripMetrics(TDirectory* scan_dir, const std::map<std::string, std::map<int, std::map<int, Utilities::StripSeries>>>& strip_metrics);
-    std::map<int, MetricsData> extractScanData(const std::string& summary_file_path);
+    std::map<std::string, MetricsData> extractScanData(const std::string& summary_file_path);
 
-    void produceSummaryPlots();
-    void exportPlotsToATLASPDF();
+    void cumulativeAnalysisRootFile();
+    void cumulativeAnalysisPlots();
 
 private:
     std::filesystem::path _output_directory;
