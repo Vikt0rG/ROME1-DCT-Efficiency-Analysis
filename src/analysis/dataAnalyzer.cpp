@@ -629,6 +629,124 @@ inline void requireEqualSizes(std::initializer_list<std::pair<std::string, size_
     }
 }
 
+void getRate(TFile* input_file, NoiseRateResults& rate_results) {
+    
+    auto calculateRate = [](long long hits, long long events, int n_strips, int n_layers)
+        -> std::pair<double, double> {
+
+        if (events <= 0 || n_strips <= 0 || n_layers <= 0) {
+            return {0.0, 0.0};
+        }
+
+        // Total time-area exposure = events * window * sensitive area
+        const double total_exposure = events * TRIGGER_TIME_WINDOW * n_layers * n_strips * STRIP_WIDTH_CM * DETECTOR_LENGTH_CM;
+
+        const double rate = static_cast<double>(hits) / total_exposure;
+        const double rate_error = (hits > 0) ? (std::sqrt(static_cast<double>(hits)) / total_exposure) : 0.0;
+
+        return {rate, rate_error};
+    };
+
+    TTree* input_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
+    TTree* processed_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
+    if (!input_tree || !processed_tree) {
+        std::cerr << "Error: One or more required trees not found in file " << input_file->GetName() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    TTreeReader readerInputData(input_tree);
+    TTreeReader readerProcData(processed_tree);
+
+    TTreeReaderValue<int> hits(readerProcData, "n_hits");
+    TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
+    TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
+    TTreeReaderValue<std::vector<int>> time1(readerProcData, "proc_time1");
+    TTreeReaderValue<std::vector<int>> time2(readerProcData, "proc_time2");
+
+    // Global counters
+    long long total_hits = 0;
+    long long event_count = 0;
+    std::unordered_set<int> unique_strips;
+    std::unordered_set<int> unique_layers;
+
+    // Eta/Layer-specific counters
+    std::array<long long, 3> total_hits_eta1 = {0, 0, 0};
+    std::array<long long, 3> total_hits_eta2 = {0, 0, 0};
+    std::array<std::unordered_set<int>, 3> unique_strips_eta1;
+    std::array<std::unordered_set<int>, 3> unique_strips_eta2;
+
+    // Eta/Layer/Strip-specific counters
+    long long hits_per_strip_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
+    long long hits_per_strip_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
+
+    while (readerInputData.Next() && readerProcData.Next()) {
+        event_count += 1;
+
+        // Process Global Rates
+        if (hits.GetSetupStatus() == 0) {
+            total_hits += static_cast<long long>(*hits);
+        }
+        if (strips.GetSetupStatus() == 0 && layers.GetSetupStatus() == 0) {
+            for (int strip : *strips) {
+                unique_strips.insert(strip);
+            }
+            for (int layer : *layers) {
+                unique_layers.insert(layer);
+            }
+        }
+
+        // Process Eta/Layer-specific Rates
+        if (time1.GetSetupStatus() == 0 && time2.GetSetupStatus() == 0) {
+            const size_t n_hits = std::min({time1->size(), time2->size()});
+            for (size_t i = 0; i < n_hits; ++i) {
+                int layer = (*layers)[i];
+                int strip = perFileHelpers::remapStrip((*strips)[i]);
+
+                if ((*time1)[i] != 0) {
+                    total_hits_eta1[layer] += 1;
+                    hits_per_strip_eta1[layer][strip]++;
+                    unique_strips_eta1[layer].insert(strip);
+                }
+                if ((*time2)[i] != 0) {
+                    total_hits_eta2[layer] += 1;
+                    hits_per_strip_eta2[layer][strip]++;
+                    unique_strips_eta2[layer].insert(strip);
+                }
+            }
+        }
+    }
+
+    // Calculate final global rates
+    int n_strips = static_cast<int>(unique_strips.size());
+    int n_layers = static_cast<int>(unique_layers.size());
+
+    std::tie(rate_results.noise_rate, rate_results.noise_rate_error) = 
+            calculateRate(total_hits, event_count, n_strips, n_layers);
+
+    // Calculate final Eta/Layer-specific rates
+    for (int layer = 0; layer < LAYER_COUNT; ++layer) {
+        const int n_strips_eta1 = static_cast<int>(unique_strips_eta1[layer].size());
+        const int n_strips_eta2 = static_cast<int>(unique_strips_eta2[layer].size());
+
+        std::tie(rate_results.noise_rate_eta1[layer], rate_results.noise_rate_eta1_error[layer]) = 
+            calculateRate(total_hits_eta1[layer], event_count, n_strips_eta1, 1);
+
+        std::tie(rate_results.noise_rate_eta2[layer], rate_results.noise_rate_eta2_error[layer]) = 
+            calculateRate(total_hits_eta2[layer], event_count, n_strips_eta2, 1);
+
+        // Calculate final Strip-specific rates
+        for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
+            std::tie(rate_results.noise_rate_strips_eta1[layer][strip], 
+                     rate_results.noise_rate_strips_eta1_error[layer][strip]) = 
+                calculateRate(hits_per_strip_eta1[layer][strip], event_count, 1, 1);
+
+            std::tie(rate_results.noise_rate_strips_eta2[layer][strip], 
+                     rate_results.noise_rate_strips_eta2_error[layer][strip]) = 
+                calculateRate(hits_per_strip_eta2[layer][strip], event_count, 1, 1);
+        }
+    }
+}
+
 void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_track_only) {
     TTree* processed_tree = input_file->Get<TTree>("ProcessedData");
     TTree* track_tree = input_file->Get<TTree>("TrackReconstruction");
@@ -1126,117 +1244,8 @@ void DataAnalyzer::produceSummaryStats() {
         }   // Close the scope for cluster size calculation to avoid variable name conflicts
 
         // ----------------------------------------------------------------------------------
-        {  // Noise rate calculation
-        auto calculateRate = [](long long hits, long long events, int n_strips, int n_layers) 
-            -> std::pair<double, double> {
-            
-            if (events <= 0 || n_strips <= 0 || n_layers <= 0) {
-                return {0.0, 0.0};
-            }
-
-            // Total time-area exposure = events * window * sensitive area
-            const double total_exposure = events * TRIGGER_TIME_WINDOW * n_layers * n_strips * STRIP_WIDTH_CM * DETECTOR_LENGTH_CM;
-            
-            const double rate = static_cast<double>(hits) / total_exposure;
-            const double rate_error = (hits > 0) ? (std::sqrt(static_cast<double>(hits)) / total_exposure) : 0.0;
-
-            return {rate, rate_error};
-        };
-
-        TTree* processed_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
-        if (!processed_tree) {
-            std::cerr << "Error: ProcessedData tree not found in file " << input_file->GetName() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        TTreeReader reader(processed_tree);
-
-        // Get number of total hits, number of events, and unique strips/layers in one pass.
-        TTreeReaderValue<int> hits(reader, "n_hits");
-        TTreeReaderValue<std::vector<int>> strips(reader, "proc_strip");
-        TTreeReaderValue<std::vector<int>> layers(reader, "proc_layer");
-
-        long long total_hits = 0;
-        long long event_count = 0;
-        std::unordered_set<int> unique_strips;
-        std::unordered_set<int> unique_layers;
-
-        while (reader.Next()) {
-            total_hits += static_cast<long long>(*hits);
-            event_count += 1;
-
-            if (strips.GetSetupStatus() == 0 && layers.GetSetupStatus() == 0) {
-                for (int strip : *strips) {
-                    unique_strips.insert(strip);
-                }
-                for (int layer : *layers) {
-                    unique_layers.insert(layer);
-                }
-            }
-        }
-
-        int n_strips = static_cast<int>(unique_strips.size());
-        int n_layers = static_cast<int>(unique_layers.size());
-
-        std::tie(data.noise_rate_results.noise_rate, data.noise_rate_results.noise_rate_error) = 
-                calculateRate(total_hits, event_count, n_strips, n_layers);
-
-        // Calculate noise rates per layer per side using raw hit times from InputData
-        TTree* input_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
-        TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
-        if (input_tree && proc_tree) {
-            TTreeReader readerInputData(input_tree);
-            TTreeReader readerProcData(proc_tree);
-            TTreeReaderValue<std::vector<int>> channels(readerInputData, "hit_channel");
-            TTreeReaderValue<std::vector<int>> time1(readerProcData, "proc_time1");
-            TTreeReaderValue<std::vector<int>> time2(readerProcData, "proc_time2");
-
-            std::array<long long, 3> total_hits_eta1 = {0, 0, 0};
-            std::array<long long, 3> total_hits_eta2 = {0, 0, 0};
-            std::array<std::unordered_set<int>, 3> unique_strips_eta1;
-            std::array<std::unordered_set<int>, 3> unique_strips_eta2;
-
-            auto channel_to_layer_strip = [](int channel, int& out_layer, int& out_strip) {
-                const int layer = (channel % 24) / 8;
-                const int column = channel / 24;
-                const int strip = 8 * column + channel % 8;
-                out_layer = layer;
-                out_strip = strip;
-            };
-
-            while (readerInputData.Next() && readerProcData.Next()) {
-                if (channels.GetSetupStatus() != 0 || time1.GetSetupStatus() != 0 || time2.GetSetupStatus() != 0) {
-                    continue;
-                }
-                const size_t n = std::min({channels->size(), time1->size(), time2->size()});
-                for (size_t i = 0; i < n; ++i) {
-                    int layer_idx = 0;
-                    int strip = 0;
-                    channel_to_layer_strip((*channels)[i], layer_idx, strip);
-                    if (layer_idx < 0 || layer_idx >= 3) {
-                        continue;
-                    }
-                    if ((*time1)[i] != 0) {
-                        total_hits_eta1[layer_idx] += 1;
-                        unique_strips_eta1[layer_idx].insert(strip);
-                    }
-                    if ((*time2)[i] != 0) {
-                        total_hits_eta2[layer_idx] += 1;
-                        unique_strips_eta2[layer_idx].insert(strip);
-                    }
-                }
-            }
-
-            const long long event_count = processed_tree ? processed_tree->GetEntries() : 0;
-            for (int layer_idx = 0; layer_idx < 3; ++layer_idx) {
-                const int n_strips_eta1 = static_cast<int>(unique_strips_eta1[layer_idx].size());
-                const int n_strips_eta2 = static_cast<int>(unique_strips_eta2[layer_idx].size());
-                std::tie(data.noise_rate_results.noise_rate_eta1[layer_idx],
-                         data.noise_rate_results.noise_rate_eta1_error[layer_idx]) = calculateRate(total_hits_eta1[layer_idx], event_count, n_strips_eta1, 1);
-                std::tie(data.noise_rate_results.noise_rate_eta2[layer_idx],
-                         data.noise_rate_results.noise_rate_eta2_error[layer_idx]) = calculateRate(total_hits_eta2[layer_idx], event_count, n_strips_eta2, 1);
-            }
-        }
-        }   // Close the scope for rate calculation to avoid variable name conflicts
+        // Noise rate calculation
+        summaryHelpers::getRate(input_file, data.noise_rate_results);
 
         // ----------------------------------------------------------------------------------
         // Average ToT calculation
