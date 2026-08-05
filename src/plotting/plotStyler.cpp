@@ -35,17 +35,18 @@ namespace PlotStyler {
 
     /// @brief Data-driven mapping of metric name prefixes to corresponding plot categories
     static const std::vector<std::tuple<std::string, TClass*, PlotCategory>> category_map = {
-        {"h1d_strip_eta",    TH1::Class(),                  PlotCategory::StripDistribution},
-        {"h1d_tot_eta",      TH1::Class(),                  PlotCategory::ToTDistribution},
-        {"h1d_tot",          THStack::Class(),              PlotCategory::ToTCombinedDistribution},
-        {"track_eff",        TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
-        {"eff",              TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
-        {"track_eff",        TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
-        {"eff",              TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
-        {"avg_cluster_size", TMultiGraph::Class(),          PlotCategory::MeanClusterSizeVsHV},
-        {"noise_rate",       TMultiGraph::Class(),          PlotCategory::NoiseRateVsHV},
-        {"avg_tot",          TMultiGraph::Class(),          PlotCategory::AvgToTVsHV},
-        {"avg_multiplicity", TMultiGraph::Class(),          PlotCategory::AvgMultVsHV}
+        {"h1d_strip_eta",           TH1::Class(),                  PlotCategory::StripDistribution},
+        {"h1d_tot_eta",             TH1::Class(),                  PlotCategory::ToTDistribution},
+        {"h1d_tot",                 THStack::Class(),              PlotCategory::ToTCombinedDistribution},
+        {"track_eff",               TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
+        {"eff",                     TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
+        {"track_eff",               TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
+        {"eff",                     TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
+        {"avg_cluster_size",        TMultiGraph::Class(),          PlotCategory::MeanClusterSizeVsHV},
+        {"noise_rate_eta",          TMultiGraph::Class(),          PlotCategory::NoiseRateVsHV},
+        {"noise_rate_strips_eta",   TMultiGraph::Class(),          PlotCategory::AvgToTVsHV},
+        {"avg_tot",                 TMultiGraph::Class(),          PlotCategory::AvgToTVsHV},
+        {"avg_multiplicity",        TMultiGraph::Class(),          PlotCategory::AvgMultVsHV}
     };
 
     PlotCategory getPlotCategory(const TObject* obj) {
