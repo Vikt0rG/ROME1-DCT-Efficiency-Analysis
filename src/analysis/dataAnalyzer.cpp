@@ -522,6 +522,7 @@ namespace summaryHelpers {
 void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, MeasurementData& data) {
     summary_tree->Branch("name", &metadata.name);
     summary_tree->Branch("measurement_type", &metadata.measurement_type);
+    summary_tree->Branch("group_name", &metadata.group_name);
     summary_tree->Branch("mixture", &metadata.mixture);
     summary_tree->Branch("source", &metadata.source);
     summary_tree->Branch("filter", &metadata.filter);
