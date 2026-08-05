@@ -181,9 +181,9 @@ void plotToT(TFile* input_file) {
 
     std::vector<StackPairing> pairings = {
         {"tot_eta1",           "tot_eta2",           "all",       "Before Track Reco"},
-        {"tot_eta1_valid1",    "tot_eta2_valid1",    "valid1",    "Track Reco (#eta1 Valid)"},
-        {"tot_eta1_valid2",    "tot_eta2_valid2",    "valid2",    "Track Reco (#eta2 Valid)"},
-        {"tot_eta1_valid_all", "tot_eta2_valid_all", "valid_all", "Track Reco (#eta1 and #eta2 Valid)"}
+        {"tot_eta1_valid1",    "tot_eta2_valid1",    "valid1",    "After Track Reco (#eta1 Valid)"},
+        {"tot_eta1_valid2",    "tot_eta2_valid2",    "valid2",    "After Track Reco (#eta2 Valid)"},
+        {"tot_eta1_valid_all", "tot_eta2_valid_all", "valid_all", "After Track Reco (#eta1 and #eta2 Valid)"}
     };
 
     // Store stacks
@@ -250,7 +250,7 @@ void plotDtVsStrip(TFile* input_file) {
     // Create histograms using arrays
     const int nConfigs = 4;
     const char* suffixes[nConfigs] = {"dt_strip_all", "dt_strip_valid1", "dt_strip_valid2", "dt_strip_valid_all"};
-    const char* comments[nConfigs] = {"All hits", "Track Reco (#eta1)", "Track Reco (#eta2)", "Track Reco (#eta1 and #eta2)"};
+    const char* comments[nConfigs] = {"Before Track Reco", "After Track Reco (#eta1)", "After Track Reco (#eta2)", "After Track Reco (#eta1 and #eta2)"};
 
     std::map<std::string, std::map<int, TH2*>> dt_strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
@@ -321,8 +321,8 @@ void plotToTVsStrip(TFile* input_file) {
     const int nConfigs = 8;
     const char* suffixes[nConfigs] = {"tot1_strip_all", "tot2_strip_all", "tot1_strip_valid1", "tot2_strip_valid1",
         "tot1_strip_valid2", "tot2_strip_valid2", "tot1_strip_valid_all", "tot2_strip_valid_all"};
-    const char* comments[nConfigs] = {"All hits", "All hits", "Track Reco (#eta1)", "Track Reco (#eta1)",
-        "Track Reco (#eta2)", "Track Reco (#eta2)", "Track Reco (#eta1 and #eta2)", "Track Reco (#eta1 and #eta2)"};
+    const char* comments[nConfigs] = {"Before Track Reco", "Before Track Reco", "After Track Reco (#eta1)", "After Track Reco (#eta1)",
+        "After Track Reco (#eta2)", "After Track Reco (#eta2)", "After Track Reco (#eta1 and #eta2)", "After Track Reco (#eta1 and #eta2)"};
 
     std::map<std::string, std::map<int, TH2*>> tot_strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
@@ -410,10 +410,10 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
         "mult1_valid_all", "mult2_valid_all" // Multiplicity for hits in valid tracks on both sides based on time1 and time2
     };
     const char* comments[nConfigs] = {
-        "All hits", "All hits",
-        "Track Reco (#eta1)", "Track Reco (#eta1)",
-        "Track Reco (#eta2)", "Track Reco (#eta2)",
-        "Track Reco (#eta1 and #eta2)", "Track Reco (#eta1 and #eta2)"
+        "Before Track Reco", "Before Track Reco",
+        "After Track Reco (#eta1)", "After Track Reco (#eta1)",
+        "After Track Reco (#eta2)", "After Track Reco (#eta2)",
+        "After Track Reco (#eta1 and #eta2)", "After Track Reco (#eta1 and #eta2)"
     };
 
     std::map<std::string, std::map<int, TH2*>> multiplicity_histograms;
@@ -577,37 +577,37 @@ void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, Measureme
     summary_tree->Branch("avg_cluster_size_eta2_layers_error", &data.cluster_size_results.avg_cluster_size_eta2_layers_error, "avg_cluster_size_eta2_layers_error[6]/D");
 
     summary_tree->Branch("noise_rate", &data.noise_rate_results.noise_rate);
-    summary_tree->Branch("noise_rate_error", &data.noise_rate_results.noise_rate_error, "noise_rate_error[2]/D");
+    summary_tree->Branch("noise_rate_error", &data.noise_rate_results.noise_rate_error, Form("noise_rate_error[%d]/D", 2));
 
-    summary_tree->Branch("noise_rate_eta1", &data.noise_rate_results.noise_rate_eta1, "noise_rate_eta1[3]/D");
-    summary_tree->Branch("noise_rate_eta2", &data.noise_rate_results.noise_rate_eta2, "noise_rate_eta2[3]/D");
-    summary_tree->Branch("noise_rate_eta1_error", &data.noise_rate_results.noise_rate_eta1_error, "noise_rate_eta1_error[6]/D");
-    summary_tree->Branch("noise_rate_eta2_error", &data.noise_rate_results.noise_rate_eta2_error, "noise_rate_eta2_error[6]/D");
+    summary_tree->Branch("noise_rate_eta1", &data.noise_rate_results.noise_rate_eta1, Form("noise_rate_eta1[%d]/D", 3));
+    summary_tree->Branch("noise_rate_eta2", &data.noise_rate_results.noise_rate_eta2, Form("noise_rate_eta2[%d]/D", 3));
+    summary_tree->Branch("noise_rate_eta1_error", &data.noise_rate_results.noise_rate_eta1_error, Form("noise_rate_eta1_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("noise_rate_eta2_error", &data.noise_rate_results.noise_rate_eta2_error, Form("noise_rate_eta2_error[%d]/D", LAYER_COUNT * 2));
 
-    summary_tree->Branch("noise_rate_strips_eta1", &data.noise_rate_results.noise_rate_eta1_strips, Form("noise_rate_eta1_strips[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("noise_rate_strips_eta2", &data.noise_rate_results.noise_rate_eta2_strips, Form("noise_rate_eta2_strips[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("noise_rate_strips_eta1_error", &data.noise_rate_results.noise_rate_eta1_strips_error, Form("noise_rate_eta1_strips_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("noise_rate_strips_eta2_error", &data.noise_rate_results.noise_rate_eta2_strips_error, Form("noise_rate_eta2_strips_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("noise_rate_strips_eta1", &data.noise_rate_results.noise_rate_strips_eta1, Form("noise_rate_strips_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("noise_rate_strips_eta2", &data.noise_rate_results.noise_rate_strips_eta2, Form("noise_rate_strips_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("noise_rate_strips_eta1_error", &data.noise_rate_results.noise_rate_strips_eta1_error, Form("noise_rate_strips_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("noise_rate_strips_eta2_error", &data.noise_rate_results.noise_rate_strips_eta2_error, Form("noise_rate_strips_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
     summary_tree->Branch("avg_tot_eta1", &data.tot_results.avg_tot_eta1, Form("avg_tot_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
     summary_tree->Branch("avg_tot_eta2", &data.tot_results.avg_tot_eta2, Form("avg_tot_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_tot_eta1_error", &data.tot_results.avg_tot_eta1_error, Form("avg_tot_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_tot_eta2_error", &data.tot_results.avg_tot_eta2_error, Form("avg_tot_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_tot_eta1_error", &data.tot_results.avg_tot_eta1_error, Form("avg_tot_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_tot_eta2_error", &data.tot_results.avg_tot_eta2_error, Form("avg_tot_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
     summary_tree->Branch("track_avg_tot_eta1", &data.tot_results_tracks.avg_tot_eta1, Form("track_avg_tot_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
     summary_tree->Branch("track_avg_tot_eta2", &data.tot_results_tracks.avg_tot_eta2, Form("track_avg_tot_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_tot_eta1_error", &data.tot_results_tracks.avg_tot_eta1_error, Form("track_avg_tot_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_tot_eta2_error", &data.tot_results_tracks.avg_tot_eta2_error, Form("track_avg_tot_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("track_avg_tot_eta1_error", &data.tot_results_tracks.avg_tot_eta1_error, Form("track_avg_tot_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("track_avg_tot_eta2_error", &data.tot_results_tracks.avg_tot_eta2_error, Form("track_avg_tot_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
     summary_tree->Branch("avg_multiplicity_eta1", &data.multiplicity_results.avg_multiplicity_eta1, Form("avg_multiplicity_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
     summary_tree->Branch("avg_multiplicity_eta2", &data.multiplicity_results.avg_multiplicity_eta2, Form("avg_multiplicity_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_multiplicity_eta1_error", &data.multiplicity_results.avg_multiplicity_eta1_error, Form("avg_multiplicity_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_multiplicity_eta2_error", &data.multiplicity_results.avg_multiplicity_eta2_error, Form("avg_multiplicity_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_multiplicity_eta1_error", &data.multiplicity_results.avg_multiplicity_eta1_error, Form("avg_multiplicity_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_multiplicity_eta2_error", &data.multiplicity_results.avg_multiplicity_eta2_error, Form("avg_multiplicity_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
     summary_tree->Branch("track_avg_multiplicity_eta1", &data.multiplicity_results_tracks.avg_multiplicity_eta1, Form("track_avg_multiplicity_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
     summary_tree->Branch("track_avg_multiplicity_eta2", &data.multiplicity_results_tracks.avg_multiplicity_eta2, Form("track_avg_multiplicity_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_multiplicity_eta1_error", &data.multiplicity_results_tracks.avg_multiplicity_eta1_error, Form("track_avg_multiplicity_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_multiplicity_eta2_error", &data.multiplicity_results_tracks.avg_multiplicity_eta2_error, Form("track_avg_multiplicity_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("track_avg_multiplicity_eta1_error", &data.multiplicity_results_tracks.avg_multiplicity_eta1_error, Form("track_avg_multiplicity_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("track_avg_multiplicity_eta2_error", &data.multiplicity_results_tracks.avg_multiplicity_eta2_error, Form("track_avg_multiplicity_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 }
 
 inline void requireEqualSizes(std::initializer_list<std::pair<std::string, size_t>> named_sizes) {
@@ -928,8 +928,9 @@ void getAverageMultiplicity(TFile* input_file, MultiplicityResults& mult_results
             err = ErrorRange(0.0);
         } else {
             avg = static_cast<double>(count) / active_events;
-            // The standard error of the mean
-            err = ErrorRange(std::sqrt(count) / active_events); 
+
+            // Shifted Poisson Error: Only the "extra" hits above the baseline of 1 vary
+            err = ErrorRange(std::sqrt(count - active_events) / active_events); 
         }
     };
 
