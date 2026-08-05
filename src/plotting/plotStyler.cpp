@@ -97,7 +97,7 @@ namespace PlotStyler {
             TObject* obj;
             while ((obj = next())) {
                 if (auto gr = dynamic_cast<TGraph*>(obj)) {
-                    std::string gr_name = gr->GetName();
+                    std::string gr_name = gr->GetTitle();
                     std::string layer = "", strip = "";
 
                     layer = matchLabels(gr_name, "layer(\\d+)");
