@@ -267,7 +267,6 @@ void plotDtVsStrip(TFile* input_file) {
             int layer = (*layers)[i];
             int strip = remapStrip((*strips)[i]);
             double dt_ticks = (*dts)[i];
-            double dt_ns = TimeUtils::ticksToTime((*dts)[i]);
 
             dt_strip_histograms["dt_strip_all"][layer]->Fill(strip, dt_ticks);
             if ((*in_valid_track_eta1)[i]) {
