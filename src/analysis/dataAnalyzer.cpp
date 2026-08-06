@@ -659,6 +659,19 @@ void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, Measureme
     summary_tree->Branch("track_avg_multiplicity_eta2", &data.multiplicity_results_tracks.avg_multiplicity_eta2, Form("track_avg_multiplicity_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
     summary_tree->Branch("track_avg_multiplicity_eta1_error", &data.multiplicity_results_tracks.avg_multiplicity_eta1_error, Form("track_avg_multiplicity_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
     summary_tree->Branch("track_avg_multiplicity_eta2_error", &data.multiplicity_results_tracks.avg_multiplicity_eta2_error, Form("track_avg_multiplicity_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+
+    summary_tree->Branch("time_of_flight_eta1", &data.tof_results.time_of_flight_eta1);
+    summary_tree->Branch("time_of_flight_eta2", &data.tof_results.time_of_flight_eta2);
+
+    summary_tree->Branch("avg_time_of_flight_eta1", &data.tof_results.avg_time_of_flight_eta1);
+    summary_tree->Branch("avg_time_of_flight_eta2", &data.tof_results.avg_time_of_flight_eta2);
+    summary_tree->Branch("avg_time_of_flight_eta1_error", &data.tof_results.avg_time_of_flight_eta1_error, Form("avg_time_of_flight_eta1_error[%d]/D", 2));
+    summary_tree->Branch("avg_time_of_flight_eta2_error", &data.tof_results.avg_time_of_flight_eta2_error, Form("avg_time_of_flight_eta2_error[%d]/D", 2));
+
+    summary_tree->Branch("time_resolution_eta1", &data.time_resolution_results.time_resolution_eta1);
+    summary_tree->Branch("time_resolution_eta2", &data.time_resolution_results.time_resolution_eta2);
+    summary_tree->Branch("time_resolution_eta1_error", &data.time_resolution_results.time_resolution_eta1_error, Form("time_resolution_eta1_error[%d]/D", 2));
+    summary_tree->Branch("time_resolution_eta2_error", &data.time_resolution_results.time_resolution_eta2_error, Form("time_resolution_eta2_error[%d]/D", 2));
 }
 
 inline void requireEqualSizes(std::initializer_list<std::pair<std::string, size_t>> named_sizes) {
