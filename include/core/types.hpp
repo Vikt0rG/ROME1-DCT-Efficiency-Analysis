@@ -234,6 +234,21 @@ struct MeasurementData {
     ToTResults tot_results_tracks;
     MultiplicityResults multiplicity_results;
     MultiplicityResults multiplicity_results_tracks;
+    ToFResults tof_results;
+    TimeResolutionResults time_resolution_results;
+
+    void clear() {
+        efficiency_results = {};
+        efficiency_results_tracks = {};
+        cluster_size_results = {};
+        noise_rate_results = {};
+        tot_results = {};
+        tot_results_tracks = {};
+        multiplicity_results = {};
+        multiplicity_results_tracks = {};
+        tof_results = {};
+        time_resolution_results = {};
+    }
 };
 
 
