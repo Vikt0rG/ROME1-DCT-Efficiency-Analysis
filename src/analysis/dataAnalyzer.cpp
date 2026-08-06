@@ -515,6 +515,55 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
     }
 }
 
+void plotAdjacentToFs(TFile* input_file) {
+    TDirectory* analysis_dir = input_file->GetDirectory("analysis");
+    if (!analysis_dir) return;
+
+    TDirectory* tof_dir = analysis_dir->GetDirectory("tof");
+    if (!tof_dir) return;
+    tof_dir->cd();
+
+    TTree* track_tree = input_file->Get<TTree>("TrackReconstruction");
+    if (!track_tree) {
+        std::cerr << "Error: TrackReconstruction tree not found in file." << std::endl;
+        return;
+    }
+
+    TTreeReader readerTrackData(track_tree);
+    TTreeReaderValue<std::vector<int>> tof_eta1(readerTrackData, "track_time_of_flight_eta1");
+    TTreeReaderValue<std::vector<int>> tof_eta2(readerTrackData, "track_time_of_flight_eta2");
+
+    const int nConfigs = 2;
+    const char* suffixes[nConfigs] = {"tof_eta1", "tof_eta2"};
+    const char* comments[nConfigs] = {"Side #eta1", "Side #eta2"};
+
+    std::map<std::string, TH1*> tof_strip_histograms;
+    for (int c = 0; c < nConfigs; ++c) {
+        auto* hist = new TH1F(Form("h1d_%s", suffixes[c]),
+                              Form("%s;ToF [ns];Entries", comments[c]), 12, -6, 6);
+        tof_strip_histograms[suffixes[c]] = hist;
+    }
+
+    while (readerTrackData.Next()) {
+        if (tof_eta1.GetSetupStatus() == 0) {
+            for (int t : *tof_eta1) {
+                tof_strip_histograms["tof_eta1"]->Fill(t);
+            }
+        }
+        if (tof_eta2.GetSetupStatus() == 0) {
+            for (int t : *tof_eta2) {
+                tof_strip_histograms["tof_eta2"]->Fill(t);
+            }
+        }
+    }
+
+    // Write histograms to file and clean up
+    for (int c = 0; c < nConfigs; ++c) {
+        tof_strip_histograms[suffixes[c]]->Write("", TObject::kOverwrite);
+        delete tof_strip_histograms[suffixes[c]];
+    }
+}
+
 }
 
 namespace summaryHelpers {
@@ -970,7 +1019,8 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
         "analysis/dt_strip",
         "analysis/tot_strip",
         "analysis/multiplicity_strip",
-        "analysis/delay_strip"
+        "analysis/delay_strip",
+        "analysis/tof"
     };
     PathUtils::setupDirectories(input_file, dir_names);
 
@@ -980,6 +1030,7 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
     perFileHelpers::plotDtVsStrip(input_file);
     perFileHelpers::plotToTVsStrip(input_file);
     perFileHelpers::plotMultiplicityAndDelayVsStrip(input_file);
+    perFileHelpers::plotAdjacentToFs(input_file);
 
     // Write analysis directory into the file
     input_file->Write("", TObject::kOverwrite);

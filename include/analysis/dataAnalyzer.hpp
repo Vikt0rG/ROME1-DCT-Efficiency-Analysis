@@ -63,6 +63,11 @@ namespace perFileHelpers {
     /// @param input_file Pointer to the input ROOT file containing processed DCT data for
     /// a specific measurement entry
     void plotMultiplicityAndDelayVsStrip(TFile* input_file);
+
+    /// @brief Helper function to plot adjacent ToF distributions for hits from valid tracks
+    /// @param input_file Pointer to the input ROOT file containing processed DCT data for
+    /// a specific measurement entry
+    void plotAdjacentToFs(TFile* input_file);
 }
 
 /// @namespace summaryHelpers
