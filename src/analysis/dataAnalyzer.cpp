@@ -13,6 +13,8 @@
 #include <TCanvas.h>
 #include <TTreeReader.h>
 #include <TTreeReaderValue.h>
+#include <TFitResult.h>
+#include <TFitResultPtr.h>
 
 #include "configParser.hpp"
 #include "dataPlotter.hpp"
@@ -997,6 +999,77 @@ void getAverageMultiplicity(TFile* input_file, MultiplicityResults& mult_results
     }
 }
 
+void processToF(TFile* input_file, ToFResults& tof_results, TimeResolutionResults& time_resolution_results) {
+    TTree* track_tree = input_file->Get<TTree>("TrackReconstruction");
+
+    if (!track_tree) {
+        std::cerr << "Error: Required trees not found in file " << input_file->GetName() << "\n";
+        std::exit(EXIT_FAILURE);
+    }
+
+    TTreeReader reader_track(track_tree);
+    TTreeReaderValue<std::vector<int>> tof1(reader_track, "track_time_of_flight_eta1");
+    TTreeReaderValue<std::vector<int>> tof2(reader_track, "track_time_of_flight_eta2");
+
+    TH1D h_tof1("h_tof1", "ToF Eta1", 12, -6, 6);
+    TH1D h_tof2("h_tof2", "ToF Eta2", 12, -6, 6);
+
+    int event_count = 0;
+    while (reader_track.Next()) {
+        event_count++;
+        int n_hits_eta1 = tof1->size();
+        std::cout << "Event " << event_count << ": ToF Eta1 hits = " << n_hits_eta1 << std::endl;
+        if (tof1.GetSetupStatus() == 0) {
+            for (int t : *tof1) {
+                h_tof1.Fill(t);
+                std::cout << "ToF Eta1: " << t << std::endl;
+                tof_results.time_of_flight_eta1.push_back(t);
+            }
+        }
+        if (tof2.GetSetupStatus() == 0) {
+            for (int t : *tof2) {
+                h_tof2.Fill(t);
+                std::cout << "ToF Eta2: " << t << std::endl;
+                tof_results.time_of_flight_eta2.push_back(t);
+            }
+        }
+    }
+
+    // Reusable Lambda to perform the Two-Pass Gaussian Fit
+    auto fitAndExtract = [](TH1D& hist, double& mean_out, ErrorRange& mean_err_out,
+                            double& res_out, ErrorRange& res_err_out) {
+
+        if (hist.GetEntries() < 20) return;
+
+        // Pass 1: Global fit to find the general location of the peak
+        TFitResultPtr r1 = hist.Fit("gaus", "Q0S");
+
+        if (static_cast<int>(r1) == 0) { // If Fit 1 succeeded
+            double p_mean  = r1->Parameter(1);
+            double p_sigma = r1->Parameter(2);
+
+            // Pass 2: Core fit restricted to +/- 1.5 sigma to ignore non-Gaussian tails
+            TFitResultPtr r2 = hist.Fit("gaus", "Q0S", "", p_mean - 1.5 * p_sigma, p_mean + 1.5 * p_sigma);
+
+            if (static_cast<int>(r2) == 0) {
+                mean_out = r2->Parameter(1);
+                mean_err_out = ErrorRange{r2->Error(1)};
+
+                res_out = r2->Parameter(2) / std::sqrt(2.0);
+                res_err_out = ErrorRange{r2->Error(2) / std::sqrt(2.0)};
+            }
+        }
+    };
+
+    fitAndExtract(h_tof1,
+                  tof_results.avg_time_of_flight_eta1, tof_results.avg_time_of_flight_eta1_error,
+                  time_resolution_results.time_resolution_eta1, time_resolution_results.time_resolution_eta1_error);
+
+    fitAndExtract(h_tof2,
+                  tof_results.avg_time_of_flight_eta2, tof_results.avg_time_of_flight_eta2_error,
+                  time_resolution_results.time_resolution_eta2, time_resolution_results.time_resolution_eta2_error);
+}
+
 }
 
 // ==========================================================================================
@@ -1306,6 +1379,10 @@ void DataAnalyzer::produceSummaryStats() {
         // Average multiplicity calculation
         summaryHelpers::getAverageMultiplicity(input_file, data.multiplicity_results, false);
         summaryHelpers::getAverageMultiplicity(input_file, data.multiplicity_results_tracks, true);
+
+        // ----------------------------------------------------------------------------------
+        // Average Time of Flight (ToF) calculation
+        summaryHelpers::processToF(input_file, data.tof_results, data.time_resolution_results);
 
         // Fill the summary tree with the extracted statistics for this measurement entry
         summary_tree->Fill();
