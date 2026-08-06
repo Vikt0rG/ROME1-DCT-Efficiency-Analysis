@@ -160,6 +160,25 @@ struct MultiplicityResults {
     ErrorRange avg_multiplicity_eta2_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
 };
 
+struct ToFResults {
+    std::vector<int> time_of_flight_eta1;
+    std::vector<int> time_of_flight_eta2;
+
+    double avg_time_of_flight_eta1 = 0.0;
+    double avg_time_of_flight_eta2 = 0.0;
+
+    ErrorRange avg_time_of_flight_eta1_error = {};
+    ErrorRange avg_time_of_flight_eta2_error = {};
+};
+
+struct TimeResolutionResults {
+    double time_resolution_eta1 = 0.0;
+    double time_resolution_eta2 = 0.0;
+
+    ErrorRange time_resolution_eta1_error = {};
+    ErrorRange time_resolution_eta2_error = {};
+};
+
 // ==========================================================================================
 // Measurement configuration and summary structures for the measurement analysis part
 
