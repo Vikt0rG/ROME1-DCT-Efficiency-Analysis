@@ -246,7 +246,7 @@ int Track::getTimeSeparation() const {
 }
 
 // Get time differences between adjacent layers for the track's eta side
-std::vector<int> Track::getTimeResolution() const {
+std::vector<int> Track::getAdjacentToFs() const {
     auto dts = getDts();
     std::vector<int> time_differences;
 
@@ -254,7 +254,7 @@ std::vector<int> Track::getTimeResolution() const {
     for (const auto& [has_hits, is_adjacent, dt_val] : dts) {
         // Only collect the delta if layers are physically next to each other AND both recorded a hit
         if (is_adjacent && has_hits) {
-            time_differences.push_back(std::abs(dt_val));
+            time_differences.push_back(dt_val);
         }
     }
     return time_differences;

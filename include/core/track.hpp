@@ -47,7 +47,7 @@ public:
     // Track timing information
     int getTimeSeparation() const;  // Time difference between earliest and latest hit in track for the track's eta side
     std::array<std::tuple<bool, bool, int>, LAYER_COUNT> getDts() const;  // Time differences between different layers for the track's eta side
-    std::vector<int> getTimeResolution() const;  // Time resolutions for each layer pair
+    std::vector<int> getAdjacentToFs() const;  // ToFs for adjacent layers
 
 private:
     int _track_id;                  // Unique identifier for the track
