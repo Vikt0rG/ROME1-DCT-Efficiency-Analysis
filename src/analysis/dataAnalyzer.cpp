@@ -1384,7 +1384,7 @@ void DataAnalyzer::produceSummaryStats() {
         summaryHelpers::getRate(input_file, data.noise_rate_results);
 
         // ----------------------------------------------------------------------------------
-        // Average ToT calculation
+        // Average Time over Threshold (ToT) calculation
         summaryHelpers::getAverageToT(input_file, data.tot_results, false);
         summaryHelpers::getAverageToT(input_file, data.tot_results_tracks, true);
 
