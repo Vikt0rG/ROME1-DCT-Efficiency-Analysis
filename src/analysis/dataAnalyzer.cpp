@@ -1172,7 +1172,7 @@ void DataAnalyzer::produceSummaryStats() {
             continue;
         }
 
-        data = MeasurementData();   // Reset data for this entry
+        data.clear();               // Reset data for this entry
         metadata = metadata_entry;  // Copy metadata for this entry
 
         // Calculate and fill per-file relevant statistics for this measurement entry and save into the input ROOT file
