@@ -38,6 +38,8 @@ namespace PlotStyler {
         {"h1d_strip_eta",           TH1::Class(),                  PlotCategory::StripDistribution},
         {"h1d_tot_eta",             TH1::Class(),                  PlotCategory::ToTDistribution},
         {"h1d_tot",                 THStack::Class(),              PlotCategory::ToTCombinedDistribution},
+        {"h1d_tof_eta",             TH1::Class(),                  PlotCategory::ToFDistribution},
+        {"h2d_time_of_flight_eta",  TH2::Class(),                  PlotCategory::ToFHeatmap},
         {"track_eff",               TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
         {"eff",                     TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
         {"track_eff",               TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
@@ -274,6 +276,24 @@ namespace PlotStyler {
         }
     }
 
+    void enforceIntegerMinorTicks(TAxis* axis) {
+        if (!axis) return;
+
+        int current_ndiv = axis->GetNdivisions();
+        int n1 = current_ndiv % 100;         // Major divisions
+        int n2 = (current_ndiv / 100) % 100; // Minor divisions
+        int n3 = current_ndiv / 10000;       // Tertiary divisions
+
+        if (n1 == 0) n1 = 1; // Safety against div-by-zero
+        double range = axis->GetXmax() - axis->GetXmin();
+        double min_major_step = range / n1;
+
+        if (min_major_step / n2 < 1.0) {
+            n2 = static_cast<int>(std::floor(min_major_step));
+            if (n2 < 1) n2 = 1;
+            axis->SetNdivisions(n1 + 100 * n2 + 10000 * n3, kTRUE);
+        }
+    };
     // --------------------------------------------------------------------------------------
     namespace ATLASStyler {
 
@@ -1177,6 +1197,36 @@ namespace PlotStyler {
         drawPlotTitle(obj, 0.21, 0.82);
     }
 
+    void styleToFDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
+
+        auto h1 = dynamic_cast<TH1*>(obj);
+        h1->SetLineColor(kBlack);
+        h1->SetLineWidth(2.0);
+        h1->SetLineStyle(1);
+
+        Int_t light_blue_transparent = TColor::GetColorTransparent(kAzure + 7, 0.30);
+        h1->SetFillColor(light_blue_transparent);
+        h1->SetFillStyle(1001);
+
+        h1->Draw("HIST");
+
+        applyATLASStyle(obj, canvas);
+
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        drawATLASHeaderBlock(
+            ndc_x0 + 0.03, ndc_y0 - 0.10,
+            "Work in Progress",
+            plot_title,
+            12,
+            kWhite, 0.70,
+            kBlack, 1,
+            0.01
+        );
+    }
+
     void styleToTDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
 
         auto h1 = dynamic_cast<TH1*>(obj);
@@ -1405,25 +1455,6 @@ namespace PlotStyler {
         }
 
         applyATLASStyle(obj, canvas);
-
-        auto enforceIntegerMinorTicks = [](TAxis* axis) {
-            if (!axis) return;
-
-            int current_ndiv = axis->GetNdivisions();
-            int n1 = current_ndiv % 100;         // Major divisions
-            int n2 = (current_ndiv / 100) % 100; // Minor divisions
-            int n3 = current_ndiv / 10000;       // Tertiary divisions
-
-            if (n1 == 0) n1 = 1; // Safety against div-by-zero
-            double range = axis->GetXmax() - axis->GetXmin();
-            double min_major_step = range / n1;
-
-            if (min_major_step / n2 < 1.0) {
-                n2 = static_cast<int>(std::floor(min_major_step));
-                if (n2 < 1) n2 = 1;
-                axis->SetNdivisions(n1 + 100 * n2 + 10000 * n3, kTRUE);
-            }
-        };
 
         if (auto h2 = dynamic_cast<TH2*>(obj)) {
             enforceIntegerMinorTicks(h2->GetXaxis());

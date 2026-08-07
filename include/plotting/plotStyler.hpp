@@ -23,6 +23,8 @@ enum class PlotCategory {
     StripDistribution,
     ToTDistribution,
     ToTCombinedDistribution,
+    ToFDistribution,
+    ToFHeatmap,
     DtVsStrip,
     ToT,
     MeanClusterSizeVsHV,

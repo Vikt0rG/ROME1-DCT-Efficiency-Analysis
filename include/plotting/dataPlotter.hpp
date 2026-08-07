@@ -17,6 +17,17 @@ class TDirectory;
 /// @namespace Utilities
 /// @brief Namespace for general utility functions used across the plotting code
 namespace Utilities {
+
+    /// @struct GlobalSeries
+    /// @brief Struct to hold x and y, as well as y_errors data for a specific metric across
+    /// different measurement entries for the entire detector
+    struct GlobalSeries {
+        std::vector<double> x;
+        std::vector<double> y;
+        std::vector<double> y_errors_low;
+        std::vector<double> y_errors_high;
+    };
+
     /// @struct LayerSeries
     /// @brief Struct to hold x and y, as well as y_errors data for a specific metric across
     /// different three layers
@@ -61,16 +72,21 @@ public:
     );
 
     struct MetricsData {
+        std::map<std::string, Utilities::GlobalSeries> global_metrics;
         std::map<std::string, Utilities::LayerSeries> layer_metrics;
         std::map<std::string, std::map<int, std::map<int, Utilities::StripSeries>>> strip_metrics;
 
         // For the scalar metrics
         std::map<std::string, std::vector<double>> scalar_x;
         std::map<std::string, std::vector<double>> scalar_y;
+
+        // For 2D Heatmaps (HV vs Raw ToF)
+        std::map<std::string, std::map<double, std::vector<int>>> raw_tof_data;
     };
 
     TFile* initializeAnalysisFile();
     TDirectory* setupScanDirectories(TDirectory* config_dir, const std::string& group_name);
+    void plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& scan_data);
     void plotLayerMetrics(TDirectory* scan_dir, const std::map<std::string, Utilities::LayerSeries>& layer_metrics);
     void plotStripMetrics(TDirectory* scan_dir, const std::map<std::string, std::map<int, std::map<int, Utilities::StripSeries>>>& strip_metrics);
     std::map<std::string, MetricsData> extractScanData(const std::string& summary_file_path);

@@ -61,6 +61,11 @@ std::string getTimestamp() {
 
 // Anonymous namespace for metric names and other constants used in DataPlotter implementation
 namespace {
+
+    const std::vector<std::string> global_metrics = {
+        "avg_time_of_flight_eta1", "avg_time_of_flight_eta2",
+        "time_resolution_eta1", "time_resolution_eta2"
+    };
     const std::vector<std::string> layer_metrics = {
         "eff_eta1_external", "eff_eta2_external", "eff_or_external", "eff_and_external",
         "eff_eta1_rpc", "eff_eta2_rpc", "eff_or_rpc", "eff_and_rpc",
@@ -81,6 +86,11 @@ namespace {
         "avg_multiplicity_eta1", "avg_multiplicity_eta2",
         "track_avg_multiplicity_eta1", "track_avg_multiplicity_eta2"
     };
+
+    const std::vector<std::string> raw_metrics = {
+        "time_of_flight_eta1", "time_of_flight_eta2"
+    };
+
 }   // anonymous namespace
 
 // ==========================================================================================
@@ -123,6 +133,7 @@ TDirectory* DataPlotter::setupScanDirectories(TDirectory* config_dir, const std:
     PathUtils::ensureDirectory(scan_dir, "noise_rate_strips_analysis");
     PathUtils::ensureDirectory(scan_dir, "tot_analysis");
     PathUtils::ensureDirectory(scan_dir, "multiplicity_analysis");
+    PathUtils::ensureDirectory(scan_dir, "tof_analysis");
 
     return scan_dir;
 }
@@ -158,6 +169,14 @@ std::map<std::string, DataPlotter::MetricsData> DataPlotter::extractScanData(
         scalar_values.push_back(std::make_unique<TTreeReaderValue<double>>(readerSummary, name.c_str()));
     }
 
+    // Readers for Global Metrics
+    std::vector<std::unique_ptr<TTreeReaderValue<double>>> global_values;
+    std::vector<std::unique_ptr<TTreeReaderArray<double>>> global_errors;
+    for (const auto& name : global_metrics) {
+        global_values.push_back(std::make_unique<TTreeReaderValue<double>>(readerSummary, name.c_str()));
+        global_errors.push_back(std::make_unique<TTreeReaderArray<double>>(readerSummary, (name + "_error").c_str()));
+    }
+
     // Readers for Layer Metrics
     std::vector<std::unique_ptr<TTreeReaderArray<double>>> layer_arrays;
     std::vector<std::unique_ptr<TTreeReaderArray<double>>> layer_error_arrays;
@@ -172,6 +191,12 @@ std::map<std::string, DataPlotter::MetricsData> DataPlotter::extractScanData(
     for (const auto& name : strip_layer_metrics) {
         strip_arrays.push_back(std::make_unique<TTreeReaderArray<double>>(readerSummary, name.c_str()));
         strip_error_arrays.push_back(std::make_unique<TTreeReaderArray<double>>(readerSummary, (name + "_error").c_str()));
+    }
+
+    // Readers for Raw Metrics
+    std::vector<std::unique_ptr<TTreeReaderValue<std::vector<int>>>> raw_arrays;
+    for (const auto& name : raw_metrics) {
+        raw_arrays.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(readerSummary, name.c_str()));
     }
 
     while (readerSummary.Next()) {
@@ -189,6 +214,33 @@ std::map<std::string, DataPlotter::MetricsData> DataPlotter::extractScanData(
             current_scan.scalar_y[metric_name].push_back(**scalar_values[i]);
         }
 
+        // Extract Global Metrics (1D Graphs)
+        for (size_t i = 0; i < global_metrics.size(); ++i) {
+            const auto& metric_name = global_metrics[i];
+
+            // Check if the branch actually exists in the file
+            if (global_values[i]->GetSetupStatus() == 0) {
+                auto& series = current_scan.global_metrics[metric_name];
+
+                series.x.push_back(scan_hv);
+                series.y.push_back(**global_values[i]);
+
+                // Read the low and high bounds from the [2] array
+                series.y_errors_low.push_back((*global_errors[i])[0]);
+                series.y_errors_high.push_back((*global_errors[i])[1]);
+            }
+        }
+
+        // Extract Raw Metrics (2D Heatmaps)
+        for (size_t i = 0; i < raw_metrics.size(); ++i) {
+            const auto& metric_name = raw_metrics[i];
+
+            if (raw_arrays[i]->GetSetupStatus() == 0) {
+                // Store the entire vector mapped to the current High Voltage
+                current_scan.raw_tof_data[metric_name][scan_hv] = **raw_arrays[i];
+            }
+        }
+ 
         // Extract Layer Metrics (1D)
         for (size_t i = 0; i < layer_metrics.size(); ++i) {
             const auto& metric_name = layer_metrics[i];
@@ -232,6 +284,54 @@ std::map<std::string, DataPlotter::MetricsData> DataPlotter::extractScanData(
     summary_root_file->Close();
     delete summary_root_file;
     return result;
+}
+
+void DataPlotter::plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& scan_data) {
+    if (!scan_dir) return;
+
+    TDirectory* tof_dir = scan_dir->GetDirectory("tof_analysis");
+    if (!tof_dir) return;
+    tof_dir->cd();
+
+    // Build 1D Graphs (Avg ToF & Time Resolution)
+    for (const auto& [metric_name, series] : scan_data.global_metrics) {
+        if (series.x.empty()) continue;
+
+        TGraphAsymmErrors* graph = new TGraphAsymmErrors(
+            series.x.size(), series.x.data(), series.y.data(),
+            nullptr, nullptr, series.y_errors_low.data(), series.y_errors_high.data()
+        );
+
+        graph->SetName(metric_name.c_str());
+        graph->SetTitle((metric_name + ";HV [V];Value").c_str());
+        graph->SetMarkerStyle(20);
+        graph->SetMarkerColor(kAzure + 2);
+        graph->SetLineColor(kAzure + 2);
+
+        graph->Write("", TObject::kOverwrite);
+        delete graph;
+    }
+
+    // Build 2D Heatmaps (Raw ToF vs HV)
+    for (const auto& [eta_side, hv_data_map] : scan_data.raw_tof_data) {
+        if (hv_data_map.empty()) continue;
+
+        std::string hist_name = "h2d_" + eta_side;
+        std::string hist_title = "ToF Heatmap " + eta_side + ";High Voltage [V];Time of Flight [Ticks];Entries";
+
+        TH2D* heatmap = new TH2D(hist_name.c_str(), hist_title.c_str(), 
+                                 15, 4500, 6000,
+                                 14, -7, 7);
+
+        for (const auto& [hv, tof_vector] : hv_data_map) {
+            for (int tof : tof_vector) {
+                heatmap->Fill(hv, tof);
+            }
+        }
+
+        heatmap->Write("", TObject::kOverwrite);
+        delete heatmap;
+    }
 }
 
 void DataPlotter::plotLayerMetrics(
@@ -368,6 +468,7 @@ void DataPlotter::cumulativeAnalysisRootFile() {
         for (const auto& [group_name, scan_data] : scan_data_map) {
             TDirectory* scan_dir = setupScanDirectories(config_dir, group_name);
 
+            plotGlobalMetrics(scan_dir, scan_data);
             plotLayerMetrics(scan_dir, scan_data.layer_metrics);
             plotStripMetrics(scan_dir, scan_data.strip_metrics);
         }
