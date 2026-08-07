@@ -1378,8 +1378,8 @@ void DataAnalyzer::produceSummaryStats() {
             continue;
         }
 
-        data.clear();               // Reset data for this entry
-        metadata = metadata_entry;  // Copy metadata for this entry
+        data.clear();
+        metadata = metadata_entry;
 
         // Calculate and fill per-file relevant statistics for this measurement entry and save into the input ROOT file
         producePerFileStats(input_file);
@@ -1390,21 +1390,17 @@ void DataAnalyzer::produceSummaryStats() {
         // Mean cluster size calculation
         summaryHelpers::getClusterSize(input_file, data.cluster_size_results);
 
-        // ----------------------------------------------------------------------------------
         // Noise rate calculation
         summaryHelpers::getRate(input_file, data.noise_rate_results);
 
-        // ----------------------------------------------------------------------------------
         // Average Time over Threshold (ToT) calculation
         summaryHelpers::getAverageToT(input_file, data.tot_results, false);
         summaryHelpers::getAverageToT(input_file, data.tot_results_tracks, true);
 
-        // ----------------------------------------------------------------------------------
         // Average multiplicity calculation
         summaryHelpers::getAverageMultiplicity(input_file, data.multiplicity_results, false);
         summaryHelpers::getAverageMultiplicity(input_file, data.multiplicity_results_tracks, true);
 
-        // ----------------------------------------------------------------------------------
         // Average Time of Flight (ToF) calculation
         summaryHelpers::processToF(input_file, data.tof_results, data.time_resolution_results);
 
