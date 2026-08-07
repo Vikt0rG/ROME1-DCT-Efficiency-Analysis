@@ -62,10 +62,17 @@ std::string getTimestamp() {
 // Anonymous namespace for metric names and other constants used in DataPlotter implementation
 namespace {
 
-    const std::vector<std::string> global_metrics = {
-        "avg_time_of_flight_eta1", "avg_time_of_flight_eta2",
-        "time_resolution_eta1", "time_resolution_eta2"
-    };
+    const std::vector<std::string> global_metrics = []() {
+        std::vector<std::string> metrics;
+        for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+            metrics.push_back("avg_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1");
+            metrics.push_back("avg_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta2");
+            metrics.push_back("time_resolution_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1");
+            metrics.push_back("time_resolution_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta2");
+        }
+        return metrics;
+    }();
+
     const std::vector<std::string> layer_metrics = {
         "eff_eta1_external", "eff_eta2_external", "eff_or_external", "eff_and_external",
         "eff_eta1_rpc", "eff_eta2_rpc", "eff_or_rpc", "eff_and_rpc",
@@ -87,9 +94,14 @@ namespace {
         "track_avg_multiplicity_eta1", "track_avg_multiplicity_eta2"
     };
 
-    const std::vector<std::string> raw_metrics = {
-        "time_of_flight_eta1", "time_of_flight_eta2"
-    };
+    const std::vector<std::string> raw_metrics = []() {
+        std::vector<std::string> metrics;
+        for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+            metrics.push_back("time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1");
+            metrics.push_back("time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta2");
+        }
+        return metrics;
+    }();
 
 }   // anonymous namespace
 
