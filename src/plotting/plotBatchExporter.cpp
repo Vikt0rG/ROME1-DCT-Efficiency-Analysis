@@ -339,7 +339,6 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                 // ------------------------------------------------------------------
                 // Export all queued objects to PDF
                 for (auto& [obj_to_export, filename_base] : export_queue) {
-                    std::cout << "[ATLAS Export] Exporting: " << filename_base << std::endl;
                     TCanvas* canvas = new TCanvas("c", "", 800, 600);
                     canvas->cd();
 
