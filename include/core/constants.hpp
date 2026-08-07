@@ -1,11 +1,15 @@
 #pragma once
 
+#include <array>
+#include <string>
+
 // ============================================================
 // Global Constants for DCT Analysis
 // ============================================================
 
 // Detector geometry constants
 constexpr int LAYER_COUNT = 3;                      // Number of detector layers (L0, L1, L2)
+constexpr int LAYER_PAIR_COUNT = 3;                 // Number of unique layer pairs (L0-L1, L0-L2, L1-L2)
 constexpr int STRIPS_PER_LAYER = 24;                // Number of strips per layer
 constexpr float STRIP_WIDTH_CM = 2.5;               // Width of each strip in cm
 constexpr float DETECTOR_LENGTH_CM = 180;           // Detector length (cm) for rate calculations
@@ -33,3 +37,6 @@ constexpr float TIME_TICK_NS = 0.833;               // Duration of one time tick
 // Physical contrains and constants
 constexpr float TOT_ROI_MIN = 4.0;                  // ToT lower bound for valid hits (ns)
 constexpr float TOT_ROI_MAX = 12.0;                 // ToT upper bound for valid hits (ns)
+
+// Suffixed and other constants for plotting and analysis
+const std::array<std::string, LAYER_PAIR_COUNT> LAYER_PAIR_SUFFIXES = {"0_1", "0_2", "1_2"};
