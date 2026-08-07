@@ -517,7 +517,9 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
     }
 }
 
-void plotAdjacentToFs(TFile* input_file) {
+const std::array<std::string, LAYER_PAIR_COUNT> pair_labels = {"Layer 0-1", "Layer 0-2", "Layer 1-2"};
+
+void plotToFs(TFile* input_file) {
     TDirectory* analysis_dir = input_file->GetDirectory("analysis");
     if (!analysis_dir) return;
 
@@ -532,37 +534,49 @@ void plotAdjacentToFs(TFile* input_file) {
     }
 
     TTreeReader readerTrackData(track_tree);
-    TTreeReaderValue<std::vector<int>> tof_eta1(readerTrackData, "track_time_of_flight_eta1");
-    TTreeReaderValue<std::vector<int>> tof_eta2(readerTrackData, "track_time_of_flight_eta2");
 
-    const int nConfigs = 2;
-    const char* suffixes[nConfigs] = {"tof_eta1", "tof_eta2"};
-    const char* comments[nConfigs] = {"Side #eta1", "Side #eta2"};
+    std::array<std::unique_ptr<TTreeReaderValue<std::vector<int>>>, LAYER_PAIR_COUNT> tof1_readers;
+    std::array<std::unique_ptr<TTreeReaderValue<std::vector<int>>>, LAYER_PAIR_COUNT> tof2_readers;
 
-    std::map<std::string, TH1*> tof_strip_histograms;
-    for (int c = 0; c < nConfigs; ++c) {
-        auto* hist = new TH1F(Form("h1d_%s", suffixes[c]),
-                              Form("%s;ToF [ns];Entries", comments[c]), 12, -6, 6);
-        tof_strip_histograms[suffixes[c]] = hist;
+    std::array<TH1F*, LAYER_PAIR_COUNT> h_tof1;
+    std::array<TH1F*, LAYER_PAIR_COUNT> h_tof2;
+
+    for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+        std::string branch1 = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1";
+        std::string branch2 = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta2";
+
+        tof1_readers[i] = std::make_unique<TTreeReaderValue<std::vector<int>>>(readerTrackData, branch1.c_str());
+        tof2_readers[i] = std::make_unique<TTreeReaderValue<std::vector<int>>>(readerTrackData, branch2.c_str());
+
+        h_tof1[i] = new TH1F(Form("h1d_tof_layer_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()),
+                             Form("Side #eta1: %s;ToF [Ticks];Entries", pair_labels[i].c_str()), 16, -8, 8);
+        h_tof2[i] = new TH1F(Form("h1d_tof_layer_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()),
+                             Form("Side #eta2: %s;ToF [Ticks];Entries", pair_labels[i].c_str()), 16, -8, 8);
     }
 
     while (readerTrackData.Next()) {
-        if (tof_eta1.GetSetupStatus() == 0) {
-            for (int t : *tof_eta1) {
-                tof_strip_histograms["tof_eta1"]->Fill(t);
+        for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+
+            if (tof1_readers[i]->GetSetupStatus() == 0) {
+                for (int t : **tof1_readers[i]) {
+                    h_tof1[i]->Fill(t);
+                }
             }
-        }
-        if (tof_eta2.GetSetupStatus() == 0) {
-            for (int t : *tof_eta2) {
-                tof_strip_histograms["tof_eta2"]->Fill(t);
+
+            if (tof2_readers[i]->GetSetupStatus() == 0) {
+                for (int t : **tof2_readers[i]) {
+                    h_tof2[i]->Fill(t);
+                }
             }
         }
     }
 
-    // Write histograms to file and clean up
-    for (int c = 0; c < nConfigs; ++c) {
-        tof_strip_histograms[suffixes[c]]->Write("", TObject::kOverwrite);
-        delete tof_strip_histograms[suffixes[c]];
+    for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+        h_tof1[i]->Write("", TObject::kOverwrite);
+        h_tof2[i]->Write("", TObject::kOverwrite);
+
+        delete h_tof1[i];
+        delete h_tof2[i];
     }
 }
 
