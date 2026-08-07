@@ -133,8 +133,13 @@ void DataProcesser::setupBranches() {
     _track_reconstruction_tree->Branch("track_size_eta2", &_track_size_eta2);
     _track_reconstruction_tree->Branch("track_time_separation_eta1", &_track_time_separation_eta1);
     _track_reconstruction_tree->Branch("track_time_separation_eta2", &_track_time_separation_eta2);
-    _track_reconstruction_tree->Branch("track_time_of_flight_eta1", &_track_time_of_flight_eta1);
-    _track_reconstruction_tree->Branch("track_time_of_flight_eta2", &_track_time_of_flight_eta2);
+    for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+        std::string branch_eta1 = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1";
+        std::string branch_eta2 = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta2";
+
+        _track_reconstruction_tree->Branch(branch_eta1.c_str(), &_track_tof_eta1[i]);
+        _track_reconstruction_tree->Branch(branch_eta2.c_str(), &_track_tof_eta2[i]);
+    }
 }
 
 // ------------------------------------------------------------------------------------------
@@ -453,8 +458,10 @@ void DataProcesser::clearEventVectors() {
     _track_size_eta2.clear();
     _track_time_separation_eta1.clear();
     _track_time_separation_eta2.clear();
-    _track_time_of_flight_eta1.clear();
-    _track_time_of_flight_eta2.clear();
+    for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+        _track_tof_eta1[i].clear();
+        _track_tof_eta2[i].clear();
+    }
 }
 
 // Utility function to push back raw hit data
@@ -518,19 +525,27 @@ void DataProcesser::pushBackClusterData(const Cluster& cluster) {
 
 // Utility functions to push track-level data into the corresponding vectors for tree filling
 void DataProcesser::pushBackTrackData(const Track& track) {
-    const auto time_of_flight = track.getAdjacentToFs();
+    const auto time_of_flight_pairs = track.getToFs();
     if (track.getSide() == Track::ETA1) {
         _track_length_eta1.push_back(track.getLayerCount());
         _track_width_eta1.push_back(track.getWidth());
         _track_size_eta1.push_back(track.getNHits());
         _track_time_separation_eta1.push_back(track.getTimeSeparation());
-        _track_time_of_flight_eta1.insert(_track_time_of_flight_eta1.end(), time_of_flight.begin(), time_of_flight.end());
+        for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+            if (time_of_flight_pairs[i].first) {
+                _track_tof_eta1[i].push_back(time_of_flight_pairs[i].second);
+            }
+        }
     } else if (track.getSide() == Track::ETA2) {
         _track_length_eta2.push_back(track.getLayerCount());
         _track_width_eta2.push_back(track.getWidth());
         _track_size_eta2.push_back(track.getNHits());
         _track_time_separation_eta2.push_back(track.getTimeSeparation());
-        _track_time_of_flight_eta2.insert(_track_time_of_flight_eta2.end(), time_of_flight.begin(), time_of_flight.end());
+        for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+            if (time_of_flight_pairs[i].first) {
+                _track_tof_eta2[i].push_back(time_of_flight_pairs[i].second);
+            }
+        }
     }
 }
 
