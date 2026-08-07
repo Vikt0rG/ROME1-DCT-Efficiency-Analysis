@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <array>
 #include <vector>
 
 #include "core/constants.hpp"
@@ -161,22 +162,44 @@ struct MultiplicityResults {
 };
 
 struct ToFResults {
-    std::vector<int> time_of_flight_eta1;
-    std::vector<int> time_of_flight_eta2;
+    std::array<std::vector<int>, LAYER_PAIR_COUNT> time_of_flight_eta1;
+    std::array<std::vector<int>, LAYER_PAIR_COUNT> time_of_flight_eta2;
 
-    double avg_time_of_flight_eta1 = 0.0;
-    double avg_time_of_flight_eta2 = 0.0;
+    std::array<double, LAYER_PAIR_COUNT> avg_time_of_flight_eta1 = {0.0, 0.0, 0.0};
+    std::array<double, LAYER_PAIR_COUNT> avg_time_of_flight_eta2 = {0.0, 0.0, 0.0};
 
-    ErrorRange avg_time_of_flight_eta1_error = {};
-    ErrorRange avg_time_of_flight_eta2_error = {};
+    std::array<ErrorRange, LAYER_PAIR_COUNT> avg_time_of_flight_eta1_error = {};
+    std::array<ErrorRange, LAYER_PAIR_COUNT> avg_time_of_flight_eta2_error = {};
+
+    void clear() {
+        for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+            time_of_flight_eta1[i].clear();
+            time_of_flight_eta2[i].clear();
+
+            avg_time_of_flight_eta1[i] = 0.0;
+            avg_time_of_flight_eta2[i] = 0.0;
+
+            avg_time_of_flight_eta1_error[i] = {0.0, 0.0};
+            avg_time_of_flight_eta2_error[i] = {0.0, 0.0};
+        }
+    }
 };
 
 struct TimeResolutionResults {
-    double time_resolution_eta1 = 0.0;
-    double time_resolution_eta2 = 0.0;
+    std::array<double, LAYER_PAIR_COUNT> time_resolution_eta1 = {0.0, 0.0, 0.0};
+    std::array<double, LAYER_PAIR_COUNT> time_resolution_eta2 = {0.0, 0.0, 0.0};
 
-    ErrorRange time_resolution_eta1_error = {};
-    ErrorRange time_resolution_eta2_error = {};
+    std::array<ErrorRange, LAYER_PAIR_COUNT> time_resolution_eta1_error = {};
+    std::array<ErrorRange, LAYER_PAIR_COUNT> time_resolution_eta2_error = {};
+    
+    void clear() {
+        for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+            time_resolution_eta1[i] = 0.0;
+            time_resolution_eta2[i] = 0.0;
+            time_resolution_eta1_error[i] = {0.0, 0.0};
+            time_resolution_eta2_error[i] = {0.0, 0.0};
+        }
+    }
 };
 
 // ==========================================================================================
