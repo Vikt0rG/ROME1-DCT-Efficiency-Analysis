@@ -38,7 +38,7 @@ namespace PlotStyler {
         {"h1d_strip_eta",           TH1::Class(),                  PlotCategory::StripDistribution},
         {"h1d_tot_eta",             TH1::Class(),                  PlotCategory::ToTDistribution},
         {"h1d_tot",                 THStack::Class(),              PlotCategory::ToTCombinedDistribution},
-        {"h1d_tof_eta",             TH1::Class(),                  PlotCategory::ToFDistribution},
+        {"h1d_tof_layer",           TH1::Class(),                  PlotCategory::ToFDistribution},
         {"h2d_time_of_flight_eta",  TH2::Class(),                  PlotCategory::ToFHeatmap},
         {"track_eff",               TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
         {"eff",                     TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
@@ -1204,8 +1204,7 @@ namespace PlotStyler {
         h1->SetLineWidth(2.0);
         h1->SetLineStyle(1);
 
-        Int_t light_blue_transparent = TColor::GetColorTransparent(kAzure + 7, 0.30);
-        h1->SetFillColor(light_blue_transparent);
+        h1->SetFillColor(kOrange - 2);
         h1->SetFillStyle(1001);
 
         h1->Draw("HIST");
@@ -1481,6 +1480,7 @@ namespace PlotStyler {
         {PlotCategory::EfficiencyVsHV,          &styleEfficiencyVsHV},
         {PlotCategory::MeanClusterSizeVsHV,     &styleEfficiencyVsHV},
         {PlotCategory::NoiseRateVsHV,           &styleEfficiencyVsHV},
+        {PlotCategory::ToFDistribution,         &styleToFDistribution},
         {PlotCategory::AvgToTVsHV,              &styleAvgToTVsHV},
         {PlotCategory::AvgMultVsHV,             &styleAvgMulVsHV},
         {PlotCategory::StripDistribution,       &styleStripDistribution},
