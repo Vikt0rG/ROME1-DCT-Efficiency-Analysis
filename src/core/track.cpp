@@ -182,7 +182,7 @@ int Track::getLayerCount() const {
 }
 
 // Get track's time differences between layers for the track's eta side
-std::array<std::tuple<bool, bool, int>, LAYER_COUNT> Track::getDts() const {
+std::array<std::tuple<bool, std::pair<int, int>, int>, LAYER_COUNT> Track::getDts() const {
     std::map<int, int> layer_times;
 
     for (const Hit* hit : _track_hits) {
@@ -198,26 +198,23 @@ std::array<std::tuple<bool, bool, int>, LAYER_COUNT> Track::getDts() const {
         }
     }
 
-    // Initialize result tuples with default values: {has_hits=false, is_adjacent=false, dt=0}
-    std::array<std::tuple<bool, bool, int>, LAYER_COUNT> result_tuples;
-    result_tuples.fill({false, false, 0});
+    // Initialize result tuples with default values: {has_hits=false, layer, other_layer, is_adjacent=false, dt=0}
+    std::array<std::tuple<bool, std::pair<int, int>, int>, LAYER_COUNT> result_tuples;
+    result_tuples.fill({false, {-1, -1}, 0});
 
     // Use a flat tracking counter to safely map combinations to the sequential array slots
     int tuple_idx = 0; 
-    
+
     for (int layer = 0; layer < LAYER_COUNT; ++layer) {
         for (int other_layer = layer + 1; other_layer < LAYER_COUNT; ++other_layer) {
-
-            // Dynamically calculate adjacency (if the gap is exactly 1 layer)
-            bool is_adjacent = (other_layer - layer == 1);
 
             // Dynamically evaluate hits and time difference
             if (layer_times.count(layer) && layer_times.count(other_layer)) {
                 int dt = layer_times[layer] - layer_times[other_layer];
-                result_tuples[tuple_idx] = {true, is_adjacent, dt};
+                result_tuples[tuple_idx] = {true, {layer, other_layer}, dt};
             } else {
-                // If a layer is missing a hit, keep track of adjacency structure but flag has_hits as false
-                result_tuples[tuple_idx] = {false, is_adjacent, 0};
+                // If any layer misses a hit, keep track of layers and flag has_hits as false
+                result_tuples[tuple_idx] = {false, {layer, other_layer}, 0};
             }
 
             // Move safely to the next array slot
@@ -233,7 +230,6 @@ int Track::getTimeSeparation() const {
     auto dts = getDts();
     int max_dt = -1; // Fallback default for no valid pairs
 
-    // Unpack the tuple: [bool has_hits, bool is_adjacent, int dt_val]
     for (const auto& [has_hits, _, dt_val] : dts) {
         if (has_hits) { 
             int dt = std::abs(dt_val);
@@ -245,16 +241,29 @@ int Track::getTimeSeparation() const {
     return max_dt;
 }
 
-// Get time differences between adjacent layers for the track's eta side
-std::vector<int> Track::getAdjacentToFs() const {
+// Get time differences between layers for a track
+std::array<std::pair<bool, int>, LAYER_PAIR_COUNT> Track::getToFs() const {
     auto dts = getDts();
-    std::vector<int> time_differences;
+    std::array<std::pair<bool, int>, LAYER_PAIR_COUNT> time_differences;
+    time_differences.fill({false, 0});
 
-    // Unpack the tuple elements dynamically
-    for (const auto& [has_hits, is_adjacent, dt_val] : dts) {
-        // Only collect the delta if layers are physically next to each other AND both recorded a hit
-        if (is_adjacent && has_hits) {
-            time_differences.push_back(dt_val);
+    auto getPairEnum = [](int l1, int l2) -> int {
+        if (l1 == 0 && l2 == 1) return LAYER_0_1;
+        if (l1 == 0 && l2 == 2) return LAYER_0_2;
+        if (l1 == 1 && l2 == 2) return LAYER_1_2;
+        return -1; 
+    };
+
+    for (const auto& [has_hits, layer_pair, dt_val] : dts) {
+        if (has_hits) {
+            int idx = getPairEnum(layer_pair.first, layer_pair.second);
+
+            if (idx != -1) {
+                time_differences[idx] = {true, dt_val};
+            } else {
+                std::cerr << "Warning: Unexpected layer pair (" << layer_pair.first 
+                          << ", " << layer_pair.second << ") in getToFs().\n";
+            }
         }
     }
     return time_differences;

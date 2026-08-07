@@ -15,6 +15,8 @@ class Track {
 public:
     enum EtaSide { ETA1 = 0, ETA2 = 1 };
 
+    enum LayerPairs { LAYER_0_1 = 0, LAYER_0_2 = 1, LAYER_1_2 = 2 };
+
     // Constructor
     Track(Hit* first_hit, EtaSide side);
 
@@ -46,11 +48,11 @@ public:
 
     // Track timing information
     int getTimeSeparation() const;  // Time difference between earliest and latest hit in track for the track's eta side
-    std::array<std::tuple<bool, bool, int>, LAYER_COUNT> getDts() const;  // Time differences between different layers for the track's eta side
-    std::vector<int> getAdjacentToFs() const;  // ToFs for adjacent layers
+    std::array<std::tuple<bool, std::pair<int, int>, int>, LAYER_COUNT> getDts() const;  // Time differences between different layers for the track's eta side
+    std::array<std::pair<bool, int>, LAYER_PAIR_COUNT> getToFs() const;  // ToFs for all layer pairs
 
 private:
-    int _track_id;                  // Unique identifier for the track
+    int _track_id;                   // Unique identifier for the track
     std::vector<Hit*> _track_hits;   // All hits in track (NOT copied, referenced)
     EtaSide _eta_side;               // Track which eta side this track belongs to (ETA1 or ETA2)
 
