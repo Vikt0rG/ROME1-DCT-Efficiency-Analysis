@@ -712,24 +712,176 @@ inline void requireEqualSizes(std::initializer_list<std::pair<std::string, size_
     }
 }
 
-void getRate(TFile* input_file, NoiseRateResults& rate_results) {
-    
-    auto calculateRate = [](long long hits, long long events, int n_strips, int n_layers)
-        -> std::pair<double, double> {
+void getEfficiency(TFile* input_file, EfficiencyResults& eff_results, EfficiencyResults& track_eff_results) {
 
-        if (events <= 0 || n_strips <= 0 || n_layers <= 0) {
-            return {0.0, 0.0};
+    auto extractGraphData = [](TGraphAsymmErrors* graph, double effs[4], ErrorRange errs[4]) {
+        for (int i = 0; i < 4; ++i) {
+            double dummy_x = 0.0;
+            // GetPoint stores the Y value directly inside the target efficiency index array
+            graph->GetPoint(i, dummy_x, effs[i]);
+
+            // Extract the separate low and high bounds for the ErrorRange struct
+            errs[i].low  = graph->GetErrorYlow(i);
+            errs[i].high = graph->GetErrorYhigh(i);
         }
-
-        // Total time-area exposure = events * window * sensitive area
-        const double total_exposure = events * TRIGGER_TIME_WINDOW * n_layers * n_strips * STRIP_WIDTH_CM * DETECTOR_LENGTH_CM;
-
-        const double rate = static_cast<double>(hits) / total_exposure;
-        const double rate_error = (hits > 0) ? (std::sqrt(static_cast<double>(hits)) / total_exposure) : 0.0;
-
-        return {rate, rate_error};
     };
 
+    for (int layer = 0; layer < LAYER_COUNT; ++layer) {
+        // ------------------------------------------------------------------------------
+        // 1. External trigger only
+        std::string path_ext = "efficiency_graphs/external_trigger/eff_external_trigger_layer" + std::to_string(layer);
+        if (auto graph_ext = input_file->Get<TGraphAsymmErrors>(path_ext.c_str())) {
+            double effs[4]; ErrorRange errs[4];
+            extractGraphData(graph_ext, effs, errs);
+
+            eff_results.eta1_efficiency_external[layer] = effs[0];
+            eff_results.eta2_efficiency_external[layer] = effs[1];
+            eff_results.eta_or_efficiency_external[layer] = effs[2];
+            eff_results.eta_and_efficiency_external[layer] = effs[3];
+
+            eff_results.eta1_efficiency_external_error[layer] = errs[0];
+            eff_results.eta2_efficiency_external_error[layer] = errs[1];
+            eff_results.eta_or_efficiency_external_error[layer] = errs[2];
+            eff_results.eta_and_efficiency_external_error[layer] = errs[3];
+        }
+
+        // ------------------------------------------------------------------------------
+        // 2. External trigger + RPC
+        std::string path_rpc = "efficiency_graphs/external_plus_rpc_trigger/eff_rpc_layer" + std::to_string(layer);
+        if (auto graph_rpc = input_file->Get<TGraphAsymmErrors>(path_rpc.c_str())) {
+            double effs[4]; ErrorRange errs[4];
+            extractGraphData(graph_rpc, effs, errs);
+
+            eff_results.eta1_efficiency_rpc[layer] = effs[0];
+            eff_results.eta2_efficiency_rpc[layer] = effs[1];
+            eff_results.eta_or_efficiency_rpc[layer] = effs[2];
+            eff_results.eta_and_efficiency_rpc[layer] = effs[3];
+
+            eff_results.eta1_efficiency_rpc_error[layer] = errs[0];
+            eff_results.eta2_efficiency_rpc_error[layer] = errs[1];
+            eff_results.eta_or_efficiency_rpc_error[layer] = errs[2];
+            eff_results.eta_and_efficiency_rpc_error[layer] = errs[3];
+        }
+
+        // ------------------------------------------------------------------------------
+        // 3. Track external trigger only
+        std::string path_track = "efficiency_graphs/track_external_trigger/track_eff_external_trigger_layer" + std::to_string(layer);
+        if (auto graph_track = input_file->Get<TGraphAsymmErrors>(path_track.c_str())) {
+            double effs[4]; ErrorRange errs[4];
+            extractGraphData(graph_track, effs, errs);
+
+            track_eff_results.eta1_efficiency_external[layer] = effs[0];
+            track_eff_results.eta2_efficiency_external[layer] = effs[1];
+            track_eff_results.eta_or_efficiency_external[layer] = effs[2];
+            track_eff_results.eta_and_efficiency_external[layer] = effs[3];
+
+            track_eff_results.eta1_efficiency_external_error[layer] = errs[0];
+            track_eff_results.eta2_efficiency_external_error[layer] = errs[1];
+            track_eff_results.eta_or_efficiency_external_error[layer] = errs[2];
+            track_eff_results.eta_and_efficiency_external_error[layer] = errs[3];
+        }
+
+        // ------------------------------------------------------------------------------
+        // 4. Track external trigger + RPC
+        std::string path_track_rpc = "efficiency_graphs/track_external_plus_rpc_trigger/track_eff_rpc_layer" + std::to_string(layer);
+        if (auto graph_track_rpc = input_file->Get<TGraphAsymmErrors>(path_track_rpc.c_str())) {
+            double effs[4]; ErrorRange errs[4];
+            extractGraphData(graph_track_rpc, effs, errs);
+
+            track_eff_results.eta1_efficiency_rpc[layer] = effs[0];
+            track_eff_results.eta2_efficiency_rpc[layer] = effs[1];
+            track_eff_results.eta_or_efficiency_rpc[layer] = effs[2];
+            track_eff_results.eta_and_efficiency_rpc[layer] = effs[3];
+
+            track_eff_results.eta1_efficiency_rpc_error[layer] = errs[0];
+            track_eff_results.eta2_efficiency_rpc_error[layer] = errs[1];
+            track_eff_results.eta_or_efficiency_rpc_error[layer] = errs[2];
+            track_eff_results.eta_and_efficiency_rpc_error[layer] = errs[3];
+        }
+    }
+}
+
+void getClusterSize(TFile* input_file, ClusterSizeResults& cluster_results) {
+    TTree* cluster_tree = input_file->Get<TTree>("Clusterization");
+    if (!cluster_tree) {
+        std::cerr << "Error: Clusterization tree not found in file " << input_file->GetName() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    TTreeReader reader(cluster_tree);
+    TTreeReaderValue<std::vector<int>> cluster_eta1(reader, "cluster_size_eta1");
+    TTreeReaderValue<std::vector<int>> cluster_eta2(reader, "cluster_size_eta2");
+    TTreeReaderValue<std::vector<int>> cluster_eta1_layer0(reader, "cluster_size_eta1_layer0");
+    TTreeReaderValue<std::vector<int>> cluster_eta1_layer1(reader, "cluster_size_eta1_layer1");
+    TTreeReaderValue<std::vector<int>> cluster_eta1_layer2(reader, "cluster_size_eta1_layer2");
+    TTreeReaderValue<std::vector<int>> cluster_eta2_layer0(reader, "cluster_size_eta2_layer0");
+    TTreeReaderValue<std::vector<int>> cluster_eta2_layer1(reader, "cluster_size_eta2_layer1");
+    TTreeReaderValue<std::vector<int>> cluster_eta2_layer2(reader, "cluster_size_eta2_layer2");
+
+    long long total_clusters_eta1 = 0, total_clusters_eta2 = 0;
+    long long total_cluster_size_eta1 = 0, total_cluster_size_eta2 = 0;
+    long long sum_sq_cluster_size_eta1 = 0, sum_sq_cluster_size_eta2 = 0;
+
+    long long total_clusters_eta1_layers[3] = {0}, total_clusters_eta2_layers[3] = {0};
+    long long total_cluster_size_eta1_layers[3] = {0}, total_cluster_size_eta2_layers[3] = {0};
+    long long sum_sq_cluster_size_eta1_layers[3] = {0}, sum_sq_cluster_size_eta2_layers[3] = {0};
+
+    auto accumulateBranch = [](auto& reader_val, long long& count, long long& sum, long long& sum_sq) {
+        if (reader_val.GetSetupStatus() == 0) {
+            count += static_cast<long long>(reader_val->size());
+            for (int size : *reader_val) {
+                sum += size;
+                sum_sq += (static_cast<long long>(size) * size);
+            }
+        }
+    };
+
+    while (reader.Next()) {
+        accumulateBranch(cluster_eta1, total_clusters_eta1, total_cluster_size_eta1, sum_sq_cluster_size_eta1);
+        accumulateBranch(cluster_eta2, total_clusters_eta2, total_cluster_size_eta2, sum_sq_cluster_size_eta2);
+
+        accumulateBranch(cluster_eta1_layer0, total_clusters_eta1_layers[0], total_cluster_size_eta1_layers[0], sum_sq_cluster_size_eta1_layers[0]);
+        accumulateBranch(cluster_eta1_layer1, total_clusters_eta1_layers[1], total_cluster_size_eta1_layers[1], sum_sq_cluster_size_eta1_layers[1]);
+        accumulateBranch(cluster_eta1_layer2, total_clusters_eta1_layers[2], total_cluster_size_eta1_layers[2], sum_sq_cluster_size_eta1_layers[2]);
+
+        accumulateBranch(cluster_eta2_layer0, total_clusters_eta2_layers[0], total_cluster_size_eta2_layers[0], sum_sq_cluster_size_eta2_layers[0]);
+        accumulateBranch(cluster_eta2_layer1, total_clusters_eta2_layers[1], total_cluster_size_eta2_layers[1], sum_sq_cluster_size_eta2_layers[1]);
+        accumulateBranch(cluster_eta2_layer2, total_clusters_eta2_layers[2], total_cluster_size_eta2_layers[2], sum_sq_cluster_size_eta2_layers[2]);
+    }
+
+    auto calcMeanAndError = [](long long N, long long sum, long long sum_sq, double& mean_out, ErrorRange& err_out) {
+        if (N <= 0) {
+            mean_out = 0.0;
+            err_out = ErrorRange{0.0};
+            return;
+        }
+        mean_out = static_cast<double>(sum) / N;
+        if (N > 1) {
+            double variance = (static_cast<double>(sum_sq) - (static_cast<double>(sum) * sum) / N) / (N - 1);
+            if (variance < 0.0) variance = 0.0;
+            double std_dev = std::sqrt(variance);
+            err_out = ErrorRange{std_dev / std::sqrt(N)};
+        } else {
+            err_out = ErrorRange{0.0};
+        }
+    };
+
+    calcMeanAndError(total_clusters_eta1, total_cluster_size_eta1, sum_sq_cluster_size_eta1,
+                        cluster_results.avg_cluster_size_eta1, cluster_results.avg_cluster_size_eta1_error);
+    calcMeanAndError(total_clusters_eta2, total_cluster_size_eta2, sum_sq_cluster_size_eta2,
+                        cluster_results.avg_cluster_size_eta2, cluster_results.avg_cluster_size_eta2_error);
+
+    for (int layer_idx = 0; layer_idx < 3; ++layer_idx) {
+        calcMeanAndError(total_clusters_eta1_layers[layer_idx], total_cluster_size_eta1_layers[layer_idx],
+                            sum_sq_cluster_size_eta1_layers[layer_idx], cluster_results.avg_cluster_size_eta1_layers[layer_idx],
+                            cluster_results.avg_cluster_size_eta1_layers_error[layer_idx]);
+        calcMeanAndError(total_clusters_eta2_layers[layer_idx], total_cluster_size_eta2_layers[layer_idx],
+                            sum_sq_cluster_size_eta2_layers[layer_idx], cluster_results.avg_cluster_size_eta2_layers[layer_idx],
+                            cluster_results.avg_cluster_size_eta2_layers_error[layer_idx]);
+    }
+}
+
+void getRate(TFile* input_file, NoiseRateResults& rate_results) {
     TTree* input_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
     TTree* processed_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
     if (!input_tree || !processed_tree) {
@@ -800,6 +952,21 @@ void getRate(TFile* input_file, NoiseRateResults& rate_results) {
     }
 
     // Calculate final global rates
+    auto calculateRate = [](long long hits, long long events, int n_strips, int n_layers)
+        -> std::pair<double, double> {
+
+        if (events <= 0 || n_strips <= 0 || n_layers <= 0) {
+            return {0.0, 0.0};
+        }
+
+        const double total_exposure = events * TRIGGER_TIME_WINDOW * n_layers * n_strips * STRIP_WIDTH_CM * DETECTOR_LENGTH_CM;
+
+        const double rate = static_cast<double>(hits) / total_exposure;
+        const double rate_error = (hits > 0) ? (std::sqrt(static_cast<double>(hits)) / total_exposure) : 0.0;
+
+        return {rate, rate_error};
+    };
+
     int n_strips = static_cast<int>(unique_strips.size());
     int n_layers = static_cast<int>(unique_layers.size());
 
@@ -1217,206 +1384,11 @@ void DataAnalyzer::produceSummaryStats() {
         // Calculate and fill per-file relevant statistics for this measurement entry and save into the input ROOT file
         producePerFileStats(input_file);
 
-        // ----------------------------------------------------------------------------------
-        // Extract efficiency values from histograms for this measurement entry
-        for (int layer = 0; layer < LAYER_COUNT; ++layer) {
+        // Efficiency calculation
+        summaryHelpers::getEfficiency(input_file, data.efficiency_results, data.efficiency_results_tracks);
 
-            // Helper lambda to safely read points and asymmetric errors out of a TGraphAsymmErrors object
-            auto extractGraphData = [](TGraphAsymmErrors* graph, double effs[4], ErrorRange errs[4]) {
-                for (int i = 0; i < 4; ++i) {
-                    double dummy_x = 0.0;
-                    // GetPoint stores the Y value directly inside the target efficiency index array
-                    graph->GetPoint(i, dummy_x, effs[i]);
-                    
-                    // Extract the separate low and high bounds for the ErrorRange struct
-                    errs[i].low  = graph->GetErrorYlow(i);
-                    errs[i].high = graph->GetErrorYhigh(i);
-                }
-            };
-
-            // ------------------------------------------------------------------------------
-            // 1. External trigger only
-            std::string path_ext = "efficiency_graphs/external_trigger/eff_external_trigger_layer" + std::to_string(layer);
-            TGraphAsymmErrors* graph_ext = dynamic_cast<TGraphAsymmErrors*>(input_file->Get(path_ext.c_str()));
-            if (graph_ext) {
-                double effs[4];
-                ErrorRange errs[4];
-                extractGraphData(graph_ext, effs, errs);
-
-                data.efficiency_results.eta1_efficiency_external[layer] = effs[0];
-                data.efficiency_results.eta2_efficiency_external[layer] = effs[1];
-                data.efficiency_results.eta_or_efficiency_external[layer] = effs[2];
-                data.efficiency_results.eta_and_efficiency_external[layer] = effs[3];
-
-                data.efficiency_results.eta1_efficiency_external_error[layer] = errs[0];
-                data.efficiency_results.eta2_efficiency_external_error[layer] = errs[1];
-                data.efficiency_results.eta_or_efficiency_external_error[layer] = errs[2];
-                data.efficiency_results.eta_and_efficiency_external_error[layer] = errs[3];
-            }
-
-            // ------------------------------------------------------------------------------
-            // 2. External trigger + RPC
-            std::string path_rpc = "efficiency_graphs/external_plus_rpc_trigger/eff_rpc_layer" + std::to_string(layer);
-            TGraphAsymmErrors* graph_rpc = dynamic_cast<TGraphAsymmErrors*>(input_file->Get(path_rpc.c_str()));
-            if (graph_rpc) {
-                double effs[4];
-                ErrorRange errs[4];
-                extractGraphData(graph_rpc, effs, errs);
-
-                data.efficiency_results.eta1_efficiency_rpc[layer] = effs[0];
-                data.efficiency_results.eta2_efficiency_rpc[layer] = effs[1];
-                data.efficiency_results.eta_or_efficiency_rpc[layer] = effs[2];
-                data.efficiency_results.eta_and_efficiency_rpc[layer] = effs[3];
-
-                data.efficiency_results.eta1_efficiency_rpc_error[layer] = errs[0];
-                data.efficiency_results.eta2_efficiency_rpc_error[layer] = errs[1];
-                data.efficiency_results.eta_or_efficiency_rpc_error[layer] = errs[2];
-                data.efficiency_results.eta_and_efficiency_rpc_error[layer] = errs[3];
-            }
-
-            // ------------------------------------------------------------------------------
-            // 3. Track external trigger only
-            std::string path_track = "efficiency_graphs/track_external_trigger/track_eff_external_trigger_layer" + std::to_string(layer);
-            TGraphAsymmErrors* graph_track = dynamic_cast<TGraphAsymmErrors*>(input_file->Get(path_track.c_str()));
-            if (graph_track) {
-                double effs[4];
-                ErrorRange errs[4];
-                extractGraphData(graph_track, effs, errs);
-
-                data.efficiency_results_tracks.eta1_efficiency_external[layer] = effs[0];
-                data.efficiency_results_tracks.eta2_efficiency_external[layer] = effs[1];
-                data.efficiency_results_tracks.eta_or_efficiency_external[layer] = effs[2];
-                data.efficiency_results_tracks.eta_and_efficiency_external[layer] = effs[3];
-
-                data.efficiency_results_tracks.eta1_efficiency_external_error[layer] = errs[0];
-                data.efficiency_results_tracks.eta2_efficiency_external_error[layer] = errs[1];
-                data.efficiency_results_tracks.eta_or_efficiency_external_error[layer] = errs[2];
-                data.efficiency_results_tracks.eta_and_efficiency_external_error[layer] = errs[3];
-            }
-
-            // ------------------------------------------------------------------------------
-            // 4. Track external trigger + RPC
-            std::string path_track_rpc = "efficiency_graphs/track_external_plus_rpc_trigger/track_eff_rpc_layer" + std::to_string(layer);
-            TGraphAsymmErrors* graph_track_rpc = dynamic_cast<TGraphAsymmErrors*>(input_file->Get(path_track_rpc.c_str()));
-            if (graph_track_rpc) {
-                double effs[4];
-                ErrorRange errs[4];
-                extractGraphData(graph_track_rpc, effs, errs);
-
-                data.efficiency_results_tracks.eta1_efficiency_rpc[layer] = effs[0];
-                data.efficiency_results_tracks.eta2_efficiency_rpc[layer] = effs[1];
-                data.efficiency_results_tracks.eta_or_efficiency_rpc[layer] = effs[2];
-                data.efficiency_results_tracks.eta_and_efficiency_rpc[layer] = effs[3];
-
-                data.efficiency_results_tracks.eta1_efficiency_rpc_error[layer] = errs[0];
-                data.efficiency_results_tracks.eta2_efficiency_rpc_error[layer] = errs[1];
-                data.efficiency_results_tracks.eta_or_efficiency_rpc_error[layer] = errs[2];
-                data.efficiency_results_tracks.eta_and_efficiency_rpc_error[layer] = errs[3];
-            }
-        }
-
-        // ----------------------------------------------------------------------------------
-        {  // Average cluster size calculation
-        TTree* cluster_tree = dynamic_cast<TTree*>(input_file->Get("Clusterization"));
-        if (!cluster_tree) {
-            std::cerr << "Error: Clusterization tree not found in file " << input_file->GetName() << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        TTreeReader reader(cluster_tree);
-        TTreeReaderValue<std::vector<int>> cluster_eta1(reader, "cluster_size_eta1");
-        TTreeReaderValue<std::vector<int>> cluster_eta2(reader, "cluster_size_eta2");
-        TTreeReaderValue<std::vector<int>> cluster_eta1_layer0(reader, "cluster_size_eta1_layer0");
-        TTreeReaderValue<std::vector<int>> cluster_eta1_layer1(reader, "cluster_size_eta1_layer1");
-        TTreeReaderValue<std::vector<int>> cluster_eta1_layer2(reader, "cluster_size_eta1_layer2");
-        TTreeReaderValue<std::vector<int>> cluster_eta2_layer0(reader, "cluster_size_eta2_layer0");
-        TTreeReaderValue<std::vector<int>> cluster_eta2_layer1(reader, "cluster_size_eta2_layer1");
-        TTreeReaderValue<std::vector<int>> cluster_eta2_layer2(reader, "cluster_size_eta2_layer2");
-
-        long long total_clusters_eta1 = 0;
-        long long total_clusters_eta2 = 0;
-        long long total_cluster_size_eta1 = 0;
-        long long total_cluster_size_eta2 = 0;
-
-        long long sum_sq_cluster_size_eta1 = 0;
-        long long sum_sq_cluster_size_eta2 = 0;
-
-        long long total_clusters_eta1_layers[3] = {0, 0, 0};
-        long long total_clusters_eta2_layers[3] = {0, 0, 0};
-        long long total_cluster_size_eta1_layers[3] = {0, 0, 0};
-        long long total_cluster_size_eta2_layers[3] = {0, 0, 0};
-
-        long long sum_sq_cluster_size_eta1_layers[3] = {0, 0, 0};
-        long long sum_sq_cluster_size_eta2_layers[3] = {0, 0, 0};
-
-        while (reader.Next()) {
-            // Define a generic, inline accumulator helper
-            auto accumulateBranch = [](auto& reader_val, long long& count, long long& sum, long long& sum_sq) {
-                if (reader_val.GetSetupStatus() == 0) {
-                    count += static_cast<long long>(reader_val->size());
-                    for (int size : *reader_val) {
-                        sum += size;
-                        sum_sq += (static_cast<long long>(size) * size);
-                    }
-                }
-            };
-
-            // Accumulate global metrics
-            accumulateBranch(cluster_eta1, total_clusters_eta1, total_cluster_size_eta1, sum_sq_cluster_size_eta1);
-            accumulateBranch(cluster_eta2, total_clusters_eta2, total_cluster_size_eta2, sum_sq_cluster_size_eta2);
-
-            // Accumulate layer-by-layer metrics
-            accumulateBranch(cluster_eta1_layer0, total_clusters_eta1_layers[0], total_cluster_size_eta1_layers[0], sum_sq_cluster_size_eta1_layers[0]);
-            accumulateBranch(cluster_eta1_layer1, total_clusters_eta1_layers[1], total_cluster_size_eta1_layers[1], sum_sq_cluster_size_eta1_layers[1]);
-            accumulateBranch(cluster_eta1_layer2, total_clusters_eta1_layers[2], total_cluster_size_eta1_layers[2], sum_sq_cluster_size_eta1_layers[2]);
-            
-            accumulateBranch(cluster_eta2_layer0, total_clusters_eta2_layers[0], total_cluster_size_eta2_layers[0], sum_sq_cluster_size_eta2_layers[0]);
-            accumulateBranch(cluster_eta2_layer1, total_clusters_eta2_layers[1], total_cluster_size_eta2_layers[1], sum_sq_cluster_size_eta2_layers[1]);
-            accumulateBranch(cluster_eta2_layer2, total_clusters_eta2_layers[2], total_cluster_size_eta2_layers[2], sum_sq_cluster_size_eta2_layers[2]);
-        }
-
-        // Helper lambda to calculate mean and standard error of the mean (SEM)
-        auto calcMeanAndError = [](long long N, long long sum, long long sum_sq, double& mean_out, ErrorRange& err_out) {
-            if (N <= 0) {
-                mean_out = 0.0;
-                err_out = ErrorRange{0.0};
-                return;
-            }
-            mean_out = static_cast<double>(sum) / N;
-            
-            if (N > 1) {
-                double variance = (static_cast<double>(sum_sq) - (static_cast<double>(sum) * sum) / N) / (N - 1);
-                if (variance < 0.0) variance = 0.0; 
-                double std_dev = std::sqrt(variance);
-                err_out = ErrorRange{std_dev / std::sqrt(N)};
-            } else {
-                err_out = ErrorRange{0.0}; // Cannot calculate error with only one cluster
-            }
-        };
-
-        // Calculate global metrics
-        calcMeanAndError(total_clusters_eta1, total_cluster_size_eta1, sum_sq_cluster_size_eta1, 
-                         data.cluster_size_results.avg_cluster_size_eta1, 
-                         data.cluster_size_results.avg_cluster_size_eta1_error);
-
-        calcMeanAndError(total_clusters_eta2, total_cluster_size_eta2, sum_sq_cluster_size_eta2, 
-                         data.cluster_size_results.avg_cluster_size_eta2, 
-                         data.cluster_size_results.avg_cluster_size_eta2_error);
-
-        // Calculate layer-by-layer metrics
-        for (int layer_idx = 0; layer_idx < 3; ++layer_idx) {
-            calcMeanAndError(total_clusters_eta1_layers[layer_idx], 
-                             total_cluster_size_eta1_layers[layer_idx], 
-                             sum_sq_cluster_size_eta1_layers[layer_idx],
-                             data.cluster_size_results.avg_cluster_size_eta1_layers[layer_idx],
-                             data.cluster_size_results.avg_cluster_size_eta1_layers_error[layer_idx]);
-
-            calcMeanAndError(total_clusters_eta2_layers[layer_idx], 
-                             total_cluster_size_eta2_layers[layer_idx], 
-                             sum_sq_cluster_size_eta2_layers[layer_idx],
-                             data.cluster_size_results.avg_cluster_size_eta2_layers[layer_idx],
-                             data.cluster_size_results.avg_cluster_size_eta2_layers_error[layer_idx]);
-        }
-        }   // Close the scope for cluster size calculation to avoid variable name conflicts
+        // Mean cluster size calculation
+        summaryHelpers::getClusterSize(input_file, data.cluster_size_results);
 
         // ----------------------------------------------------------------------------------
         // Noise rate calculation
