@@ -1,6 +1,8 @@
 #include <iostream>
+#include <memory>
 #include <algorithm>
 #include <stdexcept>
+#include <array>
 #include <unordered_set>
 #include <initializer_list>
 
@@ -1038,50 +1040,65 @@ void processToF(TFile* input_file, ToFResults& tof_results, TimeResolutionResult
     }
 
     TTreeReader reader_track(track_tree);
-    TTreeReaderValue<std::vector<int>> tof1(reader_track, "track_time_of_flight_eta1");
-    TTreeReaderValue<std::vector<int>> tof2(reader_track, "track_time_of_flight_eta2");
 
-    TH1D h_tof1("h_tof1", "ToF Eta1", 12, -6, 6);
-    TH1D h_tof2("h_tof2", "ToF Eta2", 12, -6, 6);
+    std::vector<std::unique_ptr<TTreeReaderValue<std::vector<int>>>> tof1_readers;
+    std::vector<std::unique_ptr<TTreeReaderValue<std::vector<int>>>> tof2_readers;
 
-    int event_count = 0;
+    std::array<TH1D*, LAYER_PAIR_COUNT> h_tof1;
+    std::array<TH1D*, LAYER_PAIR_COUNT> h_tof2;
+
+    for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+        std::string branch1 = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1";
+        std::string branch2 = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta2";
+
+        tof1_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, branch1.c_str()));
+        tof2_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, branch2.c_str()));
+
+        h_tof1[i] = new TH1D(Form("h_tof1_%s", LAYER_PAIR_SUFFIXES[i].c_str()),
+                             Form("ToF Eta1 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), 12, -6, 6);
+        h_tof2[i] = new TH1D(Form("h_tof2_%s", LAYER_PAIR_SUFFIXES[i].c_str()),
+                             Form("ToF Eta2 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), 12, -6, 6);
+    }
+
     while (reader_track.Next()) {
-        event_count++;
-        int n_hits_eta1 = tof1->size();
-        std::cout << "Event " << event_count << ": ToF Eta1 hits = " << n_hits_eta1 << std::endl;
-        if (tof1.GetSetupStatus() == 0) {
-            for (int t : *tof1) {
-                h_tof1.Fill(t);
-                std::cout << "ToF Eta1: " << t << std::endl;
-                tof_results.time_of_flight_eta1.push_back(t);
+        for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+
+            if (tof1_readers[i]->GetSetupStatus() == 0) {
+                for (int t : **tof1_readers[i]) {
+                    h_tof1[i]->Fill(t);
+                    tof_results.time_of_flight_eta1[i].push_back(t);
+                }
             }
-        }
-        if (tof2.GetSetupStatus() == 0) {
-            for (int t : *tof2) {
-                h_tof2.Fill(t);
-                std::cout << "ToF Eta2: " << t << std::endl;
-                tof_results.time_of_flight_eta2.push_back(t);
+
+            if (tof2_readers[i]->GetSetupStatus() == 0) {
+                for (int t : **tof2_readers[i]) {
+                    h_tof2[i]->Fill(t);
+                    tof_results.time_of_flight_eta2[i].push_back(t);
+                }
             }
         }
     }
 
     // Reusable Lambda to perform the Two-Pass Gaussian Fit
-    auto fitAndExtract = [](TH1D& hist, double& mean_out, ErrorRange& mean_err_out,
+    auto fitAndExtract = [](TH1D* hist, double& mean_out, ErrorRange& mean_err_out,
                             double& res_out, ErrorRange& res_err_out) {
 
-        if (hist.GetEntries() < 20) return;
+        if (!hist || hist->Integral() < 20) return;
 
         // Pass 1: Global fit to find the general location of the peak
-        TFitResultPtr r1 = hist.Fit("gaus", "Q0S");
+        TFitResultPtr r1 = hist->Fit("gaus", "Q0S");
 
-        if (static_cast<int>(r1) == 0) { // If Fit 1 succeeded
+        // Strict pointer and validity check
+        if (r1.Get() != nullptr && r1->IsValid() && static_cast<int>(r1) == 0) {
             double p_mean  = r1->Parameter(1);
             double p_sigma = r1->Parameter(2);
 
-            // Pass 2: Core fit restricted to +/- 1.5 sigma to ignore non-Gaussian tails
-            TFitResultPtr r2 = hist.Fit("gaus", "Q0S", "", p_mean - 1.5 * p_sigma, p_mean + 1.5 * p_sigma);
+            if (p_sigma <= 0.0) return;
 
-            if (static_cast<int>(r2) == 0) {
+            // Pass 2: Core fit restricted to +/- 1.5 sigma to ignore tails
+            TFitResultPtr r2 = hist->Fit("gaus", "Q0S", "", p_mean - 1.5 * p_sigma, p_mean + 1.5 * p_sigma);
+
+            if (r2.Get() != nullptr && r2->IsValid() && static_cast<int>(r2) == 0) {
                 mean_out = r2->Parameter(1);
                 mean_err_out = ErrorRange{r2->Error(1)};
 
@@ -1091,13 +1108,18 @@ void processToF(TFile* input_file, ToFResults& tof_results, TimeResolutionResult
         }
     };
 
-    fitAndExtract(h_tof1,
-                  tof_results.avg_time_of_flight_eta1, tof_results.avg_time_of_flight_eta1_error,
-                  time_resolution_results.time_resolution_eta1, time_resolution_results.time_resolution_eta1_error);
+    for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+        fitAndExtract(h_tof1[i],
+                      tof_results.avg_time_of_flight_eta1[i], tof_results.avg_time_of_flight_eta1_error[i],
+                      time_resolution_results.time_resolution_eta1[i], time_resolution_results.time_resolution_eta1_error[i]);
 
-    fitAndExtract(h_tof2,
-                  tof_results.avg_time_of_flight_eta2, tof_results.avg_time_of_flight_eta2_error,
-                  time_resolution_results.time_resolution_eta2, time_resolution_results.time_resolution_eta2_error);
+        fitAndExtract(h_tof2[i],
+                      tof_results.avg_time_of_flight_eta2[i], tof_results.avg_time_of_flight_eta2_error[i],
+                      time_resolution_results.time_resolution_eta2[i], time_resolution_results.time_resolution_eta2_error[i]);
+
+        delete h_tof1[i];
+        delete h_tof2[i];
+    }
 }
 
 }
