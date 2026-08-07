@@ -12,6 +12,10 @@
 #include <TAxis.h>
 #include <TPad.h>
 
+#include "core/hit.hpp"
+#include "core/event.hpp"
+#include "core/cluster.hpp"
+#include "core/track.hpp"
 #include "core/constants.hpp"
 #include "analysis/dataProcesser.hpp"
 

@@ -4,14 +4,14 @@
 #include <vector>
 #include <string>
 
-#include "core/hit.hpp"
-#include "core/event.hpp"
-#include "core/cluster.hpp"
-#include "core/track.hpp"
 #include "core/types.hpp"
 
 class TFile;
 class TTree;
+class Event;
+class Hit;
+class Cluster;
+class Track;
 
 // ==========================================================================================
 // DataProcesser Class: Main data processing section
