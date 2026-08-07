@@ -6,6 +6,7 @@
 #include <TClass.h>
 #include <TCanvas.h>
 #include <TH1.h>
+#include <TH2.h>
 #include <THStack.h>
 #include <TGraphAsymmErrors.h>
 #include <TMultiGraph.h>
@@ -100,7 +101,7 @@ void autoExportToATLASPDF(const std::string& root_file_path, const std::filesyst
 void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path& config_output_path) {
     if (!config_dir) return;
 
-    // STEP 1: Dynamically find any available group directory to act as a "blueprint"
+    // Dynamically find any available group directory to act as a "blueprint"
     TDirectory* blueprint_dir = nullptr;
     TIter next_top_key(config_dir->GetListOfKeys());
     TKey* top_key = nullptr;
@@ -121,7 +122,7 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
         return;
     }
 
-    // STEP 2: Iterate through analysis categories (e.g., efficiency_analysis)
+    // Iterate through analysis categories (e.g., efficiency_analysis)
     TIter next_analysis_dir(blueprint_dir->GetListOfKeys());
     TKey* analysis_key = nullptr;
 
@@ -184,7 +185,7 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                                 base_metric = g_name.substr(0, strip_pos);
                             }
 
-                            // Smart Naming Logic: Avoid "layer0_layer0"
+                            // Avoid names like "layer0_layer0"
                             std::string dynamic_suffix = "_" + clean_group;
                             if (clean_group != layer_folder) {
                                 dynamic_suffix += "_" + layer_folder;
@@ -231,104 +232,134 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                         delete canvas;
                         delete strip_mg;
                     }
-                }
-            }
+                }   // End of layer loop
+            }   // End of group loop
         } else {
-            // LAYER METRIC LOGIC: Stitch graphs dynamically across all groups
+            // LAYER & GLOBAL METRIC LOGIC: Handle 1D stitching and 2D Heatmaps
             TIter next_metric_key(analysis_dir->GetListOfKeys());
             TKey* metric_key = nullptr;
 
             while ((metric_key = static_cast<TKey*>(next_metric_key()))) {
                 TClass* cl_metric = TClass::GetClass(metric_key->GetClassName());
-                if (!cl_metric || !(cl_metric->InheritsFrom(TGraph::Class()) || cl_metric->InheritsFrom(TMultiGraph::Class()))) {
-                    continue; 
-                }
+                if (!cl_metric) continue; 
 
                 std::string metric_name = metric_key->GetName();
                 TObject* blueprint_obj = metric_key->ReadObj();
-
-                TMultiGraph* global_mg = new TMultiGraph();
-                global_mg->SetName(metric_name.c_str());
-                if (auto named = dynamic_cast<TNamed*>(blueprint_obj)) {
-                    global_mg->SetTitle(named->GetTitle());
+                if (blueprint_obj->InheritsFrom(TH1::Class())) {
+                    static_cast<TH1*>(blueprint_obj)->SetDirectory(nullptr);
                 }
 
-                bool graph_added = false;
+                std::vector<std::pair<TObject*, std::string>> export_queue;
+                // ------------------------------------------------------------------
+                // CASE A: 2D Heatmaps
+                if (cl_metric->InheritsFrom(TH2::Class())) {
+                    TIter next_group(config_dir->GetListOfKeys());
+                    TKey* group_key = nullptr;
 
-                // Loop over ALL dynamically created groups
-                TIter next_group(config_dir->GetListOfKeys());
-                TKey* group_key = nullptr;
-                while ((group_key = static_cast<TKey*>(next_group()))) {
-                    std::string group_dir_name = group_key->GetName();
-                    if (group_dir_name.rfind("group_", 0) != 0) continue;
+                    while ((group_key = static_cast<TKey*>(next_group()))) {
+                        std::string group_dir_name = group_key->GetName();
+                        if (group_dir_name.rfind("group_", 0) != 0) continue;
 
-                    std::string clean_group = group_dir_name.substr(6);
-                    std::string target_path = group_dir_name + "/" + analysis_subdir_name + "/" + metric_name;
+                        std::string clean_group = group_dir_name.substr(6);
+                        std::string target_path = group_dir_name + "/" + analysis_subdir_name + "/" + metric_name;
 
-                    TObject* scan_obj = config_dir->Get(target_path.c_str());
-                    if (!scan_obj) continue;
+                        TH2* raw_h2 = config_dir->Get<TH2>(target_path.c_str());
+                        if (!raw_h2) continue;
 
-                    if (auto mg = dynamic_cast<TMultiGraph*>(scan_obj)) {
-                        if (mg->GetListOfGraphs()) {
-                            for (TObject* gr_obj : *mg->GetListOfGraphs()) {
-                                auto g = static_cast<TGraph*>(gr_obj);
+                        TH2* h2_clone = static_cast<TH2*>(raw_h2->Clone());
+                        h2_clone->SetDirectory(nullptr);
+                        h2_clone->SetTitle((std::string(h2_clone->GetTitle()) + " (" + clean_group + ")").c_str());
 
-                                // Check if this layer was actually scanned by looking at its X values
-                                double x_start = 0.0, x_middle = 0.0, x_end = 0.0, y_dummy = 0.0;
-                                g->GetPoint(0, x_start, y_dummy);
-                                g->GetPoint(g->GetN() / 2, x_middle, y_dummy);
-                                g->GetPoint(g->GetN() - 1, x_end, y_dummy);
-
-                                // Skip graphs that have no meaningful scan range (e.g., flatlined layers)
-                                if (std::abs(x_end - x_start) < 1.0 && std::abs(x_middle - x_start) < 1.0) {
-                                    continue;
-                                }
-
-                                std::string g_name = g->GetName();
-                                TGraph* clone = static_cast<TGraph*>(g->Clone());
-                                clone->SetName((metric_name + "_" + clean_group + "_" + g_name).c_str());
-
-                                // Clean up the Legend Title
-                                if (clean_group.find("layer") == 0) {
-                                    clone->SetTitle(g->GetTitle()); // Just "Layer 0"
-                                } else {
-                                    clone->SetTitle((clean_group + " - " + g->GetTitle()).c_str()); // e.g. "filter_OFF - Layer 0"
-                                }
-
-                                global_mg->Add(clone, "P");
-                                graph_added = true;
-                            }
-                        }
-                    } else if (auto g = dynamic_cast<TGraph*>(scan_obj)) {
-                        // Flat graph logic
-                        TGraph* clone = static_cast<TGraph*>(g->Clone());
-                        clone->SetName((metric_name + "_" + clean_group).c_str());
-                        clone->SetTitle(clean_group.c_str());
-                        global_mg->Add(clone, "P");
-                        graph_added = true;
+                        export_queue.push_back({h2_clone, metric_name + "_" + clean_group});
+                    }
+                }
+                // ------------------------------------------------------------------
+                // CASE B: 1D Graphs
+                else if (cl_metric->InheritsFrom(TGraph::Class()) || cl_metric->InheritsFrom(TMultiGraph::Class())) {
+                    TMultiGraph* global_mg = new TMultiGraph();
+                    global_mg->SetName(metric_name.c_str());
+                    if (auto named = dynamic_cast<TNamed*>(blueprint_obj)) {
+                        global_mg->SetTitle(named->GetTitle());
                     }
 
-                    delete scan_obj; 
+                    bool graph_added = false;
+
+                    TIter next_group(config_dir->GetListOfKeys());
+                    TKey* group_key = nullptr;
+                    while ((group_key = static_cast<TKey*>(next_group()))) {
+                        std::string group_dir_name = group_key->GetName();
+                        if (group_dir_name.rfind("group_", 0) != 0) continue;
+
+                        std::string clean_group = group_dir_name.substr(6);
+                        std::string target_path = group_dir_name + "/" + analysis_subdir_name + "/" + metric_name;
+
+                        TObject* scan_obj = config_dir->Get(target_path.c_str());
+                        if (!scan_obj) continue;
+
+                        if (auto mg = dynamic_cast<TMultiGraph*>(scan_obj)) {
+                            if (mg->GetListOfGraphs()) {
+                                for (TObject* gr_obj : *mg->GetListOfGraphs()) {
+                                    auto g = static_cast<TGraph*>(gr_obj);
+
+                                    double x_start = 0.0, x_middle = 0.0, x_end = 0.0, y_dummy = 0.0;
+                                    g->GetPoint(0, x_start, y_dummy);
+                                    g->GetPoint(g->GetN() / 2, x_middle, y_dummy);
+                                    g->GetPoint(g->GetN() - 1, x_end, y_dummy);
+
+                                    if (std::abs(x_end - x_start) < 1.0 && std::abs(x_middle - x_start) < 1.0) continue;
+
+                                    std::string g_name = g->GetName();
+                                    TGraph* clone = static_cast<TGraph*>(g->Clone());
+                                    clone->SetName((metric_name + "_" + clean_group + "_" + g_name).c_str());
+
+                                    if (clean_group.find("layer") == 0) clone->SetTitle(g->GetTitle());
+                                    else clone->SetTitle((clean_group + " - " + g->GetTitle()).c_str()); 
+
+                                    global_mg->Add(clone, "P");
+                                    graph_added = true;
+                                }
+                            }
+                        } else if (auto g = dynamic_cast<TGraph*>(scan_obj)) {
+                            TGraph* clone = static_cast<TGraph*>(g->Clone());
+                            clone->SetName((metric_name + "_" + clean_group).c_str());
+                            clone->SetTitle(clean_group.c_str());
+                            global_mg->Add(clone, "P");
+                            graph_added = true;
+                        }
+                        delete scan_obj; 
+                    }
+                    
+                    if (graph_added) {
+                        export_queue.push_back({global_mg, metric_name});
+                    } else {
+                        delete global_mg;
+                    }
                 }
 
-                if (graph_added) {
+                // ------------------------------------------------------------------
+                // Export all queued objects to PDF
+                for (auto& [obj_to_export, filename_base] : export_queue) {
+                    std::cout << "[ATLAS Export] Exporting: " << filename_base << std::endl;
                     TCanvas* canvas = new TCanvas("c", "", 800, 600);
                     canvas->cd();
 
-                    PlotCategory category = PlotterHelpers::PlotStyler::getPlotCategory(global_mg);
+                    TClass* obj_class = obj_to_export->IsA();
+
+                    PlotCategory category = PlotterHelpers::PlotStyler::getPlotCategory(obj_to_export);
                     auto custom_styler = PlotterHelpers::PlotStyler::getCustomStyler(category);
 
-                    if (custom_styler) custom_styler(global_mg, canvas, TMultiGraph::Class());
-                    else PlotterHelpers::PlotStyler::styleDefaultPlot(global_mg, canvas, TMultiGraph::Class());
+                    if (custom_styler) custom_styler(obj_to_export, canvas, obj_class);
+                    else PlotterHelpers::PlotStyler::styleDefaultPlot(obj_to_export, canvas, obj_class);
 
-                    std::filesystem::path export_file = config_output_path / analysis_subdir_name / (metric_name + ".pdf");
+                    std::filesystem::path export_file = config_output_path / analysis_subdir_name / (filename_base + ".pdf");
                     std::filesystem::create_directories(export_file.parent_path());
 
                     canvas->SaveAs(export_file.string().c_str());
+
                     delete canvas;
+                    delete obj_to_export; 
                 }
 
-                delete global_mg;
                 delete blueprint_obj;
             }
         }
