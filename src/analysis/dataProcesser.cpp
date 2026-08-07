@@ -129,8 +129,8 @@ void DataProcesser::setupBranches() {
     _track_reconstruction_tree->Branch("track_size_eta2", &_track_size_eta2);
     _track_reconstruction_tree->Branch("track_time_separation_eta1", &_track_time_separation_eta1);
     _track_reconstruction_tree->Branch("track_time_separation_eta2", &_track_time_separation_eta2);
-    _track_reconstruction_tree->Branch("track_time_resolution_eta1", &_track_time_resolution_eta1);
-    _track_reconstruction_tree->Branch("track_time_resolution_eta2", &_track_time_resolution_eta2);
+    _track_reconstruction_tree->Branch("track_time_of_flight_eta1", &_track_time_of_flight_eta1);
+    _track_reconstruction_tree->Branch("track_time_of_flight_eta2", &_track_time_of_flight_eta2);
 }
 
 // ------------------------------------------------------------------------------------------
@@ -449,8 +449,8 @@ void DataProcesser::clearEventVectors() {
     _track_size_eta2.clear();
     _track_time_separation_eta1.clear();
     _track_time_separation_eta2.clear();
-    _track_time_resolution_eta1.clear();
-    _track_time_resolution_eta2.clear();
+    _track_time_of_flight_eta1.clear();
+    _track_time_of_flight_eta2.clear();
 }
 
 // Utility function to push back raw hit data
@@ -514,19 +514,19 @@ void DataProcesser::pushBackClusterData(const Cluster& cluster) {
 
 // Utility functions to push track-level data into the corresponding vectors for tree filling
 void DataProcesser::pushBackTrackData(const Track& track) {
-    const auto time_resolution = track.getTimeResolution();
+    const auto time_of_flight = track.getAdjacentToFs();
     if (track.getSide() == Track::ETA1) {
         _track_length_eta1.push_back(track.getLayerCount());
         _track_width_eta1.push_back(track.getWidth());
         _track_size_eta1.push_back(track.getNHits());
         _track_time_separation_eta1.push_back(track.getTimeSeparation());
-        _track_time_resolution_eta1.insert(_track_time_resolution_eta1.end(), time_resolution.begin(), time_resolution.end());
+        _track_time_of_flight_eta1.insert(_track_time_of_flight_eta1.end(), time_of_flight.begin(), time_of_flight.end());
     } else if (track.getSide() == Track::ETA2) {
         _track_length_eta2.push_back(track.getLayerCount());
         _track_width_eta2.push_back(track.getWidth());
         _track_size_eta2.push_back(track.getNHits());
         _track_time_separation_eta2.push_back(track.getTimeSeparation());
-        _track_time_resolution_eta2.insert(_track_time_resolution_eta2.end(), time_resolution.begin(), time_resolution.end());
+        _track_time_of_flight_eta2.insert(_track_time_of_flight_eta2.end(), time_of_flight.begin(), time_of_flight.end());
     }
 }
 

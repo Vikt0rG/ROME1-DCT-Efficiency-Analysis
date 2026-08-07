@@ -184,7 +184,7 @@ private:
     std::vector<int> _track_width_eta1, _track_width_eta2; 
     std::vector<int> _track_size_eta1, _track_size_eta2;
     std::vector<int> _track_time_separation_eta1, _track_time_separation_eta2;
-    std::vector<int> _track_time_resolution_eta1, _track_time_resolution_eta2;
+    std::vector<int> _track_time_of_flight_eta1, _track_time_of_flight_eta2;
     std::vector<bool> _in_valid_track_eta1, _in_valid_track_eta2;
 
     // ID vectors for hits in clusters and tracks
