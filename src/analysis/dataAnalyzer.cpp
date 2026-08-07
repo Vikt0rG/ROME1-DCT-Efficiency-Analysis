@@ -1155,7 +1155,7 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
     perFileHelpers::plotDtVsStrip(input_file);
     perFileHelpers::plotToTVsStrip(input_file);
     perFileHelpers::plotMultiplicityAndDelayVsStrip(input_file);
-    perFileHelpers::plotAdjacentToFs(input_file);
+    perFileHelpers::plotToFs(input_file);
 
     // Write analysis directory into the file
     input_file->Write("", TObject::kOverwrite);
