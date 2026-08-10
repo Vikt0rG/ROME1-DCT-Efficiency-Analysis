@@ -1,5 +1,6 @@
 #include <cmath>
 #include <utility>
+#include <optional>
 
 #include <iostream>
 #include <regex>
@@ -121,39 +122,23 @@ namespace PlotStyler {
             legend_entries.push_back("Side #eta_{2}");
         }
 
-        // Get side and trigger information directly from metric name
-        if (metric_name.find("eta1") != std::string::npos)       side = "#eta_{1} Side";
-        else if (metric_name.find("eta2") != std::string::npos)  side = "#eta_{2} Side";
-        else if (metric_name.find("or_") != std::string::npos)   side = "OR(#eta_{1}, #eta_{2})";
-        else if (metric_name.find("and_") != std::string::npos)  side = "AND(#eta_{1}, #eta_{2})";
-
-        if (metric_name.find("external") != std::string::npos)   trigger = "External Trigger";
-        else if (metric_name.find("rpc") != std::string::npos)   trigger = "RPC Coincidence";
-
-        // Build a subtitle string
-        // This applies only for those metrics that depend on the track reconstruction step
-        std::smatch match;
-        if (std::regex_search(metric_name, match, std::regex("^(track_)?(avg_tot|avg_multiplicity|eff)_"))) {
-            out_title += match[1].matched ? "After Track Reco: " : "Before Track Reco: ";
-        }
-
-        if (std::regex_search(metric_name, match, std::regex("^(track_)?(avg_tot|avg_multiplicity|noise_rate_strips)_"))) {
-            out_title += "Layer " + matchLabels(metric_name, "layer(\\d+)") + ": ";
-        }
-
-        if (!side.empty()) out_title += side;
-        if (!trigger.empty()) {
-            if (!out_title.empty()) out_title += ": ";
-            out_title += trigger;
-        }
-
         return std::make_tuple(out_title, out_xaxis, out_yaxis, legend_entries);
     }
 
     enum class AxisType { X, Y, Z };
 
+    struct DataCutoffs {
+        std::optional<double> x_min = std::nullopt;
+        std::optional<double> x_max = std::nullopt;
+        std::optional<double> y_min = std::nullopt;
+        std::optional<double> y_max = std::nullopt;
+    };
+
     void setRange(TObject* obj, TAxis* axis, AxisType axis_type,
-        double default_min, double default_max, double x_floor_limit = -1e9) {
+        std::optional<double> default_min = std::nullopt,
+        std::optional<double> default_max = std::nullopt,
+        const DataCutoffs& cutoffs = {}) {
+
         if (!obj || !axis) return;
 
         double true_min = INT_MAX;
@@ -188,7 +173,13 @@ namespace PlotStyler {
                 int n_points = gr->GetN();
                 for (int i = 0; i < n_points; ++i) {
                     double x_val = gr->GetX()[i];
-                    if (x_val <= x_floor_limit) continue;
+                    double y_val = gr->GetY()[i];
+
+                    // Data cutoffs
+                    if (cutoffs.x_min.has_value() && x_val < cutoffs.x_min.value()) continue;
+                    if (cutoffs.x_max.has_value() && x_val > cutoffs.x_max.value()) continue;
+                    if (cutoffs.y_min.has_value() && y_val < cutoffs.y_min.value()) continue;
+                    if (cutoffs.y_max.has_value() && y_val > cutoffs.y_max.value()) continue;
 
                     double val_low = 0.0, val_high = 0.0;
                     if (axis_type == AxisType::X) {
@@ -200,8 +191,8 @@ namespace PlotStyler {
                             val_low -= gr_err->GetErrorX(i);
                             val_high += gr_err->GetErrorX(i);
                         }
-                    } else { // Y axis
-                        val_low = val_high = gr->GetY()[i];
+                    } else if (axis_type == AxisType::Y) {
+                        val_low = val_high = y_val;
                         if (gr_asymm) {
                             val_low -= gr_asymm->GetErrorYlow(i);
                             val_high += gr_asymm->GetErrorYhigh(i);
@@ -224,23 +215,28 @@ namespace PlotStyler {
 
                 for (int x = 1; x <= n_bins_x; ++x) {
                     double x_center = h->GetXaxis()->GetBinCenter(x);
-                    if (x_center <= x_floor_limit) continue;
 
-                    // For 1D histograms, Y and Z loops run exactly once (GetNbinsY/Z return 1)
+                    // X-axis cutoffs
+                    if (cutoffs.x_min.has_value() && x_center < cutoffs.x_min.value()) continue;
+                    if (cutoffs.x_max.has_value() && x_center > cutoffs.x_max.value()) continue;
+
                     for (int y = 1; y <= n_bins_y; ++y) {
                         for (int z = 1; z <= n_bins_z; ++z) {
                             int global_bin = h->GetBin(x, y, z);
                             double content = h->GetBinContent(global_bin);
                             double error = h->GetBinError(global_bin);
 
-                            // Skip perfectly empty bins so they don't drag the Y-axis to 0
+                            // Skip empty bins
                             if (content == 0 && error == 0) continue; 
+
+                            if (cutoffs.y_min.has_value() && content < cutoffs.y_min.value()) continue;
+                            if (cutoffs.y_max.has_value() && content > cutoffs.y_max.value()) continue;
 
                             double val_low = 0.0, val_high = 0.0;
                             if (axis_type == AxisType::X) {
                                 val_low = h->GetXaxis()->GetBinLowEdge(x);
                                 val_high = h->GetXaxis()->GetBinUpEdge(x);
-                            } else {
+                            } else if (axis_type == AxisType::Y) {
                                 val_low = content - error;
                                 val_high = content + error;
                             }
@@ -264,17 +260,22 @@ namespace PlotStyler {
             double dynamic_min = true_min - safety_buffer;
             double dynamic_max = true_max + safety_buffer;
 
-            // For Y-axis, clamp to the absolute floor (e.g., 0.0) if it shouldn't dip negative
-            if (axis_type == AxisType::Y && dynamic_min < default_min) {
-                dynamic_min = default_min; 
+            // Clamping only happens if a default_min is provided
+            if (axis_type == AxisType::Y && default_min.has_value() && dynamic_min < default_min.value()) {
+                dynamic_min = default_min.value();
+            }
+
+            if (axis_type == AxisType::Y && default_max.has_value() && dynamic_max > default_max.value()) {
+                dynamic_max = default_max.value();
             }
 
             axis->SetLimits(dynamic_min, dynamic_max);
             axis->SetRangeUser(dynamic_min, dynamic_max);
         } else {
-            // Fallback to absolute defaults if no valid points pass the threshold
-            axis->SetLimits(default_min, default_max);
-            axis->SetRangeUser(default_min, default_max);
+            if (default_min.has_value() && default_max.has_value()) {
+                axis->SetLimits(default_min.value(), default_max.value());
+                axis->SetRangeUser(default_min.value(), default_max.value());
+            }
         }
     }
 
@@ -885,7 +886,7 @@ namespace PlotStyler {
 
             // Setup X Axis
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
-                setRange(mg, xAxis, AxisType::X, 0.0, 10e3, 4500.0);
+                setRange(mg, xAxis, AxisType::X, 0.0, 10e3, {.x_min = 4500.0});
                 xAxis->SetTitle(x_label.c_str());
             }
 
@@ -1045,7 +1046,7 @@ namespace PlotStyler {
 
         if (mg && mg->GetHistogram()) {
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
-                setRange(mg, xAxis, AxisType::X, 0.0, 10e3, 4500.0);
+                setRange(mg, xAxis, AxisType::X, 0.0, 10e3, {.x_min = 4500.0});
                 xAxis->SetTitle(x_label.c_str());
             }
             if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
@@ -1159,7 +1160,7 @@ namespace PlotStyler {
 
         if (mg && mg->GetHistogram()) {
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
-                setRange(mg, xAxis, AxisType::X, 0.0, 10e3, 4500.0);
+                setRange(mg, xAxis, AxisType::X, 0.0, 10e3, {.x_min = 4500.0});
                 xAxis->SetTitle(x_label.c_str());
             }
             if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
