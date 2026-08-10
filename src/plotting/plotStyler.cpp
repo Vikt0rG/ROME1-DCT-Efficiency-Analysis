@@ -40,6 +40,8 @@ namespace PlotStyler {
         {"h1d_tot",                 THStack::Class(),              PlotCategory::ToTCombinedDistribution},
         {"h1d_tof_layer",           TH1::Class(),                  PlotCategory::ToFDistribution},
         {"h2d_time_of_flight_eta",  TH2::Class(),                  PlotCategory::ToFHeatmap},
+        {"avg_time_of_flight",      TMultiGraph::Class(),          PlotCategory::AvgToFVsHV},
+        {"time_resolution",         TMultiGraph::Class(),          PlotCategory::TimeResolutionVsHV},
         {"track_eff",               TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
         {"eff",                     TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
         {"track_eff",               TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
@@ -949,6 +951,86 @@ namespace PlotStyler {
         canvas->Update();
     }
 
+    void styleAvgToFVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
+
+        // Extract title and axis labels from the object's title string
+        auto mg = dynamic_cast<TMultiGraph*>(obj);
+        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+
+        obj->Draw("AP0Z");
+
+        // Set axis ranges and labels
+        if (mg && mg->GetHistogram()) {
+
+            // Setup X Axis
+            if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 4500.0});
+                xAxis->SetTitle(x_label.c_str());
+            }
+
+            // Setup Y Axis (Default fallback 0.0 to 1.0, obeying the same X-floor)
+            if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
+                setRange(mg, yAxis, AxisType::Y);
+                yAxis->SetTitle(y_label.c_str());
+            }
+        }
+
+        // Set color and marker style for the graphs in the multigraph
+        const std::vector<Color_t> palette = {kAzure + 2, kGreen + 2, kOrange + 10};
+        if (mg && mg->GetListOfGraphs()) {
+            TIter next(mg->GetListOfGraphs());
+            TObject* gr_obj;
+            int color_idx = 0;
+            while ((gr_obj = next())) {
+                if (auto gr = dynamic_cast<TGraph*>(gr_obj)) {
+                    Color_t color = palette[color_idx % palette.size()];
+
+                    gr->SetMarkerStyle(52);
+                    gr->SetMarkerSize(1.8);
+                    gr->SetMarkerColor(color);
+                    gr->SetLineColor(color);
+                    gr->SetLineWidth(1);
+
+                    color_idx++;
+                }
+            }
+        }
+
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
+            named_obj->SetTitle(title.c_str());
+        }
+
+        applyATLASStyle(obj, canvas);
+
+        canvas->Modified();
+        canvas->Update();
+
+        double ndc_x0 = 1.0 - canvas->GetRightMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 - 0.03,
+            ndc_y0 - 0.09,            // Coordinates for the header box
+            "Work in Progress",       // Status string
+            plot_title,               // Title string
+            32,                       // Alignment
+            kWhite, 0.70,             // semi-transparent white background
+            kBlack, 1,                // Black 1px border line
+            0.01                      // Inner padding
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        double legend_y = header->GetY1NDC() - 0.02;
+        int alignment = 33;
+        drawATLASLegend(obj, legend_entries, ndc_x0, legend_y, alignment);
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
     void styleAvgToTVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
 
         auto mg = dynamic_cast<TMultiGraph*>(obj);
@@ -1481,6 +1563,8 @@ namespace PlotStyler {
         {PlotCategory::MeanClusterSizeVsHV,     &styleEfficiencyVsHV},
         {PlotCategory::NoiseRateVsHV,           &styleEfficiencyVsHV},
         {PlotCategory::ToFDistribution,         &styleToFDistribution},
+        {PlotCategory::AvgToFVsHV,              &styleAvgToFVsHV},
+        {PlotCategory::TimeResolutionVsHV,      &styleAvgToFVsHV},
         {PlotCategory::AvgToTVsHV,              &styleAvgToTVsHV},
         {PlotCategory::AvgMultVsHV,             &styleAvgMulVsHV},
         {PlotCategory::StripDistribution,       &styleStripDistribution},
