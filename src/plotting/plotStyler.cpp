@@ -70,37 +70,96 @@ namespace PlotStyler {
         const std::string& metric_name,
         TObject* obj)
     {
-        std::string out_title = "", out_xaxis = "", out_yaxis = "";
-        std::string side = "", trigger = "";
+        std::string out_title, out_xaxis = "High Voltage [V]", out_yaxis;
+        std::vector<std::string> title_parts;
 
-        // Match metric name patterns to determine axis labels and (sub)titles
-        if (metric_name.rfind("track_eff_", 0) == 0 || metric_name.rfind("eff_", 0) == 0) {
-            out_xaxis = "High Voltage [V]"; out_yaxis = "Efficiency";
-        } else if (metric_name.rfind("avg_cluster_size_", 0) == 0) {
-            out_xaxis = "High Voltage [V]"; out_yaxis = "#LTCluster Size#GT [Hits]";
-        } else if (metric_name.rfind("noise_rate_", 0) == 0) {
-            out_xaxis = "High Voltage [V]"; out_yaxis = "Noise Rate [Hz/cm^{2}]";
-        } else if (metric_name.rfind("track_avg_tot_", 0) == 0 || metric_name.rfind("avg_tot_", 0) == 0) {
-            out_xaxis = "High Voltage [V]"; out_yaxis = "#LTToT#GT [ns]";
-        } else if (metric_name.rfind( "track_avg_multiplicity_", 0) == 0 || metric_name.rfind( "avg_multiplicity_", 0) == 0) {
-            out_xaxis = "High Voltage [V]"; out_yaxis = "#LTMultiplicity#GT [Hits]";
+        // -------------------------------------------------------------------------
+        // Determine Y-Axis based on metric keywords
+        if (metric_name.find("eff") != std::string::npos) {
+            out_yaxis = "Efficiency";
+        } else if (metric_name.find("cluster_size") != std::string::npos) {
+            out_yaxis = "#LTCluster Size#GT [Hits]";
+        } else if (metric_name.find("noise_rate") != std::string::npos) {
+            out_yaxis = "Noise Rate [Hz/cm^{2}]";
+        } else if (metric_name.find("tot") != std::string::npos) {
+            out_yaxis = "#LTToT#GT [ns]";
+        } else if (metric_name.find("multiplicity") != std::string::npos) {
+            out_yaxis = "#LTMultiplicity#GT [Hits]";
+        } else if (metric_name.find("time_resolution") != std::string::npos) {
+            out_yaxis = "Time Resolution [Ticks]";
+        } else if (metric_name.find("time_of_flight") != std::string::npos) {
+            out_yaxis = metric_name.find("avg_") != std::string::npos ? "#LTToF#GT [Ticks]" : "Time of Flight [Ticks]";
         }
 
+        // -------------------------------------------------------------------------
+        // Build Subtitle Context Pieces
+
+        static const std::regex reco_re("^(track_)?(avg_tot|avg_multiplicity|eff)_");
+        static const std::regex layer_pair_re("layer_(\\d)_(\\d)");
+        static const std::regex single_layer_re("layer(\\d+)");
+
+        std::smatch match;
+
+        // A. Heatmap Prefix
+        if (metric_name.find("h2d_") == 0) {
+            title_parts.push_back("Heatmap");
+        }
+
+        // B. Track Reconstruction Context
+        if (std::regex_search(metric_name, match, reco_re)) {
+            title_parts.push_back(match[1].matched ? "After Track Reco" : "Before Track Reco");
+        }
+
+        // C. Layer / Layer Pair Context
+        bool pair_found = false;
+
+        // 1. Look for the ToF layer pair (e.g., "layer_0_1")
+        if (std::regex_search(metric_name, match, layer_pair_re)) {
+            title_parts.push_back("ToF(Layers " + match[1].str() + " & " + match[2].str() + ")");
+            pair_found = true;
+        }
+
+        // 2. Look for a single layer (e.g., "layer0")
+        if (std::regex_search(metric_name, match, single_layer_re)) {
+            if (pair_found) {
+                title_parts.push_back("Scanned Layer " + match[1].str());
+            } else {
+                title_parts.push_back("Layer " + match[1].str());
+            }
+        }
+
+        // D. Side Context
+        if (metric_name.find("eta1") != std::string::npos)       title_parts.push_back("Side #eta_{1}");
+        else if (metric_name.find("eta2") != std::string::npos)  title_parts.push_back("Side #eta_{2}");
+        else if (metric_name.find("_or_") != std::string::npos)  title_parts.push_back("OR(#eta_{1}, #eta_{2})");
+        else if (metric_name.find("_and_") != std::string::npos) title_parts.push_back("AND(#eta_{1}, #eta_{2})");
+
+        // E. Trigger Context
+        if (metric_name.find("external") != std::string::npos)   title_parts.push_back("External Trigger");
+        else if (metric_name.find("rpc") != std::string::npos)   title_parts.push_back("RPC Coincidence");
+
+        // Assemble Title (e.g., "After Track Reco: Layers 0 & 1: Side #eta_{1}")
+        for (size_t i = 0; i < title_parts.size(); ++i) {
+            out_title += title_parts[i];
+            if (i < title_parts.size() - 1) out_title += ": ";
+        }
+
+        // -------------------------------------------------------------------------
+        /// Build legend entries if object is a container (TMultiGraph or THStack)
         auto matchLabels = [](const std::string& name, const std::string& pattern) -> std::string {
             std::regex re(pattern);
             std::smatch match;
-            if (std::regex_search(name, match, re)) {
-                return match[1].str();
-            }
+            if (std::regex_search(name, match, re)) return match[1].str();
             return "";
         };
 
-        /// Build legend entries if object is a container (TMultiGraph or THStack)
         std::vector<std::string> legend_entries;
         if (TMultiGraph* mg = dynamic_cast<TMultiGraph*>(obj)) {
             TIter next(mg->GetListOfGraphs());
             TObject* obj;
+
             while ((obj = next())) {
+
                 if (auto gr = dynamic_cast<TGraph*>(obj)) {
                     std::string gr_name = gr->GetTitle();
                     std::string layer = "", strip = "";
@@ -108,12 +167,14 @@ namespace PlotStyler {
                     layer = matchLabels(gr_name, "layer(\\d+)");
                     strip = matchLabels(gr_name, "strip(\\d+)");
                     std::string legend_entry;
+
                     if (!layer.empty()) {
                         legend_entry = "Layer " + layer;
                     }
                     if (!strip.empty()) {
                         legend_entry = "Strip" + strip;
                     }
+
                     legend_entries.push_back(legend_entry);
                 }
             }
