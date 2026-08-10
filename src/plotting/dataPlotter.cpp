@@ -329,7 +329,7 @@ void DataPlotter::plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& sca
         if (hv_data_map.empty()) continue;
 
         std::string hist_name = "h2d_" + eta_side;
-        std::string hist_title = "ToF Heatmap " + eta_side + ";High Voltage [V];Time of Flight [Ticks];Entries";
+        std::string hist_title = eta_side + ";High Voltage [V];Time of Flight [Ticks];Entries";
 
         TH2D* heatmap = new TH2D(hist_name.c_str(), hist_title.c_str(), 
                                  15, 4500, 6000,

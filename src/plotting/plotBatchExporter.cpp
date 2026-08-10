@@ -268,7 +268,7 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
 
                         TH2* h2_clone = static_cast<TH2*>(raw_h2->Clone());
                         h2_clone->SetDirectory(nullptr);
-                        h2_clone->SetTitle((std::string(h2_clone->GetTitle()) + " (" + clean_group + ")").c_str());
+                        h2_clone->SetTitle((std::string(h2_clone->GetTitle()) + "_" + clean_group).c_str());
 
                         export_queue.push_back({h2_clone, metric_name + "_" + clean_group});
                     }
