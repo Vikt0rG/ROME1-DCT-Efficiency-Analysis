@@ -619,88 +619,121 @@ namespace PlotStyler {
                 double titleOffset; // Suggested axis title offset
             };
 
-            int getLabelWidthDigits(double val) {
-                double absVal = std::abs(val);
-                if (absVal == 0.0) return 1;
+            // Estimate the maximum character width
+            int getLabelWidthDigits(double minVal, double maxVal, int nDivisions) {
+                if (minVal == maxVal) return 1;
 
-                if (absVal >= 1.0) {
-                    return static_cast<int>(std::floor(std::log10(absVal))) + 1;
-                } else {
-                    int decimalPlaces = static_cast<int>(-std::floor(std::log10(absVal)));
-                    return decimalPlaces + 2;
+                // Characters needed for the integer part
+                double maxAbs = std::max(std::abs(minVal), std::abs(maxVal));
+                int intDigits = (maxAbs > 0) ? std::max(1, static_cast<int>(std::floor(std::log10(maxAbs))) + 1) : 1;
+
+                // Number of primary ticks (ROOT default is Ndivisions = 510)
+                int nPrimary = std::max(5, std::abs(nDivisions) % 100);
+                double step = std::abs(maxVal - minVal) / nPrimary;
+
+                // Characters needed for the decimal part
+                int decDigits = 0;
+                if (step > 0 && step < 1.0) {
+                    decDigits = std::clamp(static_cast<int>(std::ceil(-std::log10(step))), 0, 6);
                 }
+
+                return intDigits + decDigits;
             }
 
-            // Computes digits and returns spacing settings
-            SpacingSettings calculateAxisSpacing(double maxVal, AxisType type) {
-                int digits = getLabelWidthDigits(maxVal);
+            // Compute margins and offsets with clean early-returns
+            SpacingSettings calculateAxisSpacing(double minVal, double maxVal, int nDivisions, AxisType type) {
+                int digits = getLabelWidthDigits(minVal, maxVal, nDivisions);
 
-                SpacingSettings settings;
+                if (type == AxisType::X) {
+                    return {0.14, 1.10}; // X-Axis (Bottom margin & X-title offset)
+                }
 
-                // Map digits to margins and offsets based on axis orientation
+                if (type == AxisType::Y) { // Y-Axis (Left margin & Y-title offset)
+                    if (digits > 5)  return {0.18, 1.40};
+                    if (digits >= 4) return {0.16, 1.25};
+                    if (digits == 3) return {0.14, 1.10};
+                    if (digits == 2) return {0.12, 0.95};
+                    return {0.10, 0.80};
+                }
+
                 if (type == AxisType::Z) { // Colorbar (Right margin & Z-title offset)
-                    if (digits > 5)       { settings.margin = 0.18; settings.titleOffset = 1.45; }
-                    else if (digits >= 4) { settings.margin = 0.17; settings.titleOffset = 1.15; }
-                    else if (digits == 3) { settings.margin = 0.16; settings.titleOffset = 1.00; }
-                    else if (digits == 2) { settings.margin = 0.15; settings.titleOffset = 0.85; }
-                    else                  { settings.margin = 0.14; settings.titleOffset = 0.70; }
-                } else if (type == AxisType::Y) { // Y-Axis (Left margin & Y-title offset)
-                    if (digits > 5)       { settings.margin = 0.18; settings.titleOffset = 1.40; }
-                    else if (digits >= 4) { settings.margin = 0.16; settings.titleOffset = 1.25; }
-                    else if (digits == 3) { settings.margin = 0.14; settings.titleOffset = 1.10; }
-                    else if (digits == 2) { settings.margin = 0.12; settings.titleOffset = 0.95; }
-                    else                  { settings.margin = 0.10; settings.titleOffset = 0.80; }
-                } else { // X-Axis (Bottom margin & X-title offset)
-                    settings.margin = 0.14;
-                    settings.titleOffset = 1.10;
+                    if (digits > 5)  return {0.18, 1.45};
+                    if (digits >= 4) return {0.17, 1.15};
+                    if (digits == 3) return {0.16, 1.00};
+                    if (digits == 2) return {0.15, 0.85};
+                    return {0.14, 0.70};
                 }
 
-                return settings;
+                return {0.10, 1.00}; // Fallback
             }
 
+            // Helper to isolate casting logic
+            std::tuple<TAxis*, double, double> extractAxisData(TObject* obj, AxisType type) {
+                if (!obj) return {nullptr, 0.0, 0.0};
+
+                if (auto h2 = dynamic_cast<TH2*>(obj)) {
+                    if (type == AxisType::X && h2->GetXaxis()) return {h2->GetXaxis(), h2->GetXaxis()->GetXmin(), h2->GetXaxis()->GetXmax()};
+                    if (type == AxisType::Y && h2->GetYaxis()) return {h2->GetYaxis(), h2->GetYaxis()->GetXmin(), h2->GetYaxis()->GetXmax()};
+                    if (type == AxisType::Z && h2->GetZaxis()) return {h2->GetZaxis(), h2->GetMinimum(), h2->GetMaximum()};
+                }
+                else if (auto h1 = dynamic_cast<TH1*>(obj)) {
+                    if (type == AxisType::X && h1->GetXaxis()) return {h1->GetXaxis(), h1->GetXaxis()->GetXmin(), h1->GetXaxis()->GetXmax()};
+                    if (type == AxisType::Y && h1->GetYaxis()) return {h1->GetYaxis(), h1->GetMinimum(), h1->GetMaximum()};
+                }
+                else if (auto stack = dynamic_cast<THStack*>(obj)) {
+                    if (type == AxisType::X && stack->GetXaxis()) return {stack->GetXaxis(), stack->GetXaxis()->GetXmin(), stack->GetXaxis()->GetXmax()};
+                    if (type == AxisType::Y && stack->GetYaxis()) return {stack->GetYaxis(), stack->GetMinimum(), stack->GetMaximum()};
+                }
+                else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
+                    if (type == AxisType::X && mg->GetXaxis()) return {mg->GetXaxis(), mg->GetXaxis()->GetXmin(), mg->GetXaxis()->GetXmax()};
+                    if (type == AxisType::Y && mg->GetYaxis()) {
+                        double minV = 1e9, maxV = -1e9;
+                        if (mg->GetListOfGraphs()) {
+                            for (TObject* gr_obj : *mg->GetListOfGraphs()) {
+                                if (auto gr = dynamic_cast<TGraph*>(gr_obj)) {
+                                    int n = gr->GetN();
+                                    if (n > 0) {
+                                        minV = std::min(minV, *std::min_element(gr->GetY(), gr->GetY() + n));
+                                        maxV = std::max(maxV, *std::max_element(gr->GetY(), gr->GetY() + n));
+                                    }
+                                }
+                            }
+                        }
+                        return {mg->GetYaxis(), minV, maxV};
+                    }
+                }
+                else if (auto g = dynamic_cast<TGraph*>(obj)) { // Handles TGraph, TGraphErrors, and TGraphAsymmErrors
+                    if (type == AxisType::X && g->GetXaxis()) return {g->GetXaxis(), g->GetXaxis()->GetXmin(), g->GetXaxis()->GetXmax()};
+                    if (type == AxisType::Y && g->GetYaxis()) {
+                        int n = g->GetN();
+                        if (n > 0) {
+                            return {g->GetYaxis(), *std::min_element(g->GetY(), g->GetY() + n), *std::max_element(g->GetY(), g->GetY() + n)};
+                        }
+                    }
+                }
+                return {nullptr, 0.0, 0.0};
+            }
+
+            // Master function to set pad margins and axis title offsets dynamically based on data range
             void setMargins(TObject* obj, TPad* pad, AxisType axisType) {
                 if (!obj || !pad) return;
 
-                // Set default margins to be small
+                // Safely extract the axis and true data limits
+                auto [axis, minVal, maxVal] = extractAxisData(obj, axisType);
+                if (!axis) return;
+
+                // Default base margins
                 pad->SetTopMargin(0.05);
                 pad->SetRightMargin(0.05);
 
-                double maxVal = 0.0;
-                TAxis* axis = nullptr;
-
-                // Extract axis and maximum value depending on object type
-                if (auto h2 = dynamic_cast<TH2*>(obj)) {
-                    if (axisType == AxisType::X)      { axis = h2->GetXaxis(); maxVal = h2->GetXaxis()->GetXmax(); }
-                    else if (axisType == AxisType::Y) { axis = h2->GetYaxis(); maxVal = h2->GetYaxis()->GetXmax(); }
-                    else if (axisType == AxisType::Z) { axis = h2->GetZaxis(); maxVal = h2->GetMaximum(); }
-                } else if (auto h1 = dynamic_cast<TH1*>(obj)) {
-                    if (axisType == AxisType::X)      { axis = h1->GetXaxis(); maxVal = h1->GetXaxis()->GetXmax(); }
-                    else if (axisType == AxisType::Y) { axis = h1->GetYaxis(); maxVal = h1->GetMaximum(); }
-                } else if (auto stack = dynamic_cast<THStack*>(obj)) {
-                    if (axisType == AxisType::X)      { axis = stack->GetXaxis(); if (axis) maxVal = axis->GetXmax(); }
-                    else if (axisType == AxisType::Y) { axis = stack->GetYaxis(); maxVal = stack->GetMaximum(); }
-                } else if (auto eg = dynamic_cast<TGraphAsymmErrors*>(obj)) {
-                    if (axisType == AxisType::X)      { axis = eg->GetXaxis(); maxVal = eg->GetXaxis()->GetXmax(); }
-                    else if (axisType == AxisType::Y) { axis = eg->GetYaxis(); maxVal = eg->GetYaxis()->GetXmax(); }
-                } else if (auto g = dynamic_cast<TGraph*>(obj)) {
-                    if (axisType == AxisType::X)      { axis = g->GetXaxis(); maxVal = g->GetXaxis()->GetXmax(); }
-                    else if (axisType == AxisType::Y) { axis = g->GetYaxis(); maxVal = g->GetYaxis()->GetXmax(); }
-                } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
-                    if (axisType == AxisType::X)      { axis = mg->GetXaxis(); maxVal = mg->GetXaxis()->GetXmax(); }
-                    else if (axisType == AxisType::Y) { axis = mg->GetYaxis(); maxVal = mg->GetYaxis()->GetXmax(); }
-                }
-
-                if (!axis) return;
-
-                // Calculate settings
-                SpacingSettings spacing = calculateAxisSpacing(maxVal, axisType);
+                // Calculate dynamic spacing
+                SpacingSettings spacing = calculateAxisSpacing(minVal, maxVal, axis->GetNdivisions(), axisType);
 
                 // Apply pad margins depending on axis orientation
                 if (axisType == AxisType::Z)      pad->SetRightMargin(spacing.margin);
                 else if (axisType == AxisType::Y) pad->SetLeftMargin(spacing.margin);
                 else if (axisType == AxisType::X) pad->SetBottomMargin(spacing.margin);
 
-                // Set axis title offset
                 axis->SetTitleOffset(spacing.titleOffset);
 
                 pad->Modified();
