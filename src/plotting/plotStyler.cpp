@@ -1216,11 +1216,11 @@ namespace PlotStyler {
 
         if (mg && mg->GetHistogram()) {
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
-                setRange(mg, xAxis, AxisType::X, 0.0, 10e3, {.x_min = 4500.0});
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 4500.0});
                 xAxis->SetTitle(x_label.c_str());
             }
             if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
-                setRange(mg, yAxis, AxisType::Y, 0.0, 1.0);
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt);
                 yAxis->SetTitle(y_label.c_str());
             }
         }
@@ -1330,11 +1330,11 @@ namespace PlotStyler {
 
         if (mg && mg->GetHistogram()) {
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
-                setRange(mg, xAxis, AxisType::X, 0.0, 10e3, {.x_min = 4500.0});
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 4500.0});
                 xAxis->SetTitle(x_label.c_str());
             }
             if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
-                setRange(mg, yAxis, AxisType::Y, 0.8, 2.0);
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 4500.0});
                 yAxis->SetTitle(y_label.c_str());
             }
         }
