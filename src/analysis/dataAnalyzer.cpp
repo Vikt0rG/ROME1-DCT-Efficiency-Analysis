@@ -8,6 +8,7 @@
 
 #include <TFile.h>
 #include <TTree.h>
+#include <TF1.h>
 #include <TH1F.h>
 #include <TH2F.h>
 #include <THStack.h>
@@ -551,29 +552,55 @@ void plotToFs(TFile* input_file) {
         tof2_readers[i] = std::make_unique<TTreeReaderValue<std::vector<int>>>(readerTrackData, branch2.c_str());
 
         h_tof1[i] = new TH1F(Form("h1d_tof_layer_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()),
-                             Form("Side #eta1: %s;ToF [Ticks];Entries", pair_labels[i].c_str()), 16, -8, 8);
+                             Form("Side #eta1: %s;ToF [Ticks];Entries", pair_labels[i].c_str()), 17, -8.5, 8.5);
         h_tof2[i] = new TH1F(Form("h1d_tof_layer_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()),
-                             Form("Side #eta2: %s;ToF [Ticks];Entries", pair_labels[i].c_str()), 16, -8, 8);
+                             Form("Side #eta2: %s;ToF [Ticks];Entries", pair_labels[i].c_str()), 17, -8.5, 8.5);
     }
 
     while (readerTrackData.Next()) {
         for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
-
             if (tof1_readers[i]->GetSetupStatus() == 0) {
-                for (int t : **tof1_readers[i]) {
-                    h_tof1[i]->Fill(t);
-                }
+                for (int t : **tof1_readers[i]) h_tof1[i]->Fill(t);
             }
-
             if (tof2_readers[i]->GetSetupStatus() == 0) {
-                for (int t : **tof2_readers[i]) {
-                    h_tof2[i]->Fill(t);
-                }
+                for (int t : **tof2_readers[i]) h_tof2[i]->Fill(t);
             }
         }
     }
 
+    // Helper lambda to apply the visual fit before saving
+    auto applyVisualFit = [](TH1F* hist) {
+        if (!hist || hist->Integral() < 20) return;
+
+        // Pass 1: Global fit
+        TFitResultPtr r1 = hist->Fit("gaus", "Q0S");
+
+        if (r1.Get() != nullptr && r1->IsValid() && static_cast<int>(r1) == 0) {
+            double p_mean  = r1->Parameter(1);
+            double p_sigma = r1->Parameter(2);
+
+            if (p_sigma > 0.0) {
+                double fit_width = std::max(1.5 * p_sigma, 2.0);
+
+                // Pass 2: Core fit
+                TFitResultPtr r2 = hist->Fit("gaus", "QS", "", p_mean - fit_width, p_mean + fit_width);
+
+                // Fallback: If narrow fit fails, re-fit globally with "QS"
+                if (r2.Get() == nullptr || !r2->IsValid() || static_cast<int>(r2) != 0) {
+                    hist->Fit("gaus", "QS");
+                }
+
+                if (TF1* fit_func = hist->GetFunction("gaus")) {
+                    fit_func->SetRange(hist->GetXaxis()->GetXmin(), hist->GetXaxis()->GetXmax());
+                }
+            }
+        }
+    };
+
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+        applyVisualFit(h_tof1[i]);
+        applyVisualFit(h_tof2[i]);
+
         h_tof1[i]->Write("", TObject::kOverwrite);
         h_tof2[i]->Write("", TObject::kOverwrite);
 
