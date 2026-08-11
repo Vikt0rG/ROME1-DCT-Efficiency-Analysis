@@ -316,7 +316,7 @@ namespace PlotStyler {
 
         // Apply dynamic margins if valid points were found
         if (found_valid_points && true_max >= true_min) {
-            double safety_buffer = (true_max > true_min) ? (true_max - true_min) * 0.05 : 50.0;
+            double safety_buffer = (true_max > true_min) ? (true_max - true_min) * 0.05 : 0.05;
 
             double dynamic_min = true_min - safety_buffer;
             double dynamic_max = true_max + safety_buffer;
