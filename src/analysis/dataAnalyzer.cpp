@@ -1222,9 +1222,9 @@ void processToF(TFile* input_file, ToFResults& tof_results, TimeResolutionResult
         tof2_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, branch2.c_str()));
 
         h_tof1[i] = new TH1D(Form("h_tof1_%s", LAYER_PAIR_SUFFIXES[i].c_str()),
-                             Form("ToF Eta1 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), 12, -6, 6);
+                             Form("ToF Eta1 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), 13, -6.5, 6.5);
         h_tof2[i] = new TH1D(Form("h_tof2_%s", LAYER_PAIR_SUFFIXES[i].c_str()),
-                             Form("ToF Eta2 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), 12, -6, 6);
+                             Form("ToF Eta2 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), 13, -6.5, 6.5);
     }
 
     while (reader_track.Next()) {
@@ -1262,8 +1262,11 @@ void processToF(TFile* input_file, ToFResults& tof_results, TimeResolutionResult
 
             if (p_sigma <= 0.0) return;
 
-            // Pass 2: Core fit restricted to +/- 1.5 sigma to ignore tails
-            TFitResultPtr r2 = hist->Fit("gaus", "Q0S", "", p_mean - 1.5 * p_sigma, p_mean + 1.5 * p_sigma);
+            // Prevent 0 NDF: Ensure the fit window covers at least ~4 bins total
+            double fit_width = std::max(1.5 * p_sigma, 2.0);
+
+            // Pass 2: Core fit restricted to ignore tails
+            TFitResultPtr r2 = hist->Fit("gaus", "Q0S", "", p_mean - fit_width, p_mean + fit_width);
 
             if (r2.Get() != nullptr && r2->IsValid() && static_cast<int>(r2) == 0) {
                 mean_out = r2->Parameter(1);
@@ -1271,6 +1274,12 @@ void processToF(TFile* input_file, ToFResults& tof_results, TimeResolutionResult
 
                 res_out = r2->Parameter(2) / std::sqrt(2.0);
                 res_err_out = ErrorRange{r2->Error(2) / std::sqrt(2.0)};
+            } else {
+                // Fallback to the first fit if the second fit fails (e.g. narrow peak)
+                mean_out = p_mean;
+                mean_err_out = ErrorRange{r1->Error(1)};
+                res_out = p_sigma / std::sqrt(2.0);
+                res_err_out = ErrorRange{r1->Error(2) / std::sqrt(2.0)};
             }
         }
     };
