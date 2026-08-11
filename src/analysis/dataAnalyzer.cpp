@@ -1371,8 +1371,6 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
 
 void DataAnalyzer::produceSummaryStats() {
 
-    using namespace summaryHelpers;
-
     // Process each config file and build the list of measurement entries and summaries
     std::cout << _output_directory << std::endl;
     std::filesystem::create_directories(_output_directory / "root_summaries");
@@ -1394,7 +1392,7 @@ void DataAnalyzer::produceSummaryStats() {
     MeasurementData data;
 
     // Set up branches for the summary tree
-    setupBranches(summary_tree, metadata, data);
+    summaryHelpers::setupBranches(summary_tree, metadata, data);
 
     // Process each measurement entry in this config file
     for (const auto& metadata_entry : scan.metadata) {
