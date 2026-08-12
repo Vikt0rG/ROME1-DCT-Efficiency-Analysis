@@ -127,22 +127,32 @@ struct ClusterSizeResults {
     ErrorRange avg_cluster_size_eta2_layers_error[3] = {};
 };
 
-struct NoiseRateResults {
-    // Detector-wide noise rate results
-    double noise_rate = 0.0;
-    ErrorRange noise_rate_error = {};
+struct RateResults {
+    // Detector-wide rate results
+    double rate = 0.0;
+    ErrorRange rate_error = {};
 
-    // Layer-wide noise rate results
-    double noise_rate_eta1[LAYER_COUNT] = {};
-    double noise_rate_eta2[LAYER_COUNT] = {};
-    ErrorRange noise_rate_eta1_error[LAYER_COUNT] = {};
-    ErrorRange noise_rate_eta2_error[LAYER_COUNT] = {};
+    // Layer-wide rate results
+    double rate_eta1[LAYER_COUNT] = {};
+    double rate_eta2[LAYER_COUNT] = {};
+    ErrorRange rate_eta1_error[LAYER_COUNT] = {};
+    ErrorRange rate_eta2_error[LAYER_COUNT] = {};
 
-    // Strip-wide noise rate results
-    double noise_rate_strips_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {};
-    double noise_rate_strips_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {};
-    ErrorRange noise_rate_strips_eta1_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
-    ErrorRange noise_rate_strips_eta2_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    // Strip-wide rate results
+    double rate_strips_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    double rate_strips_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    ErrorRange rate_strips_eta1_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    ErrorRange rate_strips_eta2_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+};
+
+struct DeadStrips {
+    std::vector<std::pair<int, int>> dead_strips_eta1;
+    std::vector<std::pair<int, int>> dead_strips_eta2;
+
+    void clear() {
+        dead_strips_eta1.clear();
+        dead_strips_eta2.clear();
+    }
 };
 
 struct ToTResults {
@@ -234,25 +244,31 @@ struct MeasurementMetadata {
     double other_hv = 0.0;
 };
 
-/// @struct MeasurementData
-/// @brief Struct to hold calculated statistics for a single ROOT file/measurement entry
-/// @param efficiency_results Calculated efficiency results for the measurement entry
-/// @param efficiency_results_tracks Calculated track-based efficiency results for the
-/// measurement entry
-/// @param cluster_size_results Calculated cluster size results for the measurement entry
-/// @param noise_rate_results Calculated noise rate results for the measurement entry
-/// @param tot_results Calculated average ToT results for the measurement entry
-/// @param tot_results_tracks Calculated track-based average ToT results for the measurement
-/// entry
-/// @param multiplicity_results Calculated average multiplicity results for the measurement
-/// entry
-/// @param multiplicity_results_tracks Calculated track-based average multiplicity results
-/// for the measurement entry
+/**
+ * @struct MeasurementData
+ * @brief Struct to hold calculated statistics for a single ROOT file/measurement entry
+ * @param efficiency_results Calculated efficiency results for the measurement entry
+ * @param efficiency_results_tracks Calculated track-based efficiency results for the
+ * measurement entry
+ * @param cluster_size_results Calculated cluster size results for the measurement entry
+ * @param rate_results Calculated rate results for the measurement entry
+ * @param tot_results Calculated average ToT results for the measurement entry
+ * @param tot_results_tracks Calculated track-based average ToT results for the measurement
+ * entry
+ * @param multiplicity_results Calculated average multiplicity results for the measurement
+ * entry
+ * @param multiplicity_results_tracks Calculated track-based average multiplicity results
+ * for the measurement entry
+ * @param tof_results Calculated time-of-flight results for the measurement entry
+ * @param time_resolution_results Calculated time resolution results for the measurement entry
+ * @param dead_strips Struct containing information about dead strips
+ */
 struct MeasurementData {
     EfficiencyResults efficiency_results;
     EfficiencyResults efficiency_results_tracks;
     ClusterSizeResults cluster_size_results;
-    NoiseRateResults noise_rate_results;
+    RateResults rate_results;
+    DeadStrips dead_strips;
     ToTResults tot_results;
     ToTResults tot_results_tracks;
     MultiplicityResults multiplicity_results;
@@ -264,13 +280,14 @@ struct MeasurementData {
         efficiency_results = {};
         efficiency_results_tracks = {};
         cluster_size_results = {};
-        noise_rate_results = {};
+        rate_results = {};
         tot_results = {};
         tot_results_tracks = {};
         multiplicity_results = {};
         multiplicity_results_tracks = {};
-        tof_results = {};
-        time_resolution_results = {};
+        tof_results.clear();
+        time_resolution_results.clear();
+        dead_strips.clear();
     }
 };
 
