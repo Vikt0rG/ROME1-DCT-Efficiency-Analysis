@@ -2,10 +2,14 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
 // ============================================================
 // Global Constants for DCT Analysis
 // ============================================================
+
+// Dead strips in the detector (layer, strip, side (1 = eta1, 2 = eta2))
+const std::vector<std::tuple<int, int, int>> DEAD_STRIPS = {{0, 7, 1}};
 
 // Detector geometry constants
 constexpr int LAYER_COUNT = 3;                      // Number of detector layers (L0, L1, L2)
