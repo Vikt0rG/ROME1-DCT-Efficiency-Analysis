@@ -1024,7 +1024,19 @@ void getRate(TFile* input_file, NoiseRateResults& rate_results) {
     }
 }
 
-void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_track_only) {
+void getDeadStrips(DeadStrips& dead_strips) {
+    for (auto [layer, strip, side] : DEAD_STRIPS) {
+        if (side == 1) {
+            dead_strips.dead_strips_eta1.push_back({layer, strip});
+        } else {
+            dead_strips.dead_strips_eta2.push_back({layer, strip});
+        }
+    }
+}
+
+void getAverageToT(TFile* input_file, ToTResults& tot_results,
+    bool in_valid_track_only, DeadStrips& dead_strips)
+{
     TTree* processed_tree = input_file->Get<TTree>("ProcessedData");
     TTree* track_tree = input_file->Get<TTree>("TrackReconstruction");
 
@@ -1095,8 +1107,15 @@ void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_tra
         }
     }
 
-    auto assignAverageAndError = [](const Accumulator& acc, double& avg, ErrorRange& err) {
-        if (acc.hits == 0) {
+    auto isDead = [](int l, int s, const std::vector<std::pair<int, int>>& dead_list) {
+        return std::find(dead_list.begin(), dead_list.end(), std::make_pair(l, s)) != dead_list.end();
+    };
+
+    auto assignAverageAndError = [](const Accumulator& acc, bool is_dead, double& avg, ErrorRange& err) {
+        if (is_dead) {
+            avg = std::numeric_limits<double>::quiet_NaN();
+            err = ErrorRange(std::numeric_limits<double>::quiet_NaN());
+        } else if (acc.hits == 0) {
             avg = 0.0;
             err = ErrorRange(0.0);
         } else {
@@ -1108,18 +1127,25 @@ void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_tra
     for (int layer = 0; layer < LAYER_COUNT; ++layer) {
         for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
 
+            bool dead_eta1 = isDead(layer, strip, dead_strips.dead_strips_eta1);
+            bool dead_eta2 = isDead(layer, strip, dead_strips.dead_strips_eta2);
+
             assignAverageAndError(eta1[layer][strip],
+                                  dead_eta1,
                                   tot_results.avg_tot_eta1[layer][strip],
                                   tot_results.avg_tot_eta1_error[layer][strip]);
 
             assignAverageAndError(eta2[layer][strip],
+                                  dead_eta2,
                                   tot_results.avg_tot_eta2[layer][strip],
                                   tot_results.avg_tot_eta2_error[layer][strip]);
         }
     }
 }
 
-void getAverageMultiplicity(TFile* input_file, MultiplicityResults& mult_results, bool in_valid_track_only) {
+void getAverageMultiplicity(TFile* input_file, MultiplicityResults& mult_results,
+    bool in_valid_track_only, DeadStrips& dead_strips)
+{
     TTree* input_tree = input_file->Get<TTree>("InputData");
     TTree* processed_tree = input_file->Get<TTree>("ProcessedData");
     TTree* track_tree = input_file->Get<TTree>("TrackReconstruction");
@@ -1199,10 +1225,17 @@ void getAverageMultiplicity(TFile* input_file, MultiplicityResults& mult_results
         n_events++;
     }
 
-    auto assignAverageAndError = [](int count, int active_events, double& avg, ErrorRange& err) {
-        if (active_events == 0) {
-            avg = 0.0;
-            err = ErrorRange(0.0);
+    auto isDead = [](int l, int s, const std::vector<std::pair<int, int>>& dead_list) {
+        return std::find(dead_list.begin(), dead_list.end(), std::make_pair(l, s)) != dead_list.end();
+    };
+
+    auto assignAverageAndError = [](int count, int active_events, bool is_dead, double& avg, ErrorRange& err) {
+        if (is_dead) {
+            avg = std::numeric_limits<double>::quiet_NaN();
+            err = ErrorRange(std::numeric_limits<double>::quiet_NaN());
+        } else if (active_events == 0) {
+            avg = std::numeric_limits<double>::quiet_NaN();
+            err = ErrorRange(std::numeric_limits<double>::quiet_NaN());
         } else {
             avg = static_cast<double>(count) / active_events;
             err = ErrorRange(std::sqrt(count) / active_events);
@@ -1212,20 +1245,27 @@ void getAverageMultiplicity(TFile* input_file, MultiplicityResults& mult_results
     for (int layer = 0; layer < LAYER_COUNT; ++layer) {
         for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
 
+            bool dead_eta1 = isDead(layer, strip, dead_strips.dead_strips_eta1);
+            bool dead_eta2 = isDead(layer, strip, dead_strips.dead_strips_eta2);
+
             assignAverageAndError(eta1_per_layer_strip[layer][strip],
                                   active_events_eta1[layer][strip],
+                                  dead_eta1,
                                   mult_results.avg_multiplicity_eta1[layer][strip],
                                   mult_results.avg_multiplicity_eta1_error[layer][strip]);
 
             assignAverageAndError(eta2_per_layer_strip[layer][strip],
                                   active_events_eta2[layer][strip],
+                                  dead_eta2,
                                   mult_results.avg_multiplicity_eta2[layer][strip],
                                   mult_results.avg_multiplicity_eta2_error[layer][strip]);
         }
     }
 }
 
-void processToF(TFile* input_file, ToFResults& tof_results, TimeResolutionResults& time_resolution_results) {
+void processToF(TFile* input_file, ToFResults& tof_results,
+    TimeResolutionResults& time_resolution_results, DeadStrips& dead_strips)
+{
     TTree* track_tree = input_file->Get<TTree>("TrackReconstruction");
 
     if (!track_tree) {

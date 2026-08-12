@@ -260,6 +260,8 @@ std::map<std::string, DataPlotter::MetricsData> DataPlotter::extractScanData(
             const auto& errs = *layer_error_arrays[i];
 
             for (int layer = 0; layer < LAYER_COUNT; ++layer) {
+                if (std::isnan(vals[layer])) continue;
+
                 double x_value = (layer == scan_lyr) ? scan_hv : oth_hv;
 
                 auto& layer_series = current_scan.layer_metrics[metric_name];
@@ -282,6 +284,8 @@ std::map<std::string, DataPlotter::MetricsData> DataPlotter::extractScanData(
                 for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
 
                     int flat_idx = layer * STRIPS_PER_LAYER + strip;
+
+                    if (std::isnan(vals[flat_idx])) continue;
 
                     auto& strip_series = current_scan.strip_metrics[metric_name][layer][strip];
                     strip_series.x.push_back(x_value);
