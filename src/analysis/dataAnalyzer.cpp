@@ -253,9 +253,9 @@ void plotDtVsStrip(TFile* input_file) {
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
     // Create histograms using arrays
-    const int nConfigs = 4;
-    const char* suffixes[nConfigs] = {"dt_strip_all", "dt_strip_valid1", "dt_strip_valid2", "dt_strip_valid_all"};
-    const char* comments[nConfigs] = {"Before Track Reco", "After Track Reco (#eta1)", "After Track Reco (#eta2)", "After Track Reco (#eta1 and #eta2)"};
+    const int nConfigs = 2;
+    const char* suffixes[nConfigs] = {"dt_strip", "dt_strip_track"};
+    const char* comments[nConfigs] = {"Before Track Reco", "After Track Reco"};
 
     std::map<std::string, std::map<int, TH2*>> dt_strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
@@ -273,15 +273,9 @@ void plotDtVsStrip(TFile* input_file) {
             int strip = remapStrip((*strips)[i]);
             double dt_ticks = (*dts)[i];
 
-            dt_strip_histograms["dt_strip_all"][layer]->Fill(strip, dt_ticks);
-            if ((*in_valid_track_eta1)[i]) {
-                dt_strip_histograms["dt_strip_valid1"][layer]->Fill(strip, dt_ticks);
-            }
-            if ((*in_valid_track_eta2)[i]) {
-                dt_strip_histograms["dt_strip_valid2"][layer]->Fill(strip, dt_ticks);
-            }
-            if ((*in_valid_track_eta1)[i] && (*in_valid_track_eta2)[i]) {
-                dt_strip_histograms["dt_strip_valid_all"][layer]->Fill(strip, dt_ticks);
+            dt_strip_histograms["dt_strip"][layer]->Fill(strip, dt_ticks);
+            if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
+                dt_strip_histograms["dt_strip_track"][layer]->Fill(strip, dt_ticks);
             }
         }
     }
