@@ -48,8 +48,8 @@ namespace PlotStyler {
         {"track_eff",               TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
         {"eff",                     TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
         {"avg_cluster_size",        TMultiGraph::Class(),          PlotCategory::MeanClusterSizeVsHV},
-        {"noise_rate_eta",          TMultiGraph::Class(),          PlotCategory::NoiseRateVsHV},
-        {"noise_rate_strips_eta",   TMultiGraph::Class(),          PlotCategory::AvgToTVsHV},
+        {"rate_eta",                TMultiGraph::Class(),          PlotCategory::RateVsHV},
+        {"rate_strips_eta",         TMultiGraph::Class(),          PlotCategory::AvgToTVsHV},
         {"avg_tot",                 TMultiGraph::Class(),          PlotCategory::AvgToTVsHV},
         {"avg_multiplicity",        TMultiGraph::Class(),          PlotCategory::AvgMultVsHV}
     };
@@ -79,8 +79,8 @@ namespace PlotStyler {
             out_yaxis = "Efficiency";
         } else if (metric_name.find("cluster_size") != std::string::npos) {
             out_yaxis = "#LTCluster Size#GT [Hits]";
-        } else if (metric_name.find("noise_rate") != std::string::npos) {
-            out_yaxis = "Noise Rate [Hz/cm^{2}]";
+        } else if (metric_name.find("rate") != std::string::npos) {
+            out_yaxis = "Rate [Hz/cm^{2}]";
         } else if (metric_name.find("tot") != std::string::npos) {
             out_yaxis = "#LTToT#GT [ns]";
         } else if (metric_name.find("multiplicity") != std::string::npos) {
@@ -1732,7 +1732,7 @@ namespace PlotStyler {
     static const std::vector<std::pair<PlotCategory, StylerFnPtr>> styler_map = {
         {PlotCategory::EfficiencyVsHV,          &styleEfficiencyVsHV},
         {PlotCategory::MeanClusterSizeVsHV,     &styleAvgClusterSizeVsHV},
-        {PlotCategory::NoiseRateVsHV,           &styleAvgClusterSizeVsHV},
+        {PlotCategory::RateVsHV,                &styleAvgClusterSizeVsHV},
         {PlotCategory::ToFDistribution,         &styleToFDistribution},
         {PlotCategory::AvgToFVsHV,              &styleAvgToFVsHV},
         {PlotCategory::TimeResolutionVsHV,      &styleAvgToFVsHV},

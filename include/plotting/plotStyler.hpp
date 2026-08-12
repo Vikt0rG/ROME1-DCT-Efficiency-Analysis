@@ -30,7 +30,7 @@ enum class PlotCategory {
     DtVsStrip,
     ToT,
     MeanClusterSizeVsHV,
-    NoiseRateVsHV,
+    RateVsHV,
     AvgToTVsHV,
     AvgMultVsHV,
     Default

@@ -664,18 +664,18 @@ void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, Measureme
     summary_tree->Branch("avg_cluster_size_eta1_layers_error", &data.cluster_size_results.avg_cluster_size_eta1_layers_error, "avg_cluster_size_eta1_layers_error[6]/D");
     summary_tree->Branch("avg_cluster_size_eta2_layers_error", &data.cluster_size_results.avg_cluster_size_eta2_layers_error, "avg_cluster_size_eta2_layers_error[6]/D");
 
-    summary_tree->Branch("noise_rate", &data.noise_rate_results.noise_rate);
-    summary_tree->Branch("noise_rate_error", &data.noise_rate_results.noise_rate_error, Form("noise_rate_error[%d]/D", 2));
+    summary_tree->Branch("rate", &data.rate_results.rate);
+    summary_tree->Branch("rate_error", &data.rate_results.rate_error, Form("rate_error[%d]/D", 2));
 
-    summary_tree->Branch("noise_rate_eta1", &data.noise_rate_results.noise_rate_eta1, Form("noise_rate_eta1[%d]/D", 3));
-    summary_tree->Branch("noise_rate_eta2", &data.noise_rate_results.noise_rate_eta2, Form("noise_rate_eta2[%d]/D", 3));
-    summary_tree->Branch("noise_rate_eta1_error", &data.noise_rate_results.noise_rate_eta1_error, Form("noise_rate_eta1_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("noise_rate_eta2_error", &data.noise_rate_results.noise_rate_eta2_error, Form("noise_rate_eta2_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_eta1", &data.rate_results.rate_eta1, Form("rate_eta1[%d]/D", 3));
+    summary_tree->Branch("rate_eta2", &data.rate_results.rate_eta2, Form("rate_eta2[%d]/D", 3));
+    summary_tree->Branch("rate_eta1_error", &data.rate_results.rate_eta1_error, Form("rate_eta1_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_eta2_error", &data.rate_results.rate_eta2_error, Form("rate_eta2_error[%d]/D", LAYER_COUNT * 2));
 
-    summary_tree->Branch("noise_rate_strips_eta1", &data.noise_rate_results.noise_rate_strips_eta1, Form("noise_rate_strips_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("noise_rate_strips_eta2", &data.noise_rate_results.noise_rate_strips_eta2, Form("noise_rate_strips_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("noise_rate_strips_eta1_error", &data.noise_rate_results.noise_rate_strips_eta1_error, Form("noise_rate_strips_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("noise_rate_strips_eta2_error", &data.noise_rate_results.noise_rate_strips_eta2_error, Form("noise_rate_strips_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("rate_strips_eta1", &data.rate_results.rate_strips_eta1, Form("rate_strips_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("rate_strips_eta2", &data.rate_results.rate_strips_eta2, Form("rate_strips_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("rate_strips_eta1_error", &data.rate_results.rate_strips_eta1_error, Form("rate_strips_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("rate_strips_eta2_error", &data.rate_results.rate_strips_eta2_error, Form("rate_strips_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
     summary_tree->Branch("avg_tot_eta1", &data.tot_results.avg_tot_eta1, Form("avg_tot_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
     summary_tree->Branch("avg_tot_eta2", &data.tot_results.avg_tot_eta2, Form("avg_tot_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
@@ -902,7 +902,7 @@ void getClusterSize(TFile* input_file, ClusterSizeResults& cluster_results) {
     }
 }
 
-void getRate(TFile* input_file, NoiseRateResults& rate_results) {
+void getRate(TFile* input_file, RateResults& rate_results) {
     TTree* input_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
     TTree* processed_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
     if (!input_tree || !processed_tree) {
@@ -991,7 +991,7 @@ void getRate(TFile* input_file, NoiseRateResults& rate_results) {
     int n_strips = static_cast<int>(unique_strips.size());
     int n_layers = static_cast<int>(unique_layers.size());
 
-    std::tie(rate_results.noise_rate, rate_results.noise_rate_error) = 
+    std::tie(rate_results.rate, rate_results.rate_error) =
             calculateRate(total_hits, event_count, n_strips, n_layers);
 
     // Calculate final Eta/Layer-specific rates
@@ -999,20 +999,20 @@ void getRate(TFile* input_file, NoiseRateResults& rate_results) {
         const int n_strips_eta1 = static_cast<int>(unique_strips_eta1[layer].size());
         const int n_strips_eta2 = static_cast<int>(unique_strips_eta2[layer].size());
 
-        std::tie(rate_results.noise_rate_eta1[layer], rate_results.noise_rate_eta1_error[layer]) = 
+        std::tie(rate_results.rate_eta1[layer], rate_results.rate_eta1_error[layer]) =
             calculateRate(total_hits_eta1[layer], event_count, n_strips_eta1, 1);
 
-        std::tie(rate_results.noise_rate_eta2[layer], rate_results.noise_rate_eta2_error[layer]) = 
+        std::tie(rate_results.rate_eta2[layer], rate_results.rate_eta2_error[layer]) =
             calculateRate(total_hits_eta2[layer], event_count, n_strips_eta2, 1);
 
         // Calculate final Strip-specific rates
         for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
-            std::tie(rate_results.noise_rate_strips_eta1[layer][strip], 
-                     rate_results.noise_rate_strips_eta1_error[layer][strip]) = 
+            std::tie(rate_results.rate_strips_eta1[layer][strip],
+                     rate_results.rate_strips_eta1_error[layer][strip]) =
                 calculateRate(hits_per_strip_eta1[layer][strip], event_count, 1, 1);
 
-            std::tie(rate_results.noise_rate_strips_eta2[layer][strip], 
-                     rate_results.noise_rate_strips_eta2_error[layer][strip]) = 
+            std::tie(rate_results.rate_strips_eta2[layer][strip],
+                     rate_results.rate_strips_eta2_error[layer][strip]) =
                 calculateRate(hits_per_strip_eta2[layer][strip], event_count, 1, 1);
         }
     }
