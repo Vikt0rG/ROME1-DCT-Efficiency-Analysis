@@ -41,7 +41,7 @@ namespace PlotStyler {
         {"h1d_tot_eta",             TH1::Class(),                  PlotCategory::ToTDistribution},
         {"h1d_tot",                 THStack::Class(),              PlotCategory::ToTCombinedDistribution},
         {"h1d_tof_layer",           TH1::Class(),                  PlotCategory::ToFDistribution},
-        {"h2d_time_of_flight_eta",  TH2::Class(),                  PlotCategory::ToFHeatmap},
+        {"h2d_time_of_flight",      TH2::Class(),                  PlotCategory::ToFHeatmap},
         {"avg_time_of_flight",      TMultiGraph::Class(),          PlotCategory::AvgToFVsHV},
         {"time_resolution",         TMultiGraph::Class(),          PlotCategory::TimeResolutionVsHV},
         {"track_eff",               TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
@@ -112,21 +112,18 @@ namespace PlotStyler {
         }
 
         // C. Layer / Layer Pair Context
-        bool pair_found = false;
 
         // 1. Look for the ToF layer pair (e.g., "layer_0_1")
         if (std::regex_search(metric_name, match, layer_pair_re)) {
-            title_parts.push_back("ToF(Layers " + match[1].str() + " & " + match[2].str() + ")");
-            pair_found = true;
+            std::string new_title = Form("#it{t}_{Layer %s} #minus #it{t}_{Layer %s}",
+                                         match[1].str().c_str(),
+                                         match[2].str().c_str());
+            title_parts.push_back(new_title);
         }
 
         // 2. Look for a single layer (e.g., "layer0")
         if (std::regex_search(metric_name, match, single_layer_re)) {
-            if (pair_found) {
-                title_parts.push_back("Scanned Layer " + match[1].str());
-            } else {
-                title_parts.push_back("Layer " + match[1].str());
-            }
+            title_parts.push_back("Layer " + match[1].str());
         }
 
         // D. Side Context
@@ -1571,7 +1568,7 @@ namespace PlotStyler {
             plot_title,
             12,
             kWhite, 0.70,
-            kBlack, 1,
+            kBlack, 0,
             0.01
         );
     }
@@ -1831,6 +1828,7 @@ namespace PlotStyler {
         {PlotCategory::MeanClusterSizeVsHV,     &styleAvgClusterSizeVsHV},
         {PlotCategory::RateVsHV,                &styleAvgClusterSizeVsHV},
         {PlotCategory::ToFDistribution,         &styleToFDistribution},
+        {PlotCategory::ToFHeatmap,              &styleToFHeatmap},
         {PlotCategory::AvgToFVsHV,              &styleAvgToFVsHV},
         {PlotCategory::TimeResolutionVsHV,      &styleAvgToFVsHV},
         {PlotCategory::AvgToTVsHV,              &styleAvgToTVsHV},
