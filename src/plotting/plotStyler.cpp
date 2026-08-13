@@ -1006,6 +1006,96 @@ namespace PlotStyler {
                     gr->SetLineWidth(1);
 
                     color_idx++;
+
+                    // Sigmoid fitting for each graph
+                    int n_points = gr->GetN();
+                    if (n_points <= 3) continue;;
+
+                    TF1* sigmoid = new TF1(Form("sigmoid_%d", color_idx),
+                                        "[0] / (1.0 + TMath::Exp(-[1] * (x - [2])))",
+                                        gr->GetXaxis()->GetXmin(),
+                                        gr->GetXaxis()->GetXmax());
+
+                    double zero_eff_x = 4600.0;
+                    double max_y = TMath::MaxElement(n_points, gr->GetY());
+                    double min_x = std::max(TMath::MinElement(n_points, gr->GetX()), zero_eff_x);
+                    double max_x = TMath::MaxElement(n_points, gr->GetX());
+
+                    double v50_guess = (min_x + max_x) / 2.0;
+                    double* x_vals = gr->GetX();
+                    double* y_vals = gr->GetY();
+                    for (int i = 0; i < n_points - 1; ++i) {
+                        if (y_vals[i] < 0.5 * max_y && y_vals[i+1] >= 0.5 * max_y) {
+                            v50_guess = x_vals[i];
+                            break;
+                        }
+                    }
+
+                    sigmoid->SetParameters((max_y > 0) ? max_y : 1.0, 0.01, v50_guess);
+
+                    sigmoid->SetParLimits(0, 0.0, 1.05);        // Efficiency limits
+                    sigmoid->SetParLimits(1, 1e-6, 1.0);        // Slope limits
+                    sigmoid->SetParLimits(2, min_x, max_x * 1.5); // V50 limits
+
+                    gr->Fit(sigmoid, "Q0");
+
+                    // Sigmoid fit band calculation
+                    double p0 = sigmoid->GetParameter(0);
+                    double p1 = sigmoid->GetParameter(1);
+                    double p2 = sigmoid->GetParameter(2);
+
+                    double ep0 = sigmoid->GetParError(0);
+                    double ep1 = sigmoid->GetParError(1);
+                    double ep2 = sigmoid->GetParError(2);
+
+                    std::cout << "Sigmoid Fit Parameters for Graph " << color_idx << ":" << std::endl;
+                    std::cout << "  p0 (Max Efficiency): " << p0 << "± " << ep0 << std::endl;
+                    std::cout << "  p1 (Slope): " << p1 << "± " << ep1 << std::endl;
+                    std::cout << "  p2 (V50): " << p2 << "± " << ep2 << std::endl;
+
+                    int n_band_points = 200;
+                    double x_min_band = gr->GetXaxis()->GetXmin();
+                    double x_max_band = gr->GetXaxis()->GetXmax();
+                    double step = (x_max_band - x_min_band) / n_band_points;
+
+                    TGraphErrors* fit_band = new TGraphErrors(n_band_points);
+                    double sigma_multiplier = 3.0;
+
+                    for (int i = 0; i < n_band_points; ++i) {
+                        double x = x_min_band + i * step;
+                        double y = sigmoid->Eval(x);
+
+                        double exponent = -p1 * (x - p2);
+                        double dy = 0.0;
+
+                        if (exponent > -50.0 && exponent < 50.0) {
+                            double E = TMath::Exp(exponent);
+                            double D = 1.0 + E;
+
+                            double df_dp0 = (p0 != 0) ? y / p0 : 0;
+                            double df_dp1 = y * (x - p2) * E / D;
+                            double df_dp2 = -y * p1 * E / D;
+
+                            dy = sigma_multiplier * std::sqrt(std::pow(df_dp0 * ep0, 2) +
+                                                              std::pow(df_dp1 * ep1, 2) +
+                                                              std::pow(df_dp2 * ep2, 2));
+                        }
+
+                        fit_band->SetPoint(i, x, y);
+                        fit_band->SetPointError(i, 0, dy);
+                    }
+
+                    fit_band->SetFillColorAlpha(color, 0.3);
+                    fit_band->SetLineColor(color);
+                    fit_band->SetLineWidth(0);
+                    fit_band->Draw("E3 SAME");
+                    fit_band->SetBit(kCanDelete);
+
+                    sigmoid->SetLineColor(color);
+                    sigmoid->SetLineWidth(2);
+                    sigmoid->Draw("SAME");
+
+                    sigmoid->SetBit(kCanDelete);
                 }
             }
         }
