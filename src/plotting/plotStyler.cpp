@@ -39,6 +39,7 @@ namespace PlotStyler {
 
     static const std::vector<std::tuple<std::string, TClass*, PlotCategory>> category_map = {
         {"h1d_strip_eta",           TH1::Class(),                  PlotCategory::StripDistribution},
+        {"h1d_strip_eta",           THStack::Class(),              PlotCategory::StripDistributionCombined},
         {"h1d_tot_eta",             TH1::Class(),                  PlotCategory::ToTDistribution},
         {"h1d_tot",                 THStack::Class(),              PlotCategory::ToTCombinedDistribution},
         {"h1d_tof_layer",           TH1::Class(),                  PlotCategory::ToFDistribution},
@@ -943,6 +944,61 @@ namespace PlotStyler {
 
         drawATLASLabel(0.21, 0.86, "Work in Progress");
         drawPlotTitle(obj, 0.21, 0.82);
+    }
+
+    void styleStripDistributionCombined(TObject* obj, TCanvas* canvas, TClass* cl) {
+
+        std::cout << "Styling THStack object: " << obj->GetName() << std::endl;
+        auto stack = dynamic_cast<THStack*>(obj);
+        if (!stack) return;
+
+        stack->Draw("nostack hist");
+
+        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), stack);
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
+            named_obj->SetTitle(title.c_str());
+        }
+
+        TIter next(stack->GetHists());
+        TH1* hist = nullptr;
+        int index = 0;
+
+        while ((hist = static_cast<TH1*>(next()))) {
+            Color_t base_color = (index == 0) ? kAzure - 3 : kRed + 1;
+
+            hist->SetLineColor(base_color);
+            hist->SetLineWidth(2);
+            hist->SetLineStyle(1);
+
+            Int_t trans_color = TColor::GetColorTransparent(base_color, 0.30);
+            hist->SetFillColor(trans_color);
+            hist->SetFillStyle(1001);
+
+            index++;
+        }
+
+        if (stack->GetXaxis()) stack->GetXaxis()->SetTitle(x_label.c_str());
+        if (stack->GetYaxis()) stack->GetYaxis()->SetTitle(y_label.c_str());
+        applyATLASStyle(obj, canvas);
+
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        drawATLASHeaderBlock(
+            ndc_x0 + 0.03, ndc_y0 - 0.09,
+            "Work in Progress",
+            plot_title,
+            12,
+            kWhite, 0.70,
+            kBlack, 0,
+            0.01
+        );
+
+        drawATLASLegend(obj, legend_entries, ndc_x0 + 0.03, ndc_y0 - 0.2, 13);
+
+        canvas->Modified();
+        canvas->Update();
     }
 
     void styleToFDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
