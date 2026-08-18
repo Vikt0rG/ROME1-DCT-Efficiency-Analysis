@@ -7,6 +7,7 @@
 #include <initializer_list>
 
 #include <TFile.h>
+#include <TKey.h>
 #include <TTree.h>
 #include <TF1.h>
 #include <TH1F.h>
@@ -60,19 +61,29 @@ void plotStrip(TFile* input_file) {
         std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
         return;
     }
+    TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
+    if (!track_tree || track_tree->IsZombie()) {
+        std::cerr << "Error: Invalid track reconstruction tree for analysis." << std::endl;
+        return;
+    }
 
     // Read processed data into vectors and create strip distributions for each layer and side
     TTreeReader readerInputData(input_data_tree);
     TTreeReader readerProcData(proc_tree);
+    TTreeReader readerTrackData(track_tree);
     TTreeReaderValue<std::vector<int>> raw_time1(readerInputData, "hit_raw_time1");
     TTreeReaderValue<std::vector<int>> raw_time2(readerInputData, "hit_raw_time2");
     TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
     TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
     // Create histograms using arrays
-    const int nConfigs = 2;
+    const int nConfigs = 6;
     const char* categories[nConfigs] = {
-        "strip_eta1", "strip_eta2"
+        "strip_eta1_before_reco", "strip_eta2_before_reco",
+        "strip_eta1_after_reco", "strip_eta2_after_reco",
+        "strip_eta1_rejected", "strip_eta2_rejected"
     };
 
     std::map<std::string, std::map<int, TH1*>> strip_histograms;
@@ -85,20 +96,77 @@ void plotStrip(TFile* input_file) {
         }
     }
 
-    while (readerInputData.Next() && readerProcData.Next()) {
-        for (size_t i = 0; i < strips->size(); ++i) {
+    while (readerInputData.Next() && readerProcData.Next() && readerTrackData.Next()) {
+        const size_t n_hits = std::min({strips->size(), layers->size(), 
+                                        raw_time1->size(), raw_time2->size(), 
+                                        in_valid_track_eta1->size(), in_valid_track_eta2->size()});
+
+        for (size_t i = 0; i < n_hits; ++i) {
             int layer = (*layers)[i];
+
+            if (layer < 0 || layer > 2) continue;
+
             int strip = remapStrip((*strips)[i]);
-            
-            if ((*raw_time1)[i] != 0) strip_histograms["strip_eta1"][layer]->Fill(strip);
-            if ((*raw_time2)[i] != 0) strip_histograms["strip_eta2"][layer]->Fill(strip);
+
+            if ((*raw_time1)[i] != 0) {
+                strip_histograms["strip_eta1_before_reco"][layer]->Fill(strip);
+                if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
+                    strip_histograms["strip_eta1_after_reco"][layer]->Fill(strip);
+                } else {
+                    strip_histograms["strip_eta1_rejected"][layer]->Fill(strip);
+                }
+            }
+            if ((*raw_time2)[i] != 0) {
+                strip_histograms["strip_eta2_before_reco"][layer]->Fill(strip);
+                if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
+                    strip_histograms["strip_eta2_after_reco"][layer]->Fill(strip);
+                } else {
+                    strip_histograms["strip_eta2_rejected"][layer]->Fill(strip);
+                }
+            }
         }
     }
 
-    // Write histograms to file and clean up
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             strip_histograms[categories[c]][layer]->Write("", TObject::kOverwrite);
+        }
+    }
+
+    struct StackPairing {
+        std::string side;
+        std::pair<std::string, std::string> pair;
+        std::string suffix;
+    };
+
+    std::vector<StackPairing> stack_pairings = {
+        {"eta1", {"strip_eta1_before_reco", "strip_eta1_after_reco"}, "after_before_reco"},
+        {"eta2", {"strip_eta2_before_reco", "strip_eta2_after_reco"}, "after_before_reco"},
+        {"eta1", {"strip_eta1_after_reco", "strip_eta1_rejected"}, "after_reco_rejected"},
+        {"eta2", {"strip_eta2_after_reco", "strip_eta2_rejected"}, "after_reco_rejected"}
+    };
+
+    for (const auto& pairing : stack_pairings) {
+        for (int layer : {0, 1, 2}) {
+            THStack* stack = new THStack(Form("h1d_strip_%s_%s_layer%d", pairing.side.c_str(), pairing.suffix.c_str(), layer),
+                                         Form("Layer %d;Strip;Hits", layer));
+
+            TH1* first_hist = strip_histograms[pairing.pair.first][layer];
+            TH1* second_hist = strip_histograms[pairing.pair.second][layer];
+
+            first_hist->SetFillColor(kBlue - 2);
+            second_hist->SetFillColor(kRed - 3);
+
+            stack->Add(first_hist);
+            stack->Add(second_hist);
+
+            stack->Write("", TObject::kOverwrite);
+            delete stack;
+        }
+    }
+
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
             delete strip_histograms[categories[c]][layer];
         }
     }
