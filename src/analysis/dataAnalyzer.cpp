@@ -1520,25 +1520,16 @@ void DataAnalyzer::produceSummaryStats() {
         // Calculate and fill per-file relevant statistics for this measurement entry and save into the input ROOT file
         producePerFileStats(input_file);
 
-        // Efficiency calculation
+        // Calculate and store file statistics into the summary tree for this measurement entry
         summaryHelpers::getEfficiency(input_file, data.efficiency_results, data.efficiency_results_tracks);
-
-        // Mean cluster size calculation
         summaryHelpers::getClusterSize(input_file, data.cluster_size_results);
-
-        // Noise rate calculation
-        summaryHelpers::getRate(input_file, data.noise_rate_results);
-
-        // Average Time over Threshold (ToT) calculation
-        summaryHelpers::getAverageToT(input_file, data.tot_results, false);
-        summaryHelpers::getAverageToT(input_file, data.tot_results_tracks, true);
-
-        // Average multiplicity calculation
-        summaryHelpers::getAverageMultiplicity(input_file, data.multiplicity_results, false);
-        summaryHelpers::getAverageMultiplicity(input_file, data.multiplicity_results_tracks, true);
-
-        // Average Time of Flight (ToF) calculation
-        summaryHelpers::processToF(input_file, data.tof_results, data.time_resolution_results);
+        summaryHelpers::getRate(input_file, data.rate_results);
+        summaryHelpers::getDeadStrips(data.dead_strips);
+        summaryHelpers::getAverageToT(input_file, data.tot_results, false, data.dead_strips);
+        summaryHelpers::getAverageToT(input_file, data.tot_results_tracks, true, data.dead_strips);
+        summaryHelpers::getAverageMultiplicity(input_file, data.multiplicity_results, false, data.dead_strips);
+        summaryHelpers::getAverageMultiplicity(input_file, data.multiplicity_results_tracks, true, data.dead_strips);
+        summaryHelpers::processToF(input_file, data.tof_results, data.time_resolution_results, data.dead_strips);
 
         // Fill the summary tree with the extracted statistics for this measurement entry
         summary_tree->Fill();
