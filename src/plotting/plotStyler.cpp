@@ -115,14 +115,14 @@ namespace PlotStyler {
             out_yaxis = "Time Resolution [Ticks]";
         } else if (metric_name.find("time_of_flight") != std::string::npos) {
             out_yaxis = metric_name.find("avg_") != std::string::npos ? "#LTToF#GT [Ticks]" : "Time of Flight [Ticks]";
+        } else if (metric_name.find("strip") != std::string::npos) {
+            out_xaxis = "Strip Number"; out_yaxis = "Hits";
+        } else {
+            out_xaxis = "X-Axis [a.u.]"; out_yaxis = "Value [a.u.]";
         }
 
         // -------------------------------------------------------------------------
         // Build Subtitle Context Pieces
-
-        static const std::regex reco_re("^(track_)?(avg_tot|avg_multiplicity|eff)_");
-        static const std::regex layer_pair_re("layer_(\\d)_(\\d)");
-        static const std::regex single_layer_re("layer(\\d+)");
 
         std::smatch match;
 
@@ -132,11 +132,14 @@ namespace PlotStyler {
         }
 
         // B. Track Reconstruction Context
+        static const std::regex reco_re("^(track_)?(avg_tot|avg_multiplicity|eff)_");
         if (std::regex_search(metric_name, match, reco_re)) {
             title_parts.push_back(match[1].matched ? "After Track Reco" : "Before Track Reco");
         }
 
         // C. Layer / Layer Pair Context
+        static const std::regex layer_pair_re("layer_(\\d)_(\\d)");
+        static const std::regex single_layer_re("layer(\\d+)");
 
         // 1. Look for the ToF layer pair (e.g., "layer_0_1")
         if (std::regex_search(metric_name, match, layer_pair_re)) {
@@ -152,14 +155,22 @@ namespace PlotStyler {
         }
 
         // D. Side Context
-        if (metric_name.find("eta1") != std::string::npos)       title_parts.push_back("Side #eta_{1}");
-        else if (metric_name.find("eta2") != std::string::npos)  title_parts.push_back("Side #eta_{2}");
-        else if (metric_name.find("_or_") != std::string::npos)  title_parts.push_back("OR(#eta_{1}, #eta_{2})");
-        else if (metric_name.find("_and_") != std::string::npos) title_parts.push_back("AND(#eta_{1}, #eta_{2})");
+        static const std::regex side_re("eta1|eta2|_or_|_and_");
+        if (std::regex_search(metric_name, match, side_re)) {
+            std::string m = match.str(0);
+            if (m == "eta1")       title_parts.push_back("Side #eta_{1}");
+            else if (m == "eta2")  title_parts.push_back("Side #eta_{2}");
+            else if (m == "_or_")  title_parts.push_back("OR(#eta_{1}, #eta_{2})");
+            else if (m == "_and_") title_parts.push_back("AND(#eta_{1}, #eta_{2})");
+        }
 
         // E. Trigger Context
-        if (metric_name.find("external") != std::string::npos)   title_parts.push_back("External Trigger");
-        else if (metric_name.find("rpc") != std::string::npos)   title_parts.push_back("RPC Coincidence");
+        static const std::regex trigger_re("external|rpc");
+        if (std::regex_search(metric_name, match, trigger_re)) {
+            std::string m = match.str(0);
+            if (m == "external") title_parts.push_back("External Trigger");
+            else if (m == "rpc") title_parts.push_back("RPC Coincidence");
+        }
 
         // Assemble Title (e.g., "After Track Reco: Layers 0 & 1: Side #eta_{1}")
         for (size_t i = 0; i < title_parts.size(); ++i) {
@@ -202,8 +213,28 @@ namespace PlotStyler {
                 }
             }
         } else if (dynamic_cast<THStack*>(obj)) {
-            legend_entries.push_back("Side #eta_{1}");
-            legend_entries.push_back("Side #eta_{2}");
+            if (metric_name.find("tot") != std::string::npos) {
+                legend_entries.push_back("Side #eta_{1}");
+                legend_entries.push_back("Side #eta_{2}");
+            } else if (metric_name.find("strip") != std::string::npos) {
+
+                static const std::regex reco_status("before|after|rejected");
+
+                auto words_begin = std::sregex_iterator(metric_name.begin(), metric_name.end(), reco_status);
+                auto words_end = std::sregex_iterator();
+
+                for (std::sregex_iterator i = words_begin; i != words_end; ++i) {
+                    std::string status = (*i).str();
+
+                    if (status == "after") {
+                        legend_entries.push_back("After Track Reco");
+                    } else if (status == "before") {
+                        legend_entries.push_back("Before Track Reco");
+                    } else if (status == "rejected") {
+                        legend_entries.push_back("Rejected");
+                    }
+                }
+            }
         }
 
         return std::make_tuple(out_title, out_xaxis, out_yaxis, legend_entries);
