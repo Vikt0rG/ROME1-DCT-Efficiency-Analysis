@@ -23,6 +23,8 @@ SRCS := $(SRC_DIR)/main.cpp \
         $(SRC_DIR)/analysis/dataAnalyzer.cpp \
         $(SRC_DIR)/plotting/dataPlotter.cpp \
         $(SRC_DIR)/plotting/plotStyler.cpp \
+		$(SRC_DIR)/plotting/ATLASStyler.cpp \
+		$(SRC_DIR)/plotting/objects.cpp \
         $(SRC_DIR)/plotting/plotBatchExporter.cpp
 
 # Convert source paths to flat object targets (e.g., src/core/hit.cpp -> obj/hit.o)
