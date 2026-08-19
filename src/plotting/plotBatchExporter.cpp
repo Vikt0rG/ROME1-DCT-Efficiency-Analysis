@@ -14,6 +14,7 @@
 #include <TMultiGraph.h>
 #include <TGraphErrors.h>
 #include <TSystem.h>
+#include <TLegend.h>
 
 #include "plotting/plotStyler.hpp"
 #include "plotting/plotBatchExporter.hpp"
@@ -259,10 +260,11 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                     TKey* group_key = nullptr;
 
                     while ((group_key = static_cast<TKey*>(next_group()))) {
+                        std::string prefix = "group_";
                         std::string group_dir_name = group_key->GetName();
-                        if (group_dir_name.rfind("group_", 0) != 0) continue;
+                        if (group_dir_name.rfind(prefix, 0) != 0) continue;
 
-                        std::string clean_group = group_dir_name.substr(6);
+                        std::string clean_group = group_dir_name.substr(prefix.length());
                         std::string target_path = group_dir_name + "/" + analysis_subdir_name + "/" + metric_name;
 
                         TH2* raw_h2 = config_dir->Get<TH2>(target_path.c_str());
@@ -289,10 +291,11 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                     TIter next_group(config_dir->GetListOfKeys());
                     TKey* group_key = nullptr;
                     while ((group_key = static_cast<TKey*>(next_group()))) {
+                        std::string prefix = "group_";
                         std::string group_dir_name = group_key->GetName();
-                        if (group_dir_name.rfind("group_", 0) != 0) continue;
+                        if (group_dir_name.rfind(prefix, 0) != 0) continue;
 
-                        std::string clean_group = group_dir_name.substr(6);
+                        std::string clean_group = group_dir_name.substr(prefix.length());
                         std::string target_path = group_dir_name + "/" + analysis_subdir_name + "/" + metric_name;
 
                         TObject* scan_obj = config_dir->Get(target_path.c_str());
