@@ -1,4 +1,6 @@
 #include <iostream>
+#include <regex>
+#include <filesystem>
 
 #include <TFile.h>
 #include <TDirectory.h>
@@ -365,6 +367,42 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
         delete analysis_dir;
     }
     delete blueprint_dir;
+
+    TDirectory* summary_dir = config_dir->GetDirectory("cross_group_summaries");
+    if (!summary_dir) return;
+
+    TIter next_summary(summary_dir->GetListOfKeys());
+    TKey* summary_key = nullptr;
+
+    while ((summary_key = static_cast<TKey*>(next_summary()))) {
+        TObject* obj = summary_key->ReadObj();
+        if (!obj) continue;
+
+        // Optional: Skip if it's not a TGraph (just for safety)
+        if (!obj->InheritsFrom(TGraph::Class())) {
+            delete obj;
+            continue;
+        }
+
+        TCanvas* canvas = new TCanvas("c_summary", "", 800, 600);
+        canvas->cd();
+
+        // Use your existing styling infrastructure!
+        PlotCategory category = PlotterHelpers::PlotStyler::getPlotCategory(obj);
+        auto custom_styler = PlotterHelpers::PlotStyler::getCustomStyler(category);
+
+        if (custom_styler) custom_styler(obj, canvas, obj->IsA());
+        else PlotterHelpers::PlotStyler::styleDefaultPlot(obj, canvas, obj->IsA());
+
+        // Save into a dedicated 'cross_group_summaries' folder in the PDF output directory
+        std::filesystem::path export_file = config_output_path / "cross_group_summaries" / (std::string(obj->GetName()) + ".pdf");
+        std::filesystem::create_directories(export_file.parent_path());
+
+        canvas->SaveAs(export_file.string().c_str());
+
+        delete canvas;
+        delete obj;
+    }
 }
 
 } // namespace BatchExporter
