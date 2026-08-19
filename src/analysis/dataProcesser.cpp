@@ -156,16 +156,15 @@ ErrorRange calculateEfficiencyError(int passed, int total, ErrorMethod method) {
             return ErrorRange{err, err}; // Symmetric error range
         } 
         case ErrorMethod::ClopperPearson: {
-            // 0.6827 aligns with the standard 1-sigma standard deviation
-            double lower = TEfficiency::ClopperPearson(total, passed, 0.6827, false);
-            double upper = TEfficiency::ClopperPearson(total, passed, 0.6827, true);
+            // 0.995 aligns with the standard 3-sigma confidence level
+            double lower = TEfficiency::ClopperPearson(total, passed, 0.995, false);
+            double upper = TEfficiency::ClopperPearson(total, passed, 0.995, true);
             double eff = static_cast<double>(passed) / total;
 
-            // Symmetric approximation of asymmetric bounds for your single-value error property
             double err_down = eff - lower;
             double err_up   = upper - eff;
             
-            return ErrorRange{err_down, err_up}; // Asymmetric error range
+            return ErrorRange{err_down, err_up};
         }
         default:
             std::cerr << "Unknown error method specified." << std::endl;
