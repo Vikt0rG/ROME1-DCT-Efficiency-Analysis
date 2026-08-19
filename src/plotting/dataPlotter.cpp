@@ -1,6 +1,8 @@
 #include <iostream>
+#include <map>
 #include <unordered_map>
 #include <stdexcept>
+#include <regex>
 
 #include <TDirectory.h>
 #include <TFile.h>
@@ -12,17 +14,19 @@
 #include "TKey.h"
 #include <TGraph.h>
 #include <TMultiGraph.h>
-#include "TGraphErrors.h"
-#include "TGraphAsymmErrors.h"
-#include "TH1.h"
-#include "TH2.h"
-#include "TCanvas.h"
-#include "TLegend.h"
-#include "TAxis.h"
+#include <TF1.h>
+#include <TVectorD.h>
+#include <TGraphErrors.h>
+#include <TGraphAsymmErrors.h>
+#include <TH1.h>
+#include <TH2.h>
+#include <TCanvas.h>
+#include <TLegend.h>
+#include <TAxis.h>
 
-#include "TLatex.h"
-#include "TStyle.h"
-#include "TSystem.h"
+#include <TLatex.h>
+#include <TStyle.h>
+#include <TSystem.h>
 
 #include "utils.hpp"
 #include "configParser.hpp"
@@ -291,8 +295,8 @@ std::map<std::string, DataPlotter::MetricsData> DataPlotter::extractScanData(
                     auto& strip_series = current_scan.strip_metrics[metric_name][layer][strip];
                     strip_series.x.push_back(x_value);
                     strip_series.y.push_back(vals[flat_idx]);
-                    strip_series.y_error_low.push_back(errs[flat_idx]);
-                    strip_series.y_error_high.push_back(errs[flat_idx]);
+                    strip_series.y_error_low.push_back(errs[flat_idx * 2]);
+                    strip_series.y_error_high.push_back(errs[flat_idx * 2 + 1]);
                 }
             }
         }
@@ -351,6 +355,57 @@ void DataPlotter::plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& sca
     }
 }
 
+void fitEfficiency(TGraphAsymmErrors* graph, const std::string& graph_name, TDirectory* out_dir) {
+    if (!graph || !out_dir) return;
+
+    int n_points = graph->GetN();
+    if (n_points < 3) {
+        std::cout << "Warning: Not enough points to fit for " << graph_name << std::endl;
+        return;
+    }
+
+    double min_x = TMath::MinElement(n_points, graph->GetX());
+    double max_x = TMath::MaxElement(n_points, graph->GetX());
+    double max_y = TMath::MaxElement(n_points, graph->GetY());
+
+    TF1* sigmoid = new TF1(Form("fit_%s", graph_name.c_str()),
+                           "[0] / (1.0 + TMath::Exp(-[1] * (x - [2])))",
+                           min_x, max_x);
+
+    // Initial parameter guesses
+    double v50_guess = (min_x + max_x) / 2.0;
+    double* x_vals = graph->GetX();
+    double* y_vals = graph->GetY();
+    for (int i = 0; i < n_points - 1; ++i) {
+        if (y_vals[i] < 0.5 * max_y && y_vals[i+1] >= 0.5 * max_y) {
+            v50_guess = x_vals[i];
+            break;
+        }
+    }
+
+    sigmoid->SetParameters((max_y > 0) ? max_y : 1.0, 1e-3, v50_guess);
+    sigmoid->SetParLimits(0, 0.0, 1.00);          // Efficiency limits
+    sigmoid->SetParLimits(1, 1e-6, 0.1);          // Slope limits
+    sigmoid->SetParLimits(2, min_x, max_x);       // V50 limits
+
+    TFitResultPtr r = graph->Fit(sigmoid, "Q0S");
+
+    // Save parameters into a TVectorD for easy numeric extraction later
+    // Format: [ Max_Eff, Slope, V50, Err_Max_Eff, Err_Slope, Err_V50 ]
+    TVectorD params(6);
+    params[0] = sigmoid->GetParameter(0);
+    params[1] = sigmoid->GetParameter(1);
+    params[2] = sigmoid->GetParameter(2);
+    params[3] = sigmoid->GetParError(0);
+    params[4] = sigmoid->GetParError(1);
+    params[5] = sigmoid->GetParError(2);
+
+    out_dir->cd();
+    params.Write(Form("%s_fitParams", graph_name.c_str()), TObject::kOverwrite);
+
+    graph->GetListOfFunctions()->Add(sigmoid);
+}
+
 void DataPlotter::plotLayerMetrics(
     TDirectory* scan_dir, const std::map<std::string, Utilities::LayerSeries>& layer_metrics) {
     if (!scan_dir) return;
@@ -364,7 +419,12 @@ void DataPlotter::plotLayerMetrics(
 
         // Route to the correct directory based on the metric name
         TDirectory* metric_dir = scan_dir; // default fallback
-        if (metric_name.rfind("eff_", 0) == 0 || metric_name.rfind("track_eff_", 0) == 0) metric_dir = eff_dir;
+        bool is_eff_metric = false;
+
+        if (metric_name.rfind("eff_", 0) == 0 || metric_name.rfind("track_eff_", 0) == 0) {
+            metric_dir = eff_dir;
+            is_eff_metric = true;
+        }
         else if (metric_name.rfind("avg_cluster", 0) == 0) metric_dir = clus_dir;
         else if (metric_name.rfind("rate_eta", 0) == 0) metric_dir = nois_dir;
 
@@ -378,13 +438,51 @@ void DataPlotter::plotLayerMetrics(
         for (int layer = 0; layer < LAYER_COUNT; ++layer) {
             if (series.x[layer].empty()) continue;
 
+            bool is_scanned_layer = true;
+
+            // Local vector copies to safely inject the zero-efficiency point
+            std::vector<double> x_vals = series.x[layer];
+            std::vector<double> y_vals = series.y[layer];
+            std::vector<double> y_err_low = series.y_errors_low[layer];
+            std::vector<double> y_err_high = series.y_errors_high[layer];
+
+            if (is_eff_metric) {
+                // Filter out all points strictly below 4600V
+                for (size_t i = 0; i < x_vals.size(); ) {
+                    if (x_vals[i] < 4600.0) {
+                        x_vals.erase(x_vals.begin() + i);
+                        y_vals.erase(y_vals.begin() + i);
+                        y_err_low.erase(y_err_low.begin() + i);
+                        y_err_high.erase(y_err_high.begin() + i);
+                    } else {
+                        ++i;
+                    }
+                }
+
+                if (x_vals.empty()) continue;
+
+                // Determine if it is a scanned layer based on the filtered real data
+                if (x_vals.front() == x_vals.back()) {
+                    is_scanned_layer = false;
+                }
+
+                // Inject dummy zero-efficiency point at 4600V if missing
+                if (is_scanned_layer && x_vals.front() > 4600.0) {
+                    x_vals.insert(x_vals.begin(), 4600.0);
+                    y_vals.insert(y_vals.begin(), 0.0);
+                    y_err_low.insert(y_err_low.begin(), 0.0);
+                    y_err_high.insert(y_err_high.begin(), 0.0);
+                }
+            }
+
             TGraphAsymmErrors* layer_graph = new TGraphAsymmErrors(
-                series.x[layer].size(), series.x[layer].data(), series.y[layer].data(),
-                nullptr, nullptr, series.y_errors_low[layer].data(), series.y_errors_high[layer].data()
+                x_vals.size(), x_vals.data(), y_vals.data(),
+                nullptr, nullptr, y_err_low.data(), y_err_high.data()
             );
 
             // Here set a beautiful identifier for the graph to be used as a label in the legend
-            layer_graph->SetName(Form("%s_layer%d", metric_name.c_str(), layer));
+            std::string graph_name = Form("%s_layer%d", metric_name.c_str(), layer);
+            layer_graph->SetName(graph_name.c_str());
             layer_graph->SetTitle(Form("Layer %d", layer));
             layer_graph->SetMarkerStyle(20 + layer);
             layer_graph->SetMarkerColor(1 + layer);
@@ -395,6 +493,7 @@ void DataPlotter::plotLayerMetrics(
             std::string layer_folder = "layer" + std::to_string(layer);
             if (TDirectory* l_dir = PathUtils::ensureDirectory(metric_dir, layer_folder.c_str())) {
                 l_dir->cd();
+                if (is_eff_metric && is_scanned_layer) fitEfficiency(layer_graph, graph_name, l_dir);
                 layer_graph->Write("", TObject::kOverwrite);
             }
         }
@@ -470,6 +569,97 @@ void DataPlotter::plotStripMetrics(
     }
 }
 
+std::map<std::string, std::vector<DataPlotter::FitResult>> DataPlotter::extractCrossGroupFits(TDirectory* base_dir) {
+    std::map<std::string, std::vector<FitResult>> metrics_map;
+    if (!base_dir) return metrics_map;
+
+    TIter next_group(base_dir->GetListOfKeys());
+    TKey* group_key;
+
+    // Loop over all group directories
+    while ((group_key = static_cast<TKey*>(next_group()))) {
+        if (!group_key->IsFolder()) continue;
+
+        std::string group_name = group_key->GetName();
+        TDirectory* group_dir = base_dir->GetDirectory(group_name.c_str());
+        TDirectory* eff_dir = group_dir->GetDirectory("efficiency_analysis");
+        if (!eff_dir) continue;
+
+        // Loop over layers to find where the scan occurred
+        for (int layer = 0; layer < LAYER_COUNT; ++layer) {
+            std::string layer_folder = Form("layer%d", layer);
+            TDirectory* l_dir = eff_dir->GetDirectory(layer_folder.c_str());
+            if (!l_dir) continue;
+
+            // Loop over all objects in this layer's directory
+            TIter next_obj(l_dir->GetListOfKeys());
+            TKey* obj_key;
+
+            while ((obj_key = static_cast<TKey*>(next_obj()))) {
+                std::string obj_name = obj_key->GetName();
+                std::string target_suffix = Form("_layer%d_fitParams", layer);
+
+                // If the object name ends with our target suffix...
+                if (obj_name.length() > target_suffix.length() && 
+                    obj_name.compare(obj_name.length() - target_suffix.length(), 
+                                     target_suffix.length(), target_suffix) == 0) 
+                {
+                    // Extract the raw metric name! (e.g., "eff_external_trigger")
+                    std::string metric_name = obj_name.substr(0, obj_name.length() - target_suffix.length());
+
+                    TVectorD* params = l_dir->Get<TVectorD>(obj_name.c_str());
+                    if (params) {
+                        FitResult res;
+                        res.group_name = group_name;
+                        res.scanned_layer = layer;
+                        res.max_eff     = (*params)[0];
+                        res.slope       = (*params)[1];
+                        res.v50         = (*params)[2];
+                        res.max_eff_err = (*params)[3];
+                        res.slope_err   = (*params)[4];
+                        res.v50_err     = (*params)[5];
+                        
+                        // Push into the dynamic map
+                        metrics_map[metric_name].push_back(res);
+                    }
+                }
+            }
+        }
+    }
+    return metrics_map;
+}
+
+void DataPlotter::plotCrossGroupFits(TDirectory* config_dir, const std::map<std::string, std::vector<DataPlotter::FitResult>>& all_fits) {
+    if (!config_dir || all_fits.empty()) return;
+
+    TDirectory* summary_dir = config_dir->GetDirectory("cross_group_summaries");
+    if (!summary_dir) {
+        summary_dir = config_dir->mkdir("cross_group_summaries");
+    }
+    summary_dir->cd();
+
+    for (const auto& [metric_name, fits] : all_fits) {
+
+        // V_50 Summary Graph
+        TGraphErrors* gr_v50 = new TGraphErrors(fits.size());
+        gr_v50->SetName(Form("summary_v50_%s", metric_name.c_str()));
+        gr_v50->SetTitle(Form("V_{50\\%%} Summary: %s;Scan Group;V_{50\\%%} [V]", metric_name.c_str()));
+
+        for (size_t i = 0; i < fits.size(); ++i) {
+            gr_v50->SetPoint(i, i, fits[i].v50);
+            gr_v50->SetPointError(i, 0.0, fits[i].v50_err);
+
+            if (TH1* frame = gr_v50->GetHistogram()) {
+                TAxis* xaxis = frame->GetXaxis();
+                xaxis->SetBinLabel(xaxis->FindBin(i), fits[i].group_name.c_str());
+            }
+        }
+
+        gr_v50->Write("", TObject::kOverwrite);
+        delete gr_v50;
+    }
+}
+
 void DataPlotter::cumulativeAnalysisRootFile() {
     // Handle file and basic directories
     TFile* analysis_root = initializeAnalysisFile();
@@ -488,6 +678,12 @@ void DataPlotter::cumulativeAnalysisRootFile() {
             plotGlobalMetrics(scan_dir, scan_data);
             plotLayerMetrics(scan_dir, scan_data.layer_metrics);
             plotStripMetrics(scan_dir, scan_data.strip_metrics);
+        }
+
+        // Extract and plot cross-group fits for efficiency metrics
+        auto cross_group_fits = extractCrossGroupFits(config_dir);
+        if (!cross_group_fits.empty()) {
+            plotCrossGroupFits(config_dir, cross_group_fits);
         }
     }
 
@@ -521,12 +717,12 @@ void DataPlotter::cumulativeAnalysisPlots() {
         if (!config_dir) continue;
 
         std::string config_name = config_key->GetName();
-        std::filesystem::path config_output_path = target_plots_dir / config_name;
+        std::filesystem::path config_plots_output_dir = target_plots_dir / config_name;
 
         std::cout << "  -> Processing configuration: " << config_name << std::endl;
 
         // Dynamically process every analysis directory and metric present in the file
-        PlotterHelpers::BatchExporter::buildGlobalMultiGraphs(config_dir, config_output_path);
+        PlotterHelpers::BatchExporter::buildGlobalMultiGraphs(config_dir, config_plots_output_dir);
 
         delete config_dir;
     }

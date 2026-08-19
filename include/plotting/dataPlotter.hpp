@@ -84,12 +84,29 @@ public:
         std::map<std::string, std::map<double, std::vector<int>>> raw_tof_data;
     };
 
+    struct FitResult {
+        std::string group_name;
+        int scanned_layer;
+
+        double max_eff;
+        double slope;
+        double v50;
+
+        double max_eff_err;
+        double slope_err;
+        double v50_err;
+    };
+
     TFile* initializeAnalysisFile();
     TDirectory* setupScanDirectories(TDirectory* config_dir, const std::string& group_name);
+
+    std::map<std::string, MetricsData> extractScanData(const std::string& summary_file_path);
+    std::map<std::string, std::vector<FitResult>> extractCrossGroupFits(TDirectory* base_dir);
+
     void plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& scan_data);
     void plotLayerMetrics(TDirectory* scan_dir, const std::map<std::string, Utilities::LayerSeries>& layer_metrics);
     void plotStripMetrics(TDirectory* scan_dir, const std::map<std::string, std::map<int, std::map<int, Utilities::StripSeries>>>& strip_metrics);
-    std::map<std::string, MetricsData> extractScanData(const std::string& summary_file_path);
+    void plotCrossGroupFits(TDirectory* config_dir, const std::map<std::string, std::vector<FitResult>>& all_fits);
 
     void cumulativeAnalysisRootFile();
     void cumulativeAnalysisPlots();

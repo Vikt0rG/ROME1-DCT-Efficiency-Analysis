@@ -446,37 +446,9 @@ namespace PlotStyler {
 
                     color_idx++;
 
-                    // Sigmoid fitting for each graph
-                    int n_points = gr->GetN();
-                    if (n_points <= 3) continue;;
-
-                    TF1* sigmoid = new TF1(Form("sigmoid_%d", color_idx),
-                                        "[0] / (1.0 + TMath::Exp(-[1] * (x - [2])))",
-                                        gr->GetXaxis()->GetXmin(),
-                                        gr->GetXaxis()->GetXmax());
-
-                    double zero_eff_x = 4600.0;
-                    double max_y = TMath::MaxElement(n_points, gr->GetY());
-                    double min_x = std::max(TMath::MinElement(n_points, gr->GetX()), zero_eff_x);
-                    double max_x = TMath::MaxElement(n_points, gr->GetX());
-
-                    double v50_guess = (min_x + max_x) / 2.0;
-                    double* x_vals = gr->GetX();
-                    double* y_vals = gr->GetY();
-                    for (int i = 0; i < n_points - 1; ++i) {
-                        if (y_vals[i] < 0.5 * max_y && y_vals[i+1] >= 0.5 * max_y) {
-                            v50_guess = x_vals[i];
-                            break;
-                        }
-                    }
-
-                    sigmoid->SetParameters((max_y > 0) ? max_y : 1.0, 0.01, v50_guess);
-
-                    sigmoid->SetParLimits(0, 0.0, 1.05);        // Efficiency limits
-                    sigmoid->SetParLimits(1, 1e-6, 1.0);        // Slope limits
-                    sigmoid->SetParLimits(2, min_x, max_x * 1.5); // V50 limits
-
-                    gr->Fit(sigmoid, "Q0");
+                    // Extract the fitted sigmoid function from the graph's list of functions
+                    TF1* sigmoid = dynamic_cast<TF1*>(gr->GetListOfFunctions()->First());
+                    if (!sigmoid) continue;
 
                     // Sigmoid fit band calculation
                     double p0 = sigmoid->GetParameter(0);
@@ -486,11 +458,6 @@ namespace PlotStyler {
                     double ep0 = sigmoid->GetParError(0);
                     double ep1 = sigmoid->GetParError(1);
                     double ep2 = sigmoid->GetParError(2);
-
-                    std::cout << "Sigmoid Fit Parameters for Graph " << color_idx << ":" << std::endl;
-                    std::cout << "  p0 (Max Efficiency): " << p0 << "± " << ep0 << std::endl;
-                    std::cout << "  p1 (Slope): " << p1 << "± " << ep1 << std::endl;
-                    std::cout << "  p2 (V50): " << p2 << "± " << ep2 << std::endl;
 
                     int n_band_points = 200;
                     double x_min_band = gr->GetXaxis()->GetXmin();
