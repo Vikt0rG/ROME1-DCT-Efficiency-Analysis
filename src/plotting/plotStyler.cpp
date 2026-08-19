@@ -410,7 +410,7 @@ namespace PlotStyler {
         auto mg = dynamic_cast<TMultiGraph*>(obj);
         auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
 
-        obj->Draw("AP0");
+        obj->Draw("APE0");
 
         // Set axis ranges and labels
         if (mg && mg->GetHistogram()) {
