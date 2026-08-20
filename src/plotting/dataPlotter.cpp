@@ -648,7 +648,7 @@ void DataPlotter::plotCrossGroupFits(TDirectory* config_dir, const std::map<std:
         std::unique_ptr<TGraphErrors> gr_v50(new TGraphErrors(fits.size()));
 
         std::string name = "summary_v50_" + metric_name;
-        std::string title = "V_{50} Summary: " + metric_name;
+        std::string title = metric_name;
         gr_v50->SetName(name.c_str());
         gr_v50->SetTitle(title.c_str());
 
@@ -681,7 +681,7 @@ void DataPlotter::plotCrossGroupFits(TDirectory* config_dir, const std::map<std:
         if (final_ymax > v_50_default_max) final_ymax = v_50_default_max;
 
         frame->GetYaxis()->SetRangeUser(final_ymin, final_ymax);
-        frame->GetYaxis()->SetTitle("V_{50\\%} [V]");
+        frame->GetYaxis()->SetTitle("V_{50%} [V]");
 
         gr_v50->SetHistogram(frame.release());
 
