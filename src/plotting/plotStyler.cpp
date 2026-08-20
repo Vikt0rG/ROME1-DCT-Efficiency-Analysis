@@ -54,10 +54,13 @@ namespace PlotStyler {
         {"rate_eta",                TMultiGraph::Class(),          PlotCategory::RateVsHV},
         {"rate_strips_eta",         TMultiGraph::Class(),          PlotCategory::AvgToTVsHV},
         {"avg_tot",                 TMultiGraph::Class(),          PlotCategory::AvgToTVsHV},
-        {"avg_multiplicity",        TMultiGraph::Class(),          PlotCategory::AvgMultVsHV}
+        {"avg_multiplicity",        TMultiGraph::Class(),          PlotCategory::AvgMultVsHV},
+        {"summary_v50_eff",         TGraphErrors::Class(),         PlotCategory::Efficiency},
+        {"summary_v50_track_eff",   TGraphErrors::Class(),         PlotCategory::Efficiency}
     };
 
     static const std::vector<std::pair<PlotCategory, StylerFnPtr>> styler_map = {
+        {PlotCategory::Efficiency,                  &styleEfficiency},
         {PlotCategory::EfficiencyVsHV,              &styleEfficiencyVsHV},
         {PlotCategory::MeanClusterSizeVsHV,         &styleAvgClusterSizeVsHV},
         {PlotCategory::RateVsHV,                    &styleAvgClusterSizeVsHV},
@@ -90,6 +93,38 @@ namespace PlotStyler {
             if (cat == category) return fn_ptr;
         }
         return nullptr;
+    }
+
+    std::optional<std::vector<std::string>> getLabelsFromGroupNames(const std::vector<std::string>& group_names) {
+        std::vector<std::string> labels;
+        for (const auto& group_name : group_names) {
+            std::string label = group_name;
+
+            if (label.rfind("group_", 0) != 0) return std::nullopt;
+
+            std::string prefix = "group_";
+            std::string clean_group = group_name.substr(prefix.length());
+
+            std::smatch match;
+
+            static const std::regex single_layer_re("layer(\\d+)");
+            static const std::regex lv_re("lv(\\d+)");
+
+            // A. Layer prefixes (e.g., "layer0" or "layer1")
+            if (std::regex_search(clean_group, match, single_layer_re)) {
+                labels.push_back("Layer " + match[1].str());
+            }
+            // B. Low voltage setting prefixes (e.g., "lv1", "lv2")
+            else if (std::regex_search(clean_group, match, lv_re)) {
+                labels.push_back("LV Setting " + match[1].str());
+            }
+            // Z. Default case: Use the cleaned group name as-is
+            else {
+                labels.push_back(clean_group);
+            }
+
+        }
+        return labels;
     }
 
     std::tuple<std::string, std::string, std::string, std::vector<std::string>> compilePlotLabels(
@@ -403,6 +438,81 @@ namespace PlotStyler {
             axis->SetNdivisions(n1 + 100 * n2 + 10000 * n3, kTRUE);
         }
     };
+
+    void styleEfficiency(TObject* obj, TCanvas* canvas, TClass* cl) {
+
+        constexpr double y_max_padding = 0.30;
+        constexpr double y_min_padding = 0.05;
+
+        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), obj);
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
+            named_obj->SetTitle(title.c_str());
+        }
+
+        if (auto gr = dynamic_cast<TGraphErrors*>(obj)) {
+            std::vector<std::string> group_names;
+            for (int i{}; i < gr->GetN(); ++i) {
+                group_names.push_back(gr->GetXaxis()->GetBinLabel(i + 1));
+            }
+
+            auto group_labels = getLabelsFromGroupNames(group_names);
+            if (group_labels.has_value()) {
+                std::vector<std::string> labels = group_labels.value();
+
+                for (size_t i{}; i < labels.size(); ++i) {
+                    gr->GetXaxis()->SetBinLabel(i + 1, labels[i].c_str());
+                }
+            }
+        }
+
+        obj->Draw("AP0");
+
+        applyATLASStyle(obj, canvas);
+
+        if (auto gr = dynamic_cast<TGraphErrors*>(obj)) {
+            gr->GetXaxis()->SetLabelFont(42);
+            gr->GetXaxis()->SetLabelSize(0.06);
+
+            double min_y = std::numeric_limits<double>::max();
+            double max_y = std::numeric_limits<double>::lowest();
+
+            for (int i = 0; i < gr->GetN(); ++i) {
+                double y = gr->GetY()[i];
+                double y_err = gr->GetEY()[i];
+
+                if (y - y_err < min_y) min_y = y - y_err;
+                if (y + y_err > max_y) max_y = y + y_err;
+            }
+
+            double y_range = max_y - min_y;
+            if (y_range <= 0) y_range = 1.0;
+
+            gr->SetMaximum(max_y + (y_range * y_max_padding));
+            gr->SetMinimum(min_y - (y_range * y_min_padding));
+            gr->SetMarkerStyle(55);
+            gr->SetMarkerSize(2.0);
+            gr->SetMarkerColor(kAzure + 2);
+            gr->SetLineWidth(2);
+            gr->SetLineColorAlpha(kAzure + 2, 0.7);
+        }
+
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        drawATLASHeaderBlock(
+            ndc_x0 + 0.03, ndc_y0 - 0.10,
+            "Work in Progress",
+            plot_title,
+            12,
+            kWhite, 0.70,
+            kBlack, 0,
+            0.01
+        );
+
+        canvas->Modified();
+        canvas->Update();
+    }
 
     void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
 

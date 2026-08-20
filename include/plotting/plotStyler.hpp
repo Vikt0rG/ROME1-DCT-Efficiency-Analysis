@@ -15,6 +15,9 @@ namespace PlotStyler {
 
     PlotCategory getPlotCategory(const TObject* obj);
 
+    std::optional<std::vector<std::string>> getLabelsFromGroupNames(
+        const std::vector<std::string>& group_names);
+
     std::tuple<std::string, std::string, std::string, std::vector<std::string>> compilePlotLabels(
         const std::string& metric_name, TObject* obj);
 
@@ -28,6 +31,7 @@ namespace PlotStyler {
     StylerFnPtr getCustomStyler(PlotCategory category);
 
     // Styler routines
+    void styleEfficiency(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleAvgClusterSizeVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleAvgToFVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
