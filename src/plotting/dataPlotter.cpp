@@ -638,25 +638,54 @@ void DataPlotter::plotCrossGroupFits(TDirectory* config_dir, const std::map<std:
     }
     summary_dir->cd();
 
+    constexpr double v_50_default_min = 0.0;
+    constexpr double v_50_default_max = 6000.0;
+    constexpr double padding_factor = 0.1;
+
     for (const auto& [metric_name, fits] : all_fits) {
 
         // V_50 Summary Graph
-        TGraphErrors* gr_v50 = new TGraphErrors(fits.size());
-        gr_v50->SetName(Form("summary_v50_%s", metric_name.c_str()));
-        gr_v50->SetTitle(Form("V_{50\\%%} Summary: %s;Scan Group;V_{50\\%%} [V]", metric_name.c_str()));
+        std::unique_ptr<TGraphErrors> gr_v50(new TGraphErrors(fits.size()));
 
-        for (size_t i = 0; i < fits.size(); ++i) {
+        std::string name = "summary_v50_" + metric_name;
+        std::string title = "V_{50} Summary: " + metric_name;
+        gr_v50->SetName(name.c_str());
+        gr_v50->SetTitle(title.c_str());
+
+        double y_min = std::numeric_limits<double>::max();
+        double y_max = std::numeric_limits<double>::lowest();
+
+        for (size_t i{}; i < fits.size(); ++i) {
             gr_v50->SetPoint(i, i, fits[i].v50);
             gr_v50->SetPointError(i, 0.0, fits[i].v50_err);
 
-            if (TH1* frame = gr_v50->GetHistogram()) {
-                TAxis* xaxis = frame->GetXaxis();
-                xaxis->SetBinLabel(xaxis->FindBin(i), fits[i].group_name.c_str());
-            }
+            if (fits[i].v50 - fits[i].v50_err < y_min) y_min = fits[i].v50 - fits[i].v50_err;
+            if (fits[i].v50 + fits[i].v50_err > y_max) y_max = fits[i].v50 + fits[i].v50_err;
         }
 
+        std::unique_ptr<TH1F> frame (new TH1F(Form("frame_v50_%s", metric_name.c_str()), "", fits.size(), -0.5, fits.size() - 0.5));
+        frame->SetDirectory(nullptr);
+
+        TAxis* x_axis = frame->GetXaxis();
+        for (size_t i{}; i < fits.size(); ++i) {
+            x_axis->SetBinLabel(i + 1, fits[i].group_name.c_str());
+        }
+
+        double y_range = y_max - y_min;
+        double y_pad = y_range * padding_factor;
+
+        double final_ymin = y_min - y_pad;
+        double final_ymax = y_max + y_pad;
+
+        if (final_ymin < v_50_default_min) final_ymin = v_50_default_min;
+        if (final_ymax > v_50_default_max) final_ymax = v_50_default_max;
+
+        frame->GetYaxis()->SetRangeUser(final_ymin, final_ymax);
+        frame->GetYaxis()->SetTitle("V_{50\\%} [V]");
+
+        gr_v50->SetHistogram(frame.release());
+
         gr_v50->Write("", TObject::kOverwrite);
-        delete gr_v50;
     }
 }
 
