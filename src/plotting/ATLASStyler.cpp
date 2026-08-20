@@ -509,6 +509,8 @@ namespace ATLASStyler {
             gPad->SetTicky(1);
         }
 
+        gStyle->SetEndErrorSize(3.0);
+
         auto [xAxis, yAxis, zAxis] = extractAxis(obj, pad);
 
         if (xAxis) styleAxis(xAxis, pad, obj, AxisType::X, 0.04, 0.05, 510);
