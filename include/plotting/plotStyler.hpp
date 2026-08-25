@@ -39,6 +39,7 @@ namespace PlotStyler {
     void styleAvgMulVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleStripDistribution(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleStripDistributionCombined(TObject* obj, TCanvas* canvas, TClass* cl);
+    void styleCSDistribution(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleToFDistribution(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleToFHeatmap(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleToTDistribution(TObject* obj, TCanvas* canvas, TClass* cl);

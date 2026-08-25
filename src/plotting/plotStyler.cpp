@@ -40,6 +40,7 @@ namespace PlotStyler {
     static const std::vector<std::tuple<std::string, TClass*, PlotCategory>> category_map = {
         {"h1d_strip_eta",           TH1::Class(),                  PlotCategory::StripDistribution},
         {"h1d_strip_eta",           THStack::Class(),              PlotCategory::StripDistributionCombined},
+        {"h1d_cs_eta",              TH1::Class(),                  PlotCategory::CSDistribution},
         {"h1d_tot_eta",             TH1::Class(),                  PlotCategory::ToTDistribution},
         {"h1d_tot",                 THStack::Class(),              PlotCategory::ToTCombinedDistribution},
         {"h1d_tof_layer",           TH1::Class(),                  PlotCategory::ToFDistribution},
@@ -64,6 +65,7 @@ namespace PlotStyler {
         {PlotCategory::EfficiencyVsHV,              &styleEfficiencyVsHV},
         {PlotCategory::MeanClusterSizeVsHV,         &styleAvgClusterSizeVsHV},
         {PlotCategory::RateVsHV,                    &styleAvgClusterSizeVsHV},
+        {PlotCategory::CSDistribution,              &styleCSDistribution},
         {PlotCategory::ToFDistribution,             &styleToFDistribution},
         {PlotCategory::ToFHeatmap,                  &styleToFHeatmap},
         {PlotCategory::AvgToFVsHV,                  &styleAvgToFVsHV},
@@ -1055,8 +1057,6 @@ namespace PlotStyler {
     }
 
     void styleStripDistributionCombined(TObject* obj, TCanvas* canvas, TClass* cl) {
-
-        std::cout << "Styling THStack object: " << obj->GetName() << std::endl;
         auto stack = dynamic_cast<THStack*>(obj);
         if (!stack) return;
 
@@ -1073,6 +1073,164 @@ namespace PlotStyler {
 
         while ((hist = static_cast<TH1*>(next()))) {
             Color_t base_color = (index == 0) ? kAzure - 3 : kRed + 1;
+
+            hist->SetLineColor(base_color);
+            hist->SetLineWidth(2);
+            hist->SetLineStyle(1);
+
+            Int_t trans_color = TColor::GetColorTransparent(base_color, 0.30);
+            hist->SetFillColor(trans_color);
+            hist->SetFillStyle(1001);
+
+            index++;
+        }
+
+        if (stack->GetXaxis()) stack->GetXaxis()->SetTitle(x_label.c_str());
+        if (stack->GetYaxis()) stack->GetYaxis()->SetTitle(y_label.c_str());
+        applyATLASStyle(obj, canvas);
+
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        drawATLASHeaderBlock(
+            ndc_x0 + 0.03, ndc_y0 - 0.09,
+            "Work in Progress",
+            plot_title,
+            12,
+            kWhite, 0.70,
+            kBlack, 0,
+            0.01
+        );
+
+        drawATLASLegend(obj, legend_entries, ndc_x0 + 0.03, ndc_y0 - 0.2, 13);
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleCSDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto h1 = dynamic_cast<TH1*>(obj);
+        if (!h1) return;
+
+        double x_max = h1->GetXaxis()->GetXmax();
+        double y_max = h1->GetMaximum() * 1.15;
+
+        TH1F* frame = canvas->DrawFrame(0.0, 0.0, x_max, y_max);
+        frame->SetTitle(h1->GetTitle());
+        frame->GetXaxis()->SetTitle(h1->GetXaxis()->GetTitle());
+        frame->GetYaxis()->SetTitle(h1->GetYaxis()->GetTitle());
+
+        applyATLASStyle(frame, canvas);
+
+        h1->SetFillColor(kOrange - 2);
+        h1->SetFillStyle(1001);
+        h1->SetLineColor(kOrange + 7);
+        h1->SetLineWidth(2);
+        h1->SetLineStyle(1);
+
+        h1->Draw("HIST SAME");
+
+        TF1* fit = h1->GetFunction("cs_poisson");
+
+        if (!fit) {
+            std::cerr << "No Poisson fit found for histogram: " << h1->GetName() << std::endl;
+            return;
+        }
+
+        double p0 = fit->GetParameter(0);
+        double p1 = fit->GetParameter(1);
+
+        double ep0 = fit->GetParError(0);
+        double ep1 = fit->GetParError(1);
+
+        int n_points = 200;
+        double x_min = h1->GetXaxis()->GetXmin();
+        double step = (x_max - x_min) / n_points;
+
+        TGraphErrors* fit_band = new TGraphErrors(n_points);
+
+        double sigma_multiplier = 3.0;
+        for (int i = 0; i < n_points; ++i) {
+            double x = x_min + i * step;
+            double y = fit->Eval(x);
+
+            double df_dp0 = (p0 != 0) ? y / p0 : 0;
+            double df_dp1 = 0;
+            if (p1 > 0 && y > 0) {
+                df_dp1 = y * (((x - 1.0) / p1) - 1.0);
+            }
+
+            double dy = sigma_multiplier * std::sqrt(std::pow(df_dp0 * ep0, 2) +
+                                                     std::pow(df_dp1 * ep1, 2));
+
+            fit_band->SetPoint(i, x, y);
+            fit_band->SetPointError(i, 0, dy);
+        }
+
+        fit_band->SetFillColorAlpha(kAzure - 2, 0.4);
+        fit_band->SetLineColor(kBlue + 3);
+        fit_band->SetLineWidth(2);
+        fit_band->SetLineStyle(1);
+
+        fit_band->Draw("E3 SAME");
+
+        fit->SetLineColor(kBlue + 3);
+        fit->SetLineWidth(2);
+        fit->SetLineStyle(1);
+        fit->Draw("SAME");
+
+        fit_band->SetBit(kCanDelete);
+
+        double ndc_x0 = 1.0 - canvas->GetRightMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        TLegend* fit_legend = new TLegend(ndc_x0 - 0.35, ndc_y0 - 0.25, ndc_x0 - 0.03, ndc_y0 - 0.15);
+        fit_legend->SetTextAlign(12);
+        fit_legend->SetBorderSize(0);
+        fit_legend->SetFillStyle(0);
+        fit_legend->SetTextFont(42);
+        fit_legend->SetTextSize(0.035);
+
+        fit_legend->AddEntry(fit_band, "Poisson Fit #pm 3#sigma", "fl");
+
+        double mean_cs = p1 + 1.0;
+        fit_legend->AddEntry((TObject*)nullptr, Form("Mean CS = %.2f #pm %.2f", mean_cs, ep1), "");
+
+        fit_legend->Draw();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        drawATLASHeaderBlock(
+            ndc_x0 - 0.03, ndc_y0 - 0.09,
+            "Work in Progress",
+            plot_title,
+            32,
+            kWhite, 0.70,
+            kBlack, 0,
+            0.01
+        );
+    }
+
+    void styleCSDistributionCombined(TObject* obj, TCanvas* canvas, TClass* cl) {
+
+        std::cout << "Styling THStack object: " << obj->GetName() << std::endl;
+        auto stack = dynamic_cast<THStack*>(obj);
+        if (!stack) return;
+
+        stack->Draw("nostack hist");
+
+        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), stack);
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
+            named_obj->SetTitle(title.c_str());
+        }
+
+        const std::vector<Color_t> palette = {kAzure + 2, kGreen + 2, kOrange + 10};
+        TIter next(stack->GetHists());
+        TH1* hist = nullptr;
+        int index = 0;
+
+        while ((hist = static_cast<TH1*>(next()))) {
+            Color_t base_color = palette[index % palette.size()];
 
             hist->SetLineColor(base_color);
             hist->SetLineWidth(2);
@@ -1132,79 +1290,85 @@ namespace PlotStyler {
 
         h1->Draw("HIST SAME");
 
-        if (TF1* fit = h1->GetFunction("gaus")) {
-            double p0 = fit->GetParameter(0);
-            double p1 = fit->GetParameter(1);
-            double p2 = fit->GetParameter(2);
+        TF1* fit = h1->GetFunction("gaus");
+        if (!fit) fit = h1->GetFunction("half_gaus");
 
-            double ep0 = fit->GetParError(0);
-            double ep1 = fit->GetParError(1);
-            double ep2 = fit->GetParError(2);
-
-            int n_points = 200;
-            double x_min = h1->GetXaxis()->GetXmin();
-            double step = (x_max - x_min) / n_points;
-
-            TGraphErrors* fit_band = new TGraphErrors(n_points);
-
-            double sigma_multiplier = 3.0;
-            for (int i = 0; i < n_points; ++i) {
-                double x = x_min + i * step;
-                double y = fit->Eval(x);
-
-                double df_dp0 = (p0 != 0) ? y / p0 : 0;
-                double df_dp1 = (p2 != 0) ? y * (x - p1) / (p2 * p2) : 0;
-                double df_dp2 = (p2 != 0) ? y * ((x - p1) * (x - p1)) / (p2 * p2 * p2) : 0;
-
-                double dy = sigma_multiplier * std::sqrt(std::pow(df_dp0 * ep0, 2) +
-                                            std::pow(df_dp1 * ep1, 2) +
-                                            std::pow(df_dp2 * ep2, 2));
-
-                fit_band->SetPoint(i, x, y);
-                fit_band->SetPointError(i, 0, dy);
-            }
-
-            fit_band->SetFillColorAlpha(kAzure - 2, 0.4);
-            fit_band->SetLineColor(kBlue + 3);
-            fit_band->SetLineWidth(2);
-            fit_band->SetLineStyle(1);
-
-            fit_band->Draw("E3 SAME");
-
-            fit->SetLineColor(kBlue + 3);
-            fit->SetLineWidth(2);
-            fit->SetLineStyle(1);
-            fit->Draw("SAME");
-
-            fit_band->SetBit(kCanDelete);
-
-            double ndc_x0 = canvas->GetLeftMargin();
-            double ndc_y0 = 1.0 - canvas->GetTopMargin();
-
-            TLegend* fit_legend = new TLegend(ndc_x0 + 0.03, ndc_y0 - 0.30, ndc_x0 + 0.35, ndc_y0 - 0.15);
-            fit_legend->SetTextAlign(12);
-            fit_legend->SetBorderSize(0);
-            fit_legend->SetFillStyle(0);
-            fit_legend->SetTextFont(42);
-            fit_legend->SetTextSize(0.035);
-
-            fit_legend->AddEntry(fit_band, "Gaussian Fit #pm 3#sigma Conf.", "fl");
-            fit_legend->AddEntry((TObject*)nullptr, Form("#mu = %.2f #pm %.2f", p1, ep1), "");
-            fit_legend->AddEntry((TObject*)nullptr, Form("#sigma = %.2f #pm %.2f", p2, ep2), "");
-
-            fit_legend->Draw();
-
-            std::string plot_title = obj ? obj->GetTitle() : "";
-            drawATLASHeaderBlock(
-                ndc_x0 + 0.03, ndc_y0 - 0.09,
-                "Work in Progress",
-                plot_title,
-                12,
-                kWhite, 0.70,
-                kBlack, 0,
-                0.01
-            );
+        if (!fit) {
+            std::cerr << "No Gaussian fit found for histogram: " << h1->GetName() << std::endl;
+            return;
         }
+
+        double p0 = fit->GetParameter(0);
+        double p1 = fit->GetParameter(1);
+        double p2 = fit->GetParameter(2);
+
+        double ep0 = fit->GetParError(0);
+        double ep1 = fit->GetParError(1);
+        double ep2 = fit->GetParError(2);
+
+        int n_points = 200;
+        double x_min = h1->GetXaxis()->GetXmin();
+        double step = (x_max - x_min) / n_points;
+
+        TGraphErrors* fit_band = new TGraphErrors(n_points);
+
+        double sigma_multiplier = 3.0;
+        for (int i = 0; i < n_points; ++i) {
+            double x = x_min + i * step;
+            double y = fit->Eval(x);
+
+            double df_dp0 = (p0 != 0) ? y / p0 : 0;
+            double df_dp1 = (p2 != 0) ? y * (x - p1) / (p2 * p2) : 0;
+            double df_dp2 = (p2 != 0) ? y * ((x - p1) * (x - p1)) / (p2 * p2 * p2) : 0;
+
+            double dy = sigma_multiplier * std::sqrt(std::pow(df_dp0 * ep0, 2) +
+                                        std::pow(df_dp1 * ep1, 2) +
+                                        std::pow(df_dp2 * ep2, 2));
+
+            fit_band->SetPoint(i, x, y);
+            fit_band->SetPointError(i, 0, dy);
+        }
+
+        fit_band->SetFillColorAlpha(kAzure - 2, 0.4);
+        fit_band->SetLineColor(kBlue + 3);
+        fit_band->SetLineWidth(2);
+        fit_band->SetLineStyle(1);
+
+        fit_band->Draw("E3 SAME");
+
+        fit->SetLineColor(kBlue + 3);
+        fit->SetLineWidth(2);
+        fit->SetLineStyle(1);
+        fit->Draw("SAME");
+
+        fit_band->SetBit(kCanDelete);
+
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        TLegend* fit_legend = new TLegend(ndc_x0 + 0.03, ndc_y0 - 0.30, ndc_x0 + 0.35, ndc_y0 - 0.15);
+        fit_legend->SetTextAlign(12);
+        fit_legend->SetBorderSize(0);
+        fit_legend->SetFillStyle(0);
+        fit_legend->SetTextFont(42);
+        fit_legend->SetTextSize(0.035);
+
+        fit_legend->AddEntry(fit_band, "Gaussian Fit #pm 3#sigma Conf.", "fl");
+        fit_legend->AddEntry((TObject*)nullptr, Form("#mu = %.2f #pm %.2f", p1, ep1), "");
+        fit_legend->AddEntry((TObject*)nullptr, Form("#sigma = %.2f #pm %.2f", p2, ep2), "");
+
+        fit_legend->Draw();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        drawATLASHeaderBlock(
+            ndc_x0 + 0.03, ndc_y0 - 0.09,
+            "Work in Progress",
+            plot_title,
+            12,
+            kWhite, 0.70,
+            kBlack, 0,
+            0.01
+        );
     }
 
     void styleToFHeatmap(TObject* obj, TCanvas* canvas, TClass* cl) {
