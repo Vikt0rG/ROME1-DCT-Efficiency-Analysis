@@ -172,6 +172,85 @@ void plotStrip(TFile* input_file) {
     }
 }
 
+void plotCS(TFile* input_file) {
+    TDirectory* analysis_dir = input_file->GetDirectory("analysis");
+    TDirectory* cs_dir = analysis_dir->GetDirectory("cluster_size");
+    if (!analysis_dir || !cs_dir) std::cerr << "Error: Missing analysis or cluster size directory in input file." << std::endl;
+    cs_dir->cd();
+
+    TTree* cluster_tree = dynamic_cast<TTree*>(input_file->Get("Clusterization"));
+    if (!cluster_tree || cluster_tree->IsZombie()) {
+        std::cerr << "Error: Invalid clusterization tree for analysis." << std::endl;
+        return;
+    }
+
+    // Read processed data into vectors
+    TTreeReader readerClusterData(cluster_tree);
+    TTreeReaderValue<std::vector<int>> cluster_eta1_layer0(readerClusterData, "cluster_size_eta1_layer0");
+    TTreeReaderValue<std::vector<int>> cluster_eta1_layer1(readerClusterData, "cluster_size_eta1_layer1");
+    TTreeReaderValue<std::vector<int>> cluster_eta1_layer2(readerClusterData, "cluster_size_eta1_layer2");
+    TTreeReaderValue<std::vector<int>> cluster_eta2_layer0(readerClusterData, "cluster_size_eta2_layer0");
+    TTreeReaderValue<std::vector<int>> cluster_eta2_layer1(readerClusterData, "cluster_size_eta2_layer1");
+    TTreeReaderValue<std::vector<int>> cluster_eta2_layer2(readerClusterData, "cluster_size_eta2_layer2");
+
+    const int nConfigs = 2;
+    const char* categories[nConfigs] = {"cs_eta1", "cs_eta2"};
+
+    std::map<std::string, std::map<int, TH1*>> strip_histograms;
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            auto* hist = new TH1F(Form("h1d_%s_layer%d", categories[c], layer),
+                                  Form("Cluster Size Layer %d;Cluster Size [Strips];Counts", layer),
+                                  6, 0.5, 6.5);
+
+            strip_histograms[categories[c]][layer] = hist;
+        }
+    }
+
+    while (readerClusterData.Next()) {
+        for (int cs : *cluster_eta1_layer0) strip_histograms["cs_eta1"][0]->Fill(cs);
+        for (int cs : *cluster_eta1_layer1) strip_histograms["cs_eta1"][1]->Fill(cs);
+        for (int cs : *cluster_eta1_layer2) strip_histograms["cs_eta1"][2]->Fill(cs);
+
+        for (int cs : *cluster_eta2_layer0) strip_histograms["cs_eta2"][0]->Fill(cs);
+        for (int cs : *cluster_eta2_layer1) strip_histograms["cs_eta2"][1]->Fill(cs);
+        for (int cs : *cluster_eta2_layer2) strip_histograms["cs_eta2"][2]->Fill(cs);
+    }
+
+    cs_dir->cd();
+
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            TH1* hist = strip_histograms[categories[c]][layer];
+
+            if (hist->GetEntries() < 5) {
+                hist->Write("", TObject::kOverwrite);
+                continue;
+            }
+
+            // Shifted Poisson: x-1 represents the "extra" strips beyond the guaranteed 1.
+            // [0] = Amplitude, [1] = Mean number of extra strips
+            TF1* cs_fit = new TF1("cs_poisson", "[0] * TMath::Poisson(x - 1.0, [1])", 0.5, 6.5);
+
+            double max_val = hist->GetMaximum();
+            double raw_mean = hist->GetMean();
+
+            cs_fit->SetParameter(0, max_val);
+
+            double initial_lambda = std::max(raw_mean - 1.0, 0.01);
+            cs_fit->SetParameter(1, initial_lambda);
+            cs_fit->SetParLimits(1, 0.001, 5.0);
+
+            cs_fit->SetLineColor(kRed);
+            cs_fit->SetLineWidth(2);
+
+            hist->Fit(cs_fit, "Q");
+
+            hist->Write("", TObject::kOverwrite);
+        }
+    }
+}
+
 void plotToT(TFile* input_file) {
     TDirectory* analysis_dir = input_file->GetDirectory("analysis");
     TDirectory* tot_dir = analysis_dir->GetDirectory("tot");
@@ -1445,6 +1524,7 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
     // Set up output directories for per-file statistics and plots
     std::vector<std::string> dir_names = {
         "analysis/strip",
+        "analysis/cluster_size",
         "analysis/tot",
         "analysis/dt_strip",
         "analysis/tot_strip",
@@ -1456,6 +1536,7 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
 
     // Produce relevant plots for this file using helper functions
     perFileHelpers::plotStrip(input_file);
+    perFileHelpers::plotCS(input_file);
     perFileHelpers::plotToT(input_file);
     perFileHelpers::plotDtVsStrip(input_file);
     perFileHelpers::plotToTVsStrip(input_file);

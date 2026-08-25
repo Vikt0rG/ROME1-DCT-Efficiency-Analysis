@@ -381,7 +381,6 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
         TObject* obj = summary_key->ReadObj();
         if (!obj) continue;
 
-        // Optional: Skip if it's not a TGraph (just for safety)
         if (!obj->InheritsFrom(TGraph::Class())) {
             delete obj;
             continue;
@@ -390,7 +389,6 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
         TCanvas* canvas = new TCanvas("c_summary", "", 800, 600);
         canvas->cd();
 
-        // Use your existing styling infrastructure!
         PlotCategory category = PlotterHelpers::PlotStyler::getPlotCategory(obj);
         auto custom_styler = PlotterHelpers::PlotStyler::getCustomStyler(category);
 

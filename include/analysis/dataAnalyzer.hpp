@@ -37,37 +37,13 @@ namespace perFileHelpers {
         {16, 31, -8} // Shifting strips 16-31 down by 8 to create a continuous range of 0-23
     }};
 
-    /// @brief Helper function to plot strip 1D distributions for all hits and valid tracks
-    /// @param input_file Pointer to the input ROOT file containing processed DCT data for
-    /// a specific measurement entry
     void plotStrip(TFile* input_file);
-
-    /// @brief Helper function to plot dt vs strip 2D distributions for all hits and valid
-    /// tracks
-    /// @param input_file Pointer to the input ROOT file containing processed DCT data for
-    /// a specific measurement entry
+    void plotCS(TFile* input_file);
+    void plotToT(TFile* input_file);
     void plotDtVsStrip(TFile* input_file);
-
-    /// @brief Helper function to plot ToT vs strip 2D distributions for all hits and valid
-    /// tracks
-    /// @param input_file Pointer to the input ROOT file containing processed DCT data for
-    /// a specific measurement entry
     void plotToTVsStrip(TFile* input_file);
-
-    /// @brief Helper function to plot multiplicity/delay vs strip 2D distributions for all
-    /// hits and valid tracks
-    ///
-    /// Multiplicity is defined as the number of hits in the same event and in the same strip
-    ///
-    /// Delay is defined as the time difference w.r.t. the first hit of the event in a strip
-    /// @param input_file Pointer to the input ROOT file containing processed DCT data for
-    /// a specific measurement entry
     void plotMultiplicityAndDelayVsStrip(TFile* input_file);
-
-    /// @brief Helper function to plot adjacent ToF distributions for hits from valid tracks
-    /// @param input_file Pointer to the input ROOT file containing processed DCT data for
-    /// a specific measurement entry
-    void plotAdjacentToFs(TFile* input_file);
+    void plotToFs(TFile* input_file);
 }
 
 /// @namespace summaryHelpers
