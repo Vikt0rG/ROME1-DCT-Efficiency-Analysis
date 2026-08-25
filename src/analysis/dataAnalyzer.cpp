@@ -713,20 +713,24 @@ void plotToFs(TFile* input_file) {
     auto applyVisualFit = [](TH1F* hist) {
         if (!hist || hist->Integral() < 20) return;
 
-        // Pass 1: Global fit
-        TFitResultPtr r1 = hist->Fit("gaus", "Q0S");
+        TFitResultPtr r1 = hist->Fit("gaus", "QS");
 
         if (r1.Get() != nullptr && r1->IsValid() && static_cast<int>(r1) == 0) {
+
+            double chi2 = r1->Chi2();
+            double ndf  = r1->Ndf();
+            double chi2_ndf = (ndf > 0) ? (chi2 / ndf) : 999.0;
+
+            if (chi2_ndf < 2.5) return;
+
             double p_mean  = r1->Parameter(1);
             double p_sigma = r1->Parameter(2);
 
             if (p_sigma > 0.0) {
                 double fit_width = std::max(1.5 * p_sigma, 2.0);
 
-                // Pass 2: Core fit
                 TFitResultPtr r2 = hist->Fit("gaus", "QS", "", p_mean - fit_width, p_mean + fit_width);
 
-                // Fallback: If narrow fit fails, re-fit globally with "QS"
                 if (r2.Get() == nullptr || !r2->IsValid() || static_cast<int>(r2) != 0) {
                     hist->Fit("gaus", "QS");
                 }
