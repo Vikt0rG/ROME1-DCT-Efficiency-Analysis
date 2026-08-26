@@ -1327,6 +1327,22 @@ namespace PlotStyler {
 
         h1->Draw("HIST SAME");
 
+        for (int i = 1; i < h1->GetNbinsX(); ++i) {
+            double x = h1->GetXaxis()->GetBinUpEdge(i);
+
+            double y_left = h1->GetBinContent(i);
+            double y_right = h1->GetBinContent(i + 1);
+
+            double y_max_line = std::min(y_left, y_right);
+
+            if (y_max_line > 0) {
+                TLine* edge = new TLine(x, 0.0, x, y_max_line);
+                edge->SetLineColorAlpha(kOrange + 7, 0.55);
+                edge->SetLineWidth(1);
+                edge->Draw();
+            }
+        }
+
         TF1* fit = h1->GetFunction("gaus");
         if (!fit) fit = h1->GetFunction("half_gaus");
 
