@@ -1396,6 +1396,8 @@ namespace PlotStyler {
 
         fit_band->SetBit(kCanDelete);
 
+        canvas->RedrawAxis();
+
         double ndc_x0 = canvas->GetLeftMargin();
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
