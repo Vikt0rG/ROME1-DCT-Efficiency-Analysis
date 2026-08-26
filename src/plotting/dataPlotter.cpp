@@ -61,6 +61,103 @@ namespace Utilities {
     }
 }   // namespace Utilities
 
+namespace CrossGroupHelpers {
+    void assembleV50Graph(const std::string& metric_name, const std::vector<FitResult>& fits) {
+        constexpr double padding_factor = 0.1;
+
+        std::unique_ptr<TGraphErrors> gr_v50(new TGraphErrors(fits.size()));
+
+        std::string name = "summary_v50_" + metric_name;
+        std::string title = metric_name;
+        gr_v50->SetName(name.c_str());
+        gr_v50->SetTitle(title.c_str());
+
+        double y_min = std::numeric_limits<double>::max();
+        double y_max = std::numeric_limits<double>::lowest();
+
+        for (size_t i{}; i < fits.size(); ++i) {
+            gr_v50->SetPoint(i, i, fits[i].v50);
+            gr_v50->SetPointError(i, 0.0, fits[i].v50_err);
+
+            if (fits[i].v50 - fits[i].v50_err < y_min) y_min = fits[i].v50 - fits[i].v50_err;
+            if (fits[i].v50 + fits[i].v50_err > y_max) y_max = fits[i].v50 + fits[i].v50_err;
+        }
+
+        std::unique_ptr<TH1F> frame (new TH1F(Form("frame_v50_%s", metric_name.c_str()), "", fits.size(), -0.5, fits.size() - 0.5));
+        frame->SetDirectory(nullptr);
+
+        TAxis* x_axis = frame->GetXaxis();
+        for (size_t i{}; i < fits.size(); ++i) {
+            x_axis->SetBinLabel(i + 1, fits[i].group_name.c_str());
+        }
+
+        double y_range = y_max - y_min;
+        double y_pad = y_range * padding_factor;
+
+        double final_ymin = y_min - y_pad;
+        double final_ymax = y_max + y_pad;
+
+        frame->GetYaxis()->SetRangeUser(final_ymin, final_ymax);
+        frame->GetYaxis()->SetTitle("V_{50%} [V]");
+        gr_v50->SetHistogram(frame.release());
+        gr_v50->Write("", TObject::kOverwrite);
+    }
+
+    void assembleVWPGraph(const std::string& metric_name, const std::vector<FitResult>& fits) {
+        constexpr double padding_factor = 0.1;
+
+        std::unique_ptr<TGraphErrors> gr_vwp(new TGraphErrors(fits.size()));
+
+        std::string name = "summary_vwp_" + metric_name;
+        std::string title = metric_name;
+        gr_vwp->SetName(name.c_str());
+        gr_vwp->SetTitle(title.c_str());
+
+        double y_min = std::numeric_limits<double>::max();
+        double y_max = std::numeric_limits<double>::lowest();
+
+        constexpr double knee_fraction = 0.90;
+        constexpr double over_voltage = 300.0;
+
+        for (size_t i{}; i < fits.size(); ++i) {
+
+            double v_knee = fits[i].v50;
+
+            if (fits[i].slope > 0.0) {
+                v_knee = fits[i].v50 + (1.0 / fits[i].slope) * std::log(knee_fraction / (1.0 - knee_fraction));
+            }
+            double v_wp = v_knee + over_voltage;
+
+            gr_vwp->SetPoint(i, i, v_wp);
+            gr_vwp->SetPointError(i, 0.0, fits[i].v50_err);
+
+            if (v_wp - fits[i].v50_err < y_min) y_min = v_wp - fits[i].v50_err;
+            if (v_wp + fits[i].v50_err > y_max) y_max = v_wp + fits[i].v50_err;
+        }
+
+        std::unique_ptr<TH1F> frame (
+            new TH1F(Form("frame_vwp_%s", metric_name.c_str()), "", fits.size(), -0.5, fits.size() - 0.5)
+        );
+        frame->SetDirectory(nullptr);
+
+        TAxis* x_axis = frame->GetXaxis();
+        for (size_t i{}; i < fits.size(); ++i) {
+            x_axis->SetBinLabel(i + 1, fits[i].group_name.c_str());
+        }
+
+        double y_range = y_max - y_min;
+        double y_pad = y_range * padding_factor;
+
+        double final_ymin = y_min - y_pad;
+        double final_ymax = y_max + y_pad;
+
+        frame->GetYaxis()->SetRangeUser(final_ymin, final_ymax);
+        frame->GetYaxis()->SetTitle("V_{WP} [V]");
+        gr_vwp->SetHistogram(frame.release());
+        gr_vwp->Write("", TObject::kOverwrite);
+    }
+}   // namespace CrossGroupHelpers
+
 // Anonymous namespace for metric names and other constants used in DataPlotter implementation
 namespace {
 
@@ -635,54 +732,9 @@ void DataPlotter::plotCrossGroupFits(TDirectory* config_dir, const std::map<std:
     }
     summary_dir->cd();
 
-    constexpr double v_50_default_min = 0.0;
-    constexpr double v_50_default_max = 6000.0;
-    constexpr double padding_factor = 0.1;
-
     for (const auto& [metric_name, fits] : all_fits) {
-
-        // V_50 Summary Graph
-        std::unique_ptr<TGraphErrors> gr_v50(new TGraphErrors(fits.size()));
-
-        std::string name = "summary_v50_" + metric_name;
-        std::string title = metric_name;
-        gr_v50->SetName(name.c_str());
-        gr_v50->SetTitle(title.c_str());
-
-        double y_min = std::numeric_limits<double>::max();
-        double y_max = std::numeric_limits<double>::lowest();
-
-        for (size_t i{}; i < fits.size(); ++i) {
-            gr_v50->SetPoint(i, i, fits[i].v50);
-            gr_v50->SetPointError(i, 0.0, fits[i].v50_err);
-
-            if (fits[i].v50 - fits[i].v50_err < y_min) y_min = fits[i].v50 - fits[i].v50_err;
-            if (fits[i].v50 + fits[i].v50_err > y_max) y_max = fits[i].v50 + fits[i].v50_err;
-        }
-
-        std::unique_ptr<TH1F> frame (new TH1F(Form("frame_v50_%s", metric_name.c_str()), "", fits.size(), -0.5, fits.size() - 0.5));
-        frame->SetDirectory(nullptr);
-
-        TAxis* x_axis = frame->GetXaxis();
-        for (size_t i{}; i < fits.size(); ++i) {
-            x_axis->SetBinLabel(i + 1, fits[i].group_name.c_str());
-        }
-
-        double y_range = y_max - y_min;
-        double y_pad = y_range * padding_factor;
-
-        double final_ymin = y_min - y_pad;
-        double final_ymax = y_max + y_pad;
-
-        if (final_ymin < v_50_default_min) final_ymin = v_50_default_min;
-        if (final_ymax > v_50_default_max) final_ymax = v_50_default_max;
-
-        frame->GetYaxis()->SetRangeUser(final_ymin, final_ymax);
-        frame->GetYaxis()->SetTitle("V_{50%} [V]");
-
-        gr_v50->SetHistogram(frame.release());
-
-        gr_v50->Write("", TObject::kOverwrite);
+        CrossGroupHelpers::assembleV50Graph(metric_name, fits);
+        CrossGroupHelpers::assembleVWPGraph(metric_name, fits);
     }
 }
 

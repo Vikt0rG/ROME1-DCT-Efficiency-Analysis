@@ -28,6 +28,15 @@ namespace Utilities {
     std::string getTimestamp();
 }   // namespace Utilities
 
+/// @namespace CrossGroupHelpers
+/// @brief Namespace for helper functions related to cross-group analysis and plotting
+namespace CrossGroupHelpers {
+
+    void assembleV50Graph(const std::string& metric_name, const std::vector<FitResult>& fits);
+    void assembleVWPGraph(const std::string& metric_name, const std::vector<FitResult>& fits);
+
+}
+
 // ==========================================================================================
 // DataPlotter Class: Plotting summary statistics
 // ==========================================================================================
