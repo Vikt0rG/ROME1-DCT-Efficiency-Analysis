@@ -109,10 +109,13 @@ namespace ConfigUtils {
 
             // RESOLVE FILTER
             if (global_filter_str == "SCAN" || global_filter_str == "scan") {
-                if (group_key == "OFF" || group_key == "off" || group_key == "NONE" || group_key.find("filter_OFF") != std::string::npos) {
+                if (group_key.find("OFF") != std::string::npos ||
+                    group_key.find("off") != std::string::npos ||
+                    group_key.find("NONE") != std::string::npos)
+                {
                     entry.filter = 0.0;
                 } else {
-                    entry.filter = extract_float(group_key); // Converts "filter_6_6" to 6.6
+                    entry.filter = extract_float(group_key);
                 }
             } else {
                 if (global_filter_str == "OFF" || global_filter_str == "off" || global_filter_str == "NONE" || global_filter_str.empty()) {
