@@ -11,43 +11,10 @@
 class TFile;
 class TDirectory;
 
-// ==========================================================================================
-// Utilities Namespace: General utility functions for plotting
-// ==========================================================================================
 /// @namespace Utilities
 /// @brief Namespace for general utility functions used across the plotting code
 namespace Utilities {
 
-    /// @struct GlobalSeries
-    /// @brief Struct to hold x and y, as well as y_errors data for a specific metric across
-    /// different measurement entries for the entire detector
-    struct GlobalSeries {
-        std::vector<double> x;
-        std::vector<double> y;
-        std::vector<double> y_errors_low;
-        std::vector<double> y_errors_high;
-    };
-
-    /// @struct LayerSeries
-    /// @brief Struct to hold x and y, as well as y_errors data for a specific metric across
-    /// different three layers
-    struct LayerSeries {
-        std::array<std::vector<double>, 3> x;
-        std::array<std::vector<double>, 3> y;
-        std::array<std::vector<double>, 3> y_errors_low;
-        std::array<std::vector<double>, 3> y_errors_high;
-    };
-
-    /// @struct StripSeries
-    /// @brief Struct to hold x and y, as well as y_errors data for a specific metric across
-    /// different strips in a layer
-    struct StripSeries {
-        std::vector<double> x;
-        std::vector<double> y;
-        std::vector<double> y_error_low;
-        std::vector<double> y_error_high;
-    };
-    
     /// @brief Utility function to parse measurement entries from provided configuration paths
     /// @param config_paths A vector of strings representing paths to YAML configuration files
     /// for different measurement entries
@@ -71,32 +38,6 @@ public:
         const std::filesystem::path& output_directory
     );
 
-    struct MetricsData {
-        std::map<std::string, Utilities::GlobalSeries> global_metrics;
-        std::map<std::string, Utilities::LayerSeries> layer_metrics;
-        std::map<std::string, std::map<int, std::map<int, Utilities::StripSeries>>> strip_metrics;
-
-        // For the scalar metrics
-        std::map<std::string, std::vector<double>> scalar_x;
-        std::map<std::string, std::vector<double>> scalar_y;
-
-        // For 2D Heatmaps (HV vs Raw ToF)
-        std::map<std::string, std::map<double, std::vector<int>>> raw_tof_data;
-    };
-
-    struct FitResult {
-        std::string group_name;
-        int scanned_layer;
-
-        double max_eff;
-        double slope;
-        double v50;
-
-        double max_eff_err;
-        double slope_err;
-        double v50_err;
-    };
-
     TFile* initializeAnalysisFile();
     TDirectory* setupScanDirectories(TDirectory* config_dir, const std::string& group_name);
 
@@ -104,8 +45,8 @@ public:
     std::map<std::string, std::vector<FitResult>> extractCrossGroupFits(TDirectory* base_dir);
 
     void plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& scan_data);
-    void plotLayerMetrics(TDirectory* scan_dir, const std::map<std::string, Utilities::LayerSeries>& layer_metrics);
-    void plotStripMetrics(TDirectory* scan_dir, const std::map<std::string, std::map<int, std::map<int, Utilities::StripSeries>>>& strip_metrics);
+    void plotLayerMetrics(TDirectory* scan_dir, const std::map<std::string, LayerSeries>& layer_metrics);
+    void plotStripMetrics(TDirectory* scan_dir, const std::map<std::string, std::map<int, std::map<int, StripSeries>>>& strip_metrics);
     void plotCrossGroupFits(TDirectory* config_dir, const std::map<std::string, std::vector<FitResult>>& all_fits);
 
     void cumulativeAnalysisRootFile();

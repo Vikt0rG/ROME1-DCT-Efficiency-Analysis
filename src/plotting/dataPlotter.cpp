@@ -156,7 +156,7 @@ TDirectory* DataPlotter::setupScanDirectories(TDirectory* config_dir, const std:
 }
 
 // Helper function to extract scan data from a summary ROOT file and return a map of MetricsData
-std::map<std::string, DataPlotter::MetricsData> DataPlotter::extractScanData(
+std::map<std::string, MetricsData> DataPlotter::extractScanData(
     const std::string& summary_file_path)
 {
     std::map<std::string, MetricsData> result;
@@ -407,7 +407,7 @@ void fitEfficiency(TGraphAsymmErrors* graph, const std::string& graph_name, TDir
 }
 
 void DataPlotter::plotLayerMetrics(
-    TDirectory* scan_dir, const std::map<std::string, Utilities::LayerSeries>& layer_metrics) {
+    TDirectory* scan_dir, const std::map<std::string, LayerSeries>& layer_metrics) {
     if (!scan_dir) return;
 
     // Grab the pre-created subdirectories
@@ -507,7 +507,7 @@ void DataPlotter::plotLayerMetrics(
 
 void DataPlotter::plotStripMetrics(
     TDirectory* scan_dir, const std::map<std::string, std::map<int,
-    std::map<int, Utilities::StripSeries>>>& strip_metrics) {
+    std::map<int, StripSeries>>>& strip_metrics) {
 
     if (!scan_dir) return;
 
@@ -569,7 +569,7 @@ void DataPlotter::plotStripMetrics(
     }
 }
 
-std::map<std::string, std::vector<DataPlotter::FitResult>> DataPlotter::extractCrossGroupFits(TDirectory* base_dir) {
+std::map<std::string, std::vector<FitResult>> DataPlotter::extractCrossGroupFits(TDirectory* base_dir) {
     std::map<std::string, std::vector<FitResult>> metrics_map;
     if (!base_dir) return metrics_map;
 
@@ -629,7 +629,7 @@ std::map<std::string, std::vector<DataPlotter::FitResult>> DataPlotter::extractC
     return metrics_map;
 }
 
-void DataPlotter::plotCrossGroupFits(TDirectory* config_dir, const std::map<std::string, std::vector<DataPlotter::FitResult>>& all_fits) {
+void DataPlotter::plotCrossGroupFits(TDirectory* config_dir, const std::map<std::string, std::vector<FitResult>>& all_fits) {
     if (!config_dir || all_fits.empty()) return;
 
     TDirectory* summary_dir = config_dir->GetDirectory("cross_group_summaries");

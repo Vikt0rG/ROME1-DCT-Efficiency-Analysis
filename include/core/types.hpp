@@ -317,3 +317,52 @@ struct ConfigData {
     std::vector<MeasurementMetadata> metadata;
     std::string summary_root_file;
 };
+
+
+// ==========================================================================================
+// Structs for assembly of graphs in the final ROOT analysis file
+
+struct GlobalSeries {
+    std::vector<double> x;
+    std::vector<double> y;
+    std::vector<double> y_errors_low;
+    std::vector<double> y_errors_high;
+};
+
+struct LayerSeries {
+    std::array<std::vector<double>, 3> x;
+    std::array<std::vector<double>, 3> y;
+    std::array<std::vector<double>, 3> y_errors_low;
+    std::array<std::vector<double>, 3> y_errors_high;
+};
+
+struct StripSeries {
+    std::vector<double> x;
+    std::vector<double> y;
+    std::vector<double> y_error_low;
+    std::vector<double> y_error_high;
+};
+
+struct MetricsData {
+    std::map<std::string, GlobalSeries> global_metrics;
+    std::map<std::string, LayerSeries> layer_metrics;
+    std::map<std::string, std::map<int, std::map<int, StripSeries>>> strip_metrics;
+
+    std::map<std::string, std::vector<double>> scalar_x;
+    std::map<std::string, std::vector<double>> scalar_y;
+
+    std::map<std::string, std::map<double, std::vector<int>>> raw_tof_data;
+};
+
+struct FitResult {
+    std::string group_name;
+    int scanned_layer;
+
+    double max_eff;
+    double slope;
+    double v50;
+
+    double max_eff_err;
+    double slope_err;
+    double v50_err;
+};
