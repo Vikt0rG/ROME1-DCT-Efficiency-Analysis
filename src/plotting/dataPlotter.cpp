@@ -34,33 +34,31 @@
 #include "plotting/plotBatchExporter.hpp"
 #include "plotting/dataPlotter.hpp"
 
-// ==========================================================================================
-// Plotting utility functions for creating summaries from the DataAnalyzer summary ROOT files
-// ==========================================================================================
-namespace Utilities {
-std::map<std::string, ConfigData> parseConfigs(const std::vector<std::string>& config_paths) {
-    std::map<std::string, ConfigData> entries_by_scan;
-    
-    for (const std::string& config_path : config_paths) {
-        std::string summary_path;
-        auto metadata = ConfigUtils::parseMeasurementMetadata(config_path, &summary_path);
-        
-        if (!metadata.empty()) {
-            entries_by_scan[config_path] = ConfigData{std::move(metadata), summary_path};
-        }
-    }
-    return entries_by_scan;
-}
 
-std::string getTimestamp() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t now_time_t = std::chrono::system_clock::to_time_t(now);
-    std::tm now_tm;
-    localtime_r(&now_time_t, &now_tm);
-    char timestamp[20];
-    std::strftime(timestamp, sizeof(timestamp), "%d-%m-%Y_%H-%M-%S", &now_tm);
-    return std::string(timestamp);
-}
+namespace Utilities {
+    std::map<std::string, ConfigData> parseConfigs(const std::vector<std::string>& config_paths) {
+        std::map<std::string, ConfigData> entries_by_scan;
+
+        for (const std::string& config_path : config_paths) {
+            std::string summary_path;
+            auto metadata = ConfigUtils::parseMeasurementMetadata(config_path, &summary_path);
+
+            if (!metadata.empty()) {
+                entries_by_scan[config_path] = ConfigData{std::move(metadata), summary_path};
+            }
+        }
+        return entries_by_scan;
+    }
+
+    std::string getTimestamp() {
+        auto now = std::chrono::system_clock::now();
+        std::time_t now_time_t = std::chrono::system_clock::to_time_t(now);
+        std::tm now_tm;
+        localtime_r(&now_time_t, &now_tm);
+        char timestamp[20];
+        std::strftime(timestamp, sizeof(timestamp), "%d-%m-%Y_%H-%M-%S", &now_tm);
+        return std::string(timestamp);
+    }
 }   // namespace Utilities
 
 // Anonymous namespace for metric names and other constants used in DataPlotter implementation
@@ -599,12 +597,12 @@ std::map<std::string, std::vector<FitResult>> DataPlotter::extractCrossGroupFits
                 std::string obj_name = obj_key->GetName();
                 std::string target_suffix = Form("_layer%d_fitParams", layer);
 
-                // If the object name ends with our target suffix...
+                // If the object name ends with the target suffix...
                 if (obj_name.length() > target_suffix.length() && 
                     obj_name.compare(obj_name.length() - target_suffix.length(), 
                                      target_suffix.length(), target_suffix) == 0) 
                 {
-                    // Extract the raw metric name! (e.g., "eff_external_trigger")
+                    // Extract the raw metric name (e.g., "eff_external_trigger")
                     std::string metric_name = obj_name.substr(0, obj_name.length() - target_suffix.length());
 
                     TVectorD* params = l_dir->Get<TVectorD>(obj_name.c_str());
@@ -618,8 +616,7 @@ std::map<std::string, std::vector<FitResult>> DataPlotter::extractCrossGroupFits
                         res.max_eff_err = (*params)[3];
                         res.slope_err   = (*params)[4];
                         res.v50_err     = (*params)[5];
-                        
-                        // Push into the dynamic map
+
                         metrics_map[metric_name].push_back(res);
                     }
                 }
