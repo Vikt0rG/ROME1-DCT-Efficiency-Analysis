@@ -3,6 +3,8 @@
 #include <unordered_map>
 #include <stdexcept>
 #include <regex>
+#include <algorithm>
+#include <numeric>
 
 #include <TDirectory.h>
 #include <TFile.h>
@@ -62,6 +64,26 @@ namespace Utilities {
 }   // namespace Utilities
 
 namespace CrossGroupHelpers {
+    double get_sort_weight(const std::string& group_name) {
+        if (group_name.find("OFF") != std::string::npos || group_name.find("off") != std::string::npos) {
+            return std::numeric_limits<double>::max();
+        }
+
+        std::regex re("(\\d+[._]\\d+|\\d+)");
+        std::smatch match;
+
+        if (std::regex_search(group_name, match, re)) {
+            std::string num_str = match[1].str();
+            std::replace(num_str.begin(), num_str.end(), '_', '.');
+            try {
+                return std::stod(num_str);
+            } catch (...) {
+                return -1.0;
+            }
+        }
+        return -1.0;
+    };
+
     void assembleV50Graph(const std::string& metric_name, const std::vector<FitResult>& fits) {
         constexpr double padding_factor = 0.1;
 
@@ -75,20 +97,34 @@ namespace CrossGroupHelpers {
         double y_min = std::numeric_limits<double>::max();
         double y_max = std::numeric_limits<double>::lowest();
 
-        for (size_t i{}; i < fits.size(); ++i) {
-            gr_v50->SetPoint(i, i, fits[i].v50);
-            gr_v50->SetPointError(i, 0.0, fits[i].v50_err);
+        std::vector<size_t> sorted_indices(fits.size());
+        std::iota(sorted_indices.begin(), sorted_indices.end(), 0);
 
-            if (fits[i].v50 - fits[i].v50_err < y_min) y_min = fits[i].v50 - fits[i].v50_err;
-            if (fits[i].v50 + fits[i].v50_err > y_max) y_max = fits[i].v50 + fits[i].v50_err;
+        std::stable_sort(sorted_indices.begin(), sorted_indices.end(), [&](size_t a, size_t b) {
+            return get_sort_weight(fits[a].group_name) > get_sort_weight(fits[b].group_name);
+        });
+
+        for (size_t point_idx{}; point_idx < fits.size(); ++point_idx) {
+
+            size_t fit_idx = sorted_indices[point_idx];
+            const auto& fit = fits[fit_idx];
+
+            gr_v50->SetPoint(point_idx, point_idx, fit.v50);
+            gr_v50->SetPointError(point_idx, 0.0, fit.v50_err);
+
+            if (fit.v50 - fit.v50_err < y_min) y_min = fit.v50 - fit.v50_err;
+            if (fit.v50 + fit.v50_err > y_max) y_max = fit.v50 + fit.v50_err;
         }
 
-        std::unique_ptr<TH1F> frame (new TH1F(Form("frame_v50_%s", metric_name.c_str()), "", fits.size(), -0.5, fits.size() - 0.5));
+        std::unique_ptr<TH1F> frame (
+            new TH1F(Form("frame_v50_%s", metric_name.c_str()), "", fits.size(), -0.5, fits.size() - 0.5)
+        );
         frame->SetDirectory(nullptr);
 
         TAxis* x_axis = frame->GetXaxis();
-        for (size_t i{}; i < fits.size(); ++i) {
-            x_axis->SetBinLabel(i + 1, fits[i].group_name.c_str());
+        for (size_t point_idx{}; point_idx < fits.size(); ++point_idx) {
+            size_t fit_idx = sorted_indices[point_idx];
+            x_axis->SetBinLabel(point_idx + 1, fits[fit_idx].group_name.c_str());
         }
 
         double y_range = y_max - y_min;
@@ -119,20 +155,29 @@ namespace CrossGroupHelpers {
         constexpr double knee_fraction = 0.90;
         constexpr double over_voltage = 300.0;
 
-        for (size_t i{}; i < fits.size(); ++i) {
+        std::vector<size_t> sorted_indices(fits.size());
+        std::iota(sorted_indices.begin(), sorted_indices.end(), 0);
 
-            double v_knee = fits[i].v50;
+        std::stable_sort(sorted_indices.begin(), sorted_indices.end(), [&](size_t a, size_t b) {
+            return get_sort_weight(fits[a].group_name) > get_sort_weight(fits[b].group_name);
+        });
 
-            if (fits[i].slope > 0.0) {
-                v_knee = fits[i].v50 + (1.0 / fits[i].slope) * std::log(knee_fraction / (1.0 - knee_fraction));
+        for (size_t point_idx{}; point_idx < fits.size(); ++point_idx) {
+
+            size_t i = sorted_indices[point_idx]; 
+            const auto& fit = fits[i];
+
+            double v_knee = fit.v50;
+            if (fit.slope > 0.0) {
+                v_knee = fit.v50 + (1.0 / fit.slope) * std::log(knee_fraction / (1.0 - knee_fraction));
             }
             double v_wp = v_knee + over_voltage;
 
-            gr_vwp->SetPoint(i, i, v_wp);
-            gr_vwp->SetPointError(i, 0.0, fits[i].v50_err);
+            gr_vwp->SetPoint(point_idx, point_idx, v_wp);
+            gr_vwp->SetPointError(point_idx, 0.0, fit.v50_err);
 
-            if (v_wp - fits[i].v50_err < y_min) y_min = v_wp - fits[i].v50_err;
-            if (v_wp + fits[i].v50_err > y_max) y_max = v_wp + fits[i].v50_err;
+            if (v_wp - fit.v50_err < y_min) y_min = v_wp - fit.v50_err;
+            if (v_wp + fit.v50_err > y_max) y_max = v_wp + fit.v50_err;
         }
 
         std::unique_ptr<TH1F> frame (
@@ -141,8 +186,10 @@ namespace CrossGroupHelpers {
         frame->SetDirectory(nullptr);
 
         TAxis* x_axis = frame->GetXaxis();
-        for (size_t i{}; i < fits.size(); ++i) {
-            x_axis->SetBinLabel(i + 1, fits[i].group_name.c_str());
+
+        for (size_t point_idx{}; point_idx < fits.size(); ++point_idx) {
+            size_t i = sorted_indices[point_idx];
+            x_axis->SetBinLabel(point_idx + 1, fits[i].group_name.c_str());
         }
 
         double y_range = y_max - y_min;
