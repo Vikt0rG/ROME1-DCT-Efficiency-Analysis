@@ -541,7 +541,14 @@ namespace PlotStyler {
         }
 
         // Set color and marker style for the graphs in the multigraph
-        const std::vector<Color_t> palette = {kAzure + 2, kGreen + 2, kOrange + 10};
+        const std::vector<Color_t> palette = {
+            kAzure + 2,
+            kGreen + 2,
+            kOrange + 10,
+            kMagenta + 2,
+            kYellow - 3,
+            kCyan - 4
+        };
         if (mg && mg->GetListOfGraphs()) {
             TIter next(mg->GetListOfGraphs());
             TObject* gr_obj;
@@ -662,22 +669,25 @@ namespace PlotStyler {
 
         // Set axis ranges and labels
         if (mg && mg->GetHistogram()) {
-
-            // Setup X Axis
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
                 setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 4500.0});
                 xAxis->SetTitle(x_label.c_str());
             }
-
-            // Setup Y Axis (Default fallback 0.0 to 1.0, obeying the same X-floor)
             if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
-                setRange(mg, yAxis, AxisType::Y);
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 4500.0});
                 yAxis->SetTitle(y_label.c_str());
             }
         }
 
         // Set color and marker style for the graphs in the multigraph
-        const std::vector<Color_t> palette = {kAzure + 2, kGreen + 2, kOrange + 10};
+        const std::vector<Color_t> palette = {
+            kAzure + 2,
+            kGreen + 2,
+            kOrange + 10,
+            kMagenta + 2,
+            kYellow - 3,
+            kCyan - 4
+        };
         if (mg && mg->GetListOfGraphs()) {
             TIter next(mg->GetListOfGraphs());
             TObject* gr_obj;
@@ -753,7 +763,14 @@ namespace PlotStyler {
         }
 
         // Set color and marker style for the graphs in the multigraph
-        const std::vector<Color_t> palette = {kAzure + 2, kGreen + 2, kOrange + 10};
+        const std::vector<Color_t> palette = {
+            kAzure + 2,
+            kGreen + 2,
+            kOrange + 10,
+            kMagenta + 2,
+            kYellow - 3,
+            kCyan - 4
+        };
         if (mg && mg->GetListOfGraphs()) {
             TIter next(mg->GetListOfGraphs());
             TObject* gr_obj;
@@ -1224,7 +1241,14 @@ namespace PlotStyler {
             named_obj->SetTitle(title.c_str());
         }
 
-        const std::vector<Color_t> palette = {kAzure + 2, kGreen + 2, kOrange + 10};
+        const std::vector<Color_t> palette = {
+            kAzure + 2,
+            kGreen + 2,
+            kOrange + 10,
+            kMagenta + 2,
+            kYellow - 3,
+            kCyan - 4
+        };
         TIter next(stack->GetHists());
         TH1* hist = nullptr;
         int index = 0;
