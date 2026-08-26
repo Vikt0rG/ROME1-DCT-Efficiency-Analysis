@@ -111,8 +111,9 @@ namespace PlotStyler {
 
             std::smatch match;
 
-            static const std::regex single_layer_re("layer(\\d+)");
-            static const std::regex lv_re("lv(\\d+)");
+            static const std::regex single_layer_re("layer[ _]?(\\d+)");
+            static const std::regex lv_re("lv[ _]?(\\d+)");
+            static const std::regex source_re("(?:source|filter)[ _]?(\\d+[._]\\d+|OFF)");
 
             // A. Layer prefixes (e.g., "layer0" or "layer1")
             if (std::regex_search(clean_group, match, single_layer_re)) {
@@ -121,6 +122,16 @@ namespace PlotStyler {
             // B. Low voltage setting prefixes (e.g., "lv1", "lv2")
             else if (std::regex_search(clean_group, match, lv_re)) {
                 labels.push_back("LV Setting " + match[1].str());
+            }
+            // C. Filter/Source prefixes
+            else if (std::regex_search(clean_group, match, source_re)) {
+                std::string extracted = match[1].str();
+                if (extracted == "OFF") {
+                    labels.push_back("Source OFF");
+                } else {
+                    std::replace(extracted.begin(), extracted.end(), '_', '.');
+                    labels.push_back("Filter " + extracted);
+                }
             }
             // Z. Default case: Use the cleaned group name as-is
             else {
