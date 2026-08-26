@@ -57,7 +57,9 @@ namespace PlotStyler {
         {"avg_tot",                 TMultiGraph::Class(),          PlotCategory::AvgToTVsHV},
         {"avg_multiplicity",        TMultiGraph::Class(),          PlotCategory::AvgMultVsHV},
         {"summary_v50_eff",         TGraphErrors::Class(),         PlotCategory::Efficiency},
-        {"summary_v50_track_eff",   TGraphErrors::Class(),         PlotCategory::Efficiency}
+        {"summary_v50_track_eff",   TGraphErrors::Class(),         PlotCategory::Efficiency},
+        {"summary_vwp_eff",         TGraphErrors::Class(),         PlotCategory::Efficiency},
+        {"summary_vwp_track_eff",   TGraphErrors::Class(),         PlotCategory::Efficiency}
     };
 
     static const std::vector<std::pair<PlotCategory, StylerFnPtr>> styler_map = {
