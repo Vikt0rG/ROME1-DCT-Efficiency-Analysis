@@ -1082,6 +1082,8 @@ namespace PlotStyler {
 
         applyATLASStyle(obj, canvas);
 
+        enforceIntegerMinorTicks(h1->GetXaxis());
+
         drawATLASLabel(0.21, 0.86, "Work in Progress");
         drawPlotTitle(obj, 0.21, 0.82);
     }
@@ -1117,7 +1119,9 @@ namespace PlotStyler {
 
         if (stack->GetXaxis()) stack->GetXaxis()->SetTitle(x_label.c_str());
         if (stack->GetYaxis()) stack->GetYaxis()->SetTitle(y_label.c_str());
+
         applyATLASStyle(obj, canvas);
+        enforceIntegerMinorTicks(stack->GetXaxis());
 
         double ndc_x0 = canvas->GetLeftMargin();
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
