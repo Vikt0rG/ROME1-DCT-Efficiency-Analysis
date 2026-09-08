@@ -257,21 +257,6 @@ struct MeasurementMetadata {
 
 /// @struct MeasurementData
 /// @brief Struct to hold calculated statistics for a single ROOT file/measurement entry
-/// @param efficiency_results Calculated efficiency results for the measurement entry
-/// @param efficiency_results_tracks Calculated track-based efficiency results for the
-/// measurement entry
-/// @param cluster_size_results Calculated cluster size results for the measurement entry
-/// @param rate_results Calculated rate results for the measurement entry
-/// @param tot_results Calculated average ToT results for the measurement entry
-/// @param tot_results_tracks Calculated track-based average ToT results for the measurement
-/// entry
-/// @param multiplicity_results Calculated average multiplicity results for the measurement
-/// entry
-/// @param multiplicity_results_tracks Calculated track-based average multiplicity results
-/// for the measurement entry
-/// @param tof_results Calculated time-of-flight results for the measurement entry
-/// @param time_resolution_results Calculated time resolution results for the measurement entry
-/// @param dead_strips Struct containing information about dead strips
 struct MeasurementData {
     EfficiencyResults efficiency_results;
     EfficiencyResults efficiency_results_tracks;
@@ -281,6 +266,8 @@ struct MeasurementData {
     DeadStrips dead_strips;
     ToTResults tot_results;
     ToTResults tot_results_tracks;
+    ToTResults tot_results_beam;
+    ToTResults tot_results_beam_track;
     MultiplicityResults multiplicity_results;
     MultiplicityResults multiplicity_results_tracks;
     ToFResults tof_results;
@@ -293,6 +280,8 @@ struct MeasurementData {
         rate_results = {};
         tot_results = {};
         tot_results_tracks = {};
+        tot_results_beam = {};
+        tot_results_beam_track = {};
         multiplicity_results = {};
         multiplicity_results_tracks = {};
         tof_results.clear();
