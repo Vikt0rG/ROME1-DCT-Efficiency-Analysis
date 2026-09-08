@@ -40,6 +40,7 @@ namespace PlotStyler {
     static const std::vector<std::tuple<std::string, TClass*, PlotCategory>> category_map = {
         {"h1d_strip_eta",           TH1::Class(),                  PlotCategory::StripDistribution},
         {"h1d_strip_eta",           THStack::Class(),              PlotCategory::StripDistributionCombined},
+        {"h2d_roi_map",             TH2::Class(),                  PlotCategory::RoI},
         {"h1d_cs_eta",              TH1::Class(),                  PlotCategory::CSDistribution},
         {"h1d_tot_eta",             TH1::Class(),                  PlotCategory::ToTDistribution},
         {"h1d_tot",                 THStack::Class(),              PlotCategory::ToTCombinedDistribution},
@@ -76,6 +77,7 @@ namespace PlotStyler {
         {PlotCategory::AvgMultVsHV,                 &styleAvgMulVsHV},
         {PlotCategory::StripDistribution,           &styleStripDistribution},
         {PlotCategory::StripDistributionCombined,   &styleStripDistributionCombined},
+        {PlotCategory::RoI,                         &styleRoI},
         {PlotCategory::ToTDistribution,             &styleToTDistribution},
         {PlotCategory::ToTCombinedDistribution,     &styleToTCombinedDistribution},
         {PlotCategory::Default,                     &styleDefaultPlot}
@@ -1157,13 +1159,29 @@ namespace PlotStyler {
 
         applyATLASStyle(frame, canvas);
 
-        h1->SetFillColor(kOrange - 2);
+        h1->SetFillColorAlpha(kOrange - 2, 0.75);
         h1->SetFillStyle(1001);
         h1->SetLineColor(kOrange + 7);
         h1->SetLineWidth(2);
         h1->SetLineStyle(1);
 
         h1->Draw("HIST SAME");
+
+        for (int i = 1; i < h1->GetNbinsX(); ++i) {
+            double x = h1->GetXaxis()->GetBinUpEdge(i);
+
+            double y_left = h1->GetBinContent(i);
+            double y_right = h1->GetBinContent(i + 1);
+
+            double y_max_line = std::min(y_left, y_right);
+
+            if (y_max_line > 0) {
+                TLine* edge = new TLine(x, 0.0, x, y_max_line);
+                edge->SetLineColorAlpha(kOrange + 7, 0.55);
+                edge->SetLineWidth(1);
+                edge->Draw();
+            }
+        }
 
         TF1* fit = h1->GetFunction("cs_poisson");
 
@@ -1216,6 +1234,8 @@ namespace PlotStyler {
 
         fit_band->SetBit(kCanDelete);
 
+        canvas->RedrawAxis();
+
         double ndc_x0 = 1.0 - canvas->GetRightMargin();
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
@@ -1243,6 +1263,10 @@ namespace PlotStyler {
             kBlack, 0,
             0.01
         );
+    }
+
+    void styleRoI(TObject* obj, TCanvas* canvas, TClass* cl) {
+
     }
 
     void styleCSDistributionCombined(TObject* obj, TCanvas* canvas, TClass* cl) {
@@ -1323,7 +1347,7 @@ namespace PlotStyler {
 
         applyATLASStyle(frame, canvas);
 
-        h1->SetFillColor(kOrange - 2);
+        h1->SetFillColorAlpha(kOrange - 2, 0.75);
         h1->SetFillStyle(1001);
         h1->SetLineColor(kOrange + 7);
         h1->SetLineWidth(2);

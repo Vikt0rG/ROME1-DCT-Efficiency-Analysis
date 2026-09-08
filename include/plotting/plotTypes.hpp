@@ -15,6 +15,7 @@ namespace PlotterHelpers {
         EfficiencyVsHV,
         StripDistribution,
         StripDistributionCombined,
+        RoI,
         CSDistribution,
         ToTDistribution,
         ToTCombinedDistribution,
