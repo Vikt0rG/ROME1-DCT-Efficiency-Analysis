@@ -23,18 +23,18 @@ def formatFilterToken(value: Optional[float]) -> str:
     return text.replace(".", "_")
 
 
-def parseLayer(name: str) -> str:
+def parseLayer(name: str, **kwargs) -> str:
+    swap_layers = kwargs.get("swap_layers")
+
     match = re.search(r"layer(\d+)", name, re.IGNORECASE)
-    if match:
-        # Swap layer 1 and layer 2 in the name (connector issue) 
-        layer_num = int(match.group(1))
-        if layer_num == 1:
-            return "layer2"
-        elif layer_num == 2:
-            return "layer1"
-        else:
-            return f"layer{layer_num}"
-    return "layer_unknown"
+    if not match: return "layer_unknown"
+
+    layer_num = int(match.group(1))
+
+    if swap_layers:
+        layer_num = swap_layers[1] if layer_num == swap_layers[0] else (swap_layers[0] if layer_num == swap_layers[1] else layer_num)
+
+    return f"layer{layer_num}"
 
 
 def makeFilename(
