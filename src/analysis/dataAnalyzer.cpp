@@ -1556,6 +1556,21 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
     PlotterHelpers::BatchExporter::autoExportToATLASPDF(root_file_path, target_plots_dir);
 }
 
+void DataAnalyzer::produceGlobalStats(TFile* input_file, MeasurementData& data) {
+
+    using namespace summaryHelpers;
+
+    getEfficiency(input_file, data.efficiency_results, data.efficiency_results_tracks);
+    getClusterSize(input_file, data.cluster_size_results);
+    getRate(input_file, data.rate_results);
+    getDeadStrips(data.dead_strips);
+    getAverageToT(input_file, data.tot_results, false, data.dead_strips);
+    getAverageToT(input_file, data.tot_results_tracks, true, data.dead_strips);
+    getAverageMultiplicity(input_file, data.multiplicity_results, false, data.dead_strips);
+    getAverageMultiplicity(input_file, data.multiplicity_results_tracks, true, data.dead_strips);
+    processToF(input_file, data.tof_results, data.time_resolution_results, data.dead_strips);
+}
+
 void DataAnalyzer::produceSummaryStats() {
 
     // Process each config file and build the list of measurement entries and summaries
@@ -1606,15 +1621,7 @@ void DataAnalyzer::produceSummaryStats() {
         producePerFileStats(input_file);
 
         // Calculate and store file statistics into the summary tree for this measurement entry
-        summaryHelpers::getEfficiency(input_file, data.efficiency_results, data.efficiency_results_tracks);
-        summaryHelpers::getClusterSize(input_file, data.cluster_size_results);
-        summaryHelpers::getRate(input_file, data.rate_results);
-        summaryHelpers::getDeadStrips(data.dead_strips);
-        summaryHelpers::getAverageToT(input_file, data.tot_results, false, data.dead_strips);
-        summaryHelpers::getAverageToT(input_file, data.tot_results_tracks, true, data.dead_strips);
-        summaryHelpers::getAverageMultiplicity(input_file, data.multiplicity_results, false, data.dead_strips);
-        summaryHelpers::getAverageMultiplicity(input_file, data.multiplicity_results_tracks, true, data.dead_strips);
-        summaryHelpers::processToF(input_file, data.tof_results, data.time_resolution_results, data.dead_strips);
+        produceGlobalStats(input_file, data);
 
         // Fill the summary tree with the extracted statistics for this measurement entry
         summary_tree->Fill();

@@ -83,6 +83,12 @@ public:
     /// config file
     void produceSummaryStats();
 
+    /// @brief Function to produce global statistics for each measurement entry in the config file
+    /// @param input_file Pointer to the input ROOT file containing processed DCT data for a
+    /// specific measurement entry
+    /// @param data Reference to the MeasurementData structure for the current measurement entry
+    void produceGlobalStats(TFile* input_file, MeasurementData& data);
+
     /// @brief Function to produce per-file relevant statistics for each measurement entry
     /// @param input_file Pointer to the input ROOT file containing processed DCT data for a
     /// specific measurement entry
