@@ -374,7 +374,33 @@ void plotToT(TFile* input_file) {
     }
 }
 
-void plotDtVsStrip(TFile* input_file) {
+void extractBeamSpotRoI(TH2* agg_hist, RoI& roi, double core_frac, double halo_frac) {
+    roi.clear();
+    if (!agg_hist) return;
+
+    double max_hits = agg_hist->GetMaximum();
+    if (max_hits <= 0) return;
+
+    double core_thresh = max_hits * core_frac;
+    double halo_thresh = max_hits * halo_frac;
+
+    for (int bx = 1; bx <= agg_hist->GetNbinsX(); ++bx) {
+        for (int by = 1; by <= agg_hist->GetNbinsY(); ++by) {
+
+            double content = agg_hist->GetBinContent(bx, by);
+            int strip = std::round(agg_hist->GetXaxis()->GetBinCenter(bx));
+            int dt = std::round(agg_hist->GetYaxis()->GetBinCenter(by));
+
+            if (content > core_thresh) {
+                roi.beam_region.push_back({strip, dt});
+            } else if (content > halo_thresh) {
+                roi.halo_region.push_back({strip, dt});
+            }
+        }
+    }
+}
+
+void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     TDirectory* analysis_dir = input_file->GetDirectory("analysis");
     TDirectory* dt_strip_dir = analysis_dir->GetDirectory("dt_strip");
     dt_strip_dir->cd();
@@ -426,6 +452,44 @@ void plotDtVsStrip(TFile* input_file) {
             }
         }
     }
+
+    // Region of Interest extraction
+    TH2F* h_agg = (TH2F*)dt_strip_histograms["dt_strip_track"][0]->Clone("h2d_agg_tracks");
+    h_agg->Add(dt_strip_histograms["dt_strip_track"][1]);
+    h_agg->Add(dt_strip_histograms["dt_strip_track"][2]);
+
+    double beam_threshold = 0.50;
+    double halo_threshold = 0.05;
+    extractBeamSpotRoI(h_agg, region_of_interest, beam_threshold, halo_threshold);
+
+    // 3-tier RoI Map (1 = No Beam, 2 = Halo, 3 = Beam Core)
+    TH2F* h_roi_map = new TH2F("h2d_roi_map",
+                               "Beam Spot Region of Interest;Strip;#Delta#it{t} [Ticks]",
+                               24, 0, 24, 24, -12, 12);
+
+    for (int bx = 1; bx <= h_roi_map->GetNbinsX(); ++bx) {
+        for (int by = 1; by <= h_roi_map->GetNbinsY(); ++by) {
+            h_roi_map->SetBinContent(bx, by, 1.0);
+        }
+    }
+
+    for (const auto& pt : region_of_interest.halo_region) {
+        int bx = h_roi_map->GetXaxis()->FindBin(pt.first);
+        int by = h_roi_map->GetYaxis()->FindBin(pt.second);
+        h_roi_map->SetBinContent(bx, by, 2.0);
+    }
+
+    for (const auto& pt : region_of_interest.beam_region) {
+        int bx = h_roi_map->GetXaxis()->FindBin(pt.first);
+        int by = h_roi_map->GetYaxis()->FindBin(pt.second);
+        h_roi_map->SetBinContent(bx, by, 3.0);
+    }
+
+    h_agg->Write("", TObject::kOverwrite);
+    h_roi_map->Write("", TObject::kOverwrite);
+
+    delete h_agg;
+    delete h_roi_map;
 
     // Write histograms to file and clean up
     for (int c = 0; c < nConfigs; ++c) {
@@ -1523,7 +1587,7 @@ DataAnalyzer::DataAnalyzer(const std::string& config_file_path, const std::strin
 DataAnalyzer::~DataAnalyzer() {
 }
 
-void DataAnalyzer::producePerFileStats(TFile* input_file) {
+void DataAnalyzer::producePerFileStats(TFile* input_file, MeasurementData& data) {
 
     // Set up output directories for per-file statistics and plots
     std::vector<std::string> dir_names = {
@@ -1542,7 +1606,7 @@ void DataAnalyzer::producePerFileStats(TFile* input_file) {
     perFileHelpers::plotStrip(input_file);
     perFileHelpers::plotCS(input_file);
     perFileHelpers::plotToT(input_file);
-    perFileHelpers::plotDtVsStrip(input_file);
+    perFileHelpers::plotDtVsStrip(input_file, data.region_of_interest);
     perFileHelpers::plotToTVsStrip(input_file);
     perFileHelpers::plotMultiplicityAndDelayVsStrip(input_file);
     perFileHelpers::plotToFs(input_file);
@@ -1618,7 +1682,7 @@ void DataAnalyzer::produceSummaryStats() {
         metadata = metadata_entry;
 
         // Calculate and fill per-file relevant statistics for this measurement entry and save into the input ROOT file
-        producePerFileStats(input_file);
+        producePerFileStats(input_file, data);
 
         // Calculate and store file statistics into the summary tree for this measurement entry
         produceGlobalStats(input_file, data);

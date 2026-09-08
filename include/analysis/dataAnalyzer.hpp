@@ -8,6 +8,7 @@
 #include "core/types.hpp"
 
 class TFile;
+class TH2;
 
 // ==========================================================================================
 // Analysis utility/helper namespace for plotting and calculating statistics
@@ -40,7 +41,9 @@ namespace perFileHelpers {
     void plotStrip(TFile* input_file);
     void plotCS(TFile* input_file);
     void plotToT(TFile* input_file);
-    void plotDtVsStrip(TFile* input_file);
+    void extractBeamSpotRoI(TH2* agg_hist, RoI& roi,
+        double beam_threshold = 0.15, double halo_threshold = 0.05);
+    void plotDtVsStrip(TFile* input_file, RoI& region_of_interest);
     void plotToTVsStrip(TFile* input_file);
     void plotMultiplicityAndDelayVsStrip(TFile* input_file);
     void plotToFs(TFile* input_file);
@@ -83,16 +86,17 @@ public:
     /// config file
     void produceSummaryStats();
 
+    /// @brief Function to produce per-file relevant statistics for each measurement entry
+    /// @param input_file Pointer to the input ROOT file containing processed DCT data for a
+    /// specific measurement entry
+    /// @param data Reference to the MeasurementData structure for the current measurement entry
+    void producePerFileStats(TFile* input_file, MeasurementData& data);
+
     /// @brief Function to produce global statistics for each measurement entry in the config file
     /// @param input_file Pointer to the input ROOT file containing processed DCT data for a
     /// specific measurement entry
     /// @param data Reference to the MeasurementData structure for the current measurement entry
     void produceGlobalStats(TFile* input_file, MeasurementData& data);
-
-    /// @brief Function to produce per-file relevant statistics for each measurement entry
-    /// @param input_file Pointer to the input ROOT file containing processed DCT data for a
-    /// specific measurement entry
-    void producePerFileStats(TFile* input_file);
 
 private:
     std::string _config_path;
