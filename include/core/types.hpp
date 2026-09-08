@@ -156,6 +156,14 @@ struct DeadStrips {
     }
 };
 
+struct RoI {
+    std::vector<std::pair<int, int>> region_of_interest;
+
+    void clear() {
+        region_of_interest.clear();
+    }
+};
+
 struct ToTResults {
     double avg_tot_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {};
     double avg_tot_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {};
@@ -247,30 +255,29 @@ struct MeasurementMetadata {
     double other_hv = 0.0;
 };
 
-/**
- * @struct MeasurementData
- * @brief Struct to hold calculated statistics for a single ROOT file/measurement entry
- * @param efficiency_results Calculated efficiency results for the measurement entry
- * @param efficiency_results_tracks Calculated track-based efficiency results for the
- * measurement entry
- * @param cluster_size_results Calculated cluster size results for the measurement entry
- * @param rate_results Calculated rate results for the measurement entry
- * @param tot_results Calculated average ToT results for the measurement entry
- * @param tot_results_tracks Calculated track-based average ToT results for the measurement
- * entry
- * @param multiplicity_results Calculated average multiplicity results for the measurement
- * entry
- * @param multiplicity_results_tracks Calculated track-based average multiplicity results
- * for the measurement entry
- * @param tof_results Calculated time-of-flight results for the measurement entry
- * @param time_resolution_results Calculated time resolution results for the measurement entry
- * @param dead_strips Struct containing information about dead strips
- */
+/// @struct MeasurementData
+/// @brief Struct to hold calculated statistics for a single ROOT file/measurement entry
+/// @param efficiency_results Calculated efficiency results for the measurement entry
+/// @param efficiency_results_tracks Calculated track-based efficiency results for the
+/// measurement entry
+/// @param cluster_size_results Calculated cluster size results for the measurement entry
+/// @param rate_results Calculated rate results for the measurement entry
+/// @param tot_results Calculated average ToT results for the measurement entry
+/// @param tot_results_tracks Calculated track-based average ToT results for the measurement
+/// entry
+/// @param multiplicity_results Calculated average multiplicity results for the measurement
+/// entry
+/// @param multiplicity_results_tracks Calculated track-based average multiplicity results
+/// for the measurement entry
+/// @param tof_results Calculated time-of-flight results for the measurement entry
+/// @param time_resolution_results Calculated time resolution results for the measurement entry
+/// @param dead_strips Struct containing information about dead strips
 struct MeasurementData {
     EfficiencyResults efficiency_results;
     EfficiencyResults efficiency_results_tracks;
     ClusterSizeResults cluster_size_results;
     RateResults rate_results;
+    RoI region_of_interest;
     DeadStrips dead_strips;
     ToTResults tot_results;
     ToTResults tot_results_tracks;
@@ -291,6 +298,7 @@ struct MeasurementData {
         tof_results.clear();
         time_resolution_results.clear();
         dead_strips.clear();
+        region_of_interest.clear();
     }
 };
 
