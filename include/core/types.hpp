@@ -157,10 +157,12 @@ struct DeadStrips {
 };
 
 struct RoI {
-    std::vector<std::pair<int, int>> region_of_interest;
+    std::vector<std::pair<int, int>> beam_region;
+    std::vector<std::pair<int, int>> halo_region;
 
     void clear() {
-        region_of_interest.clear();
+        beam_region.clear();
+        halo_region.clear();
     }
 };
 
@@ -224,21 +226,19 @@ struct TimeResolutionResults {
 // ==========================================================================================
 // Measurement configuration and summary structures for the measurement analysis part
 
-/**
- * @struct MeasurementMetadata
- * @brief Metadata for a single measurement entry, parsed from the configuration file
- * @param name Name of the measurement entry/file
- * @param measurement_type Type of the measurement (e.g. "efficiency_scan")
- * @param root_file Path to the ROOT file containing the measurement data
- * @param group_name Name of the group or category for the measurement (e.g. "layer_0")
- * @param mixture Gas mixture used in the measurement
- * @param source Whether the source was on during the measurement
- * @param filter Filter setting used during the measurement
- * @param lv_setting Low voltage setting used during the measurement
- * @param scanned_layer Layer number that was scanned in the measurement
- * @param scanned_hv High voltage setting for the scanned layer
- * @param other_hv High voltage setting for the other layers
- */
+/// @struct MeasurementMetadata
+/// @brief Metadata for a single measurement entry, parsed from the configuration file
+/// @param name Name of the measurement entry/file
+/// @param measurement_type Type of the measurement (e.g. "efficiency_scan")
+/// @param root_file Path to the ROOT file containing the measurement data
+/// @param group_name Name of the group or category for the measurement (e.g. "layer_0")
+/// @param mixture Gas mixture used in the measurement
+/// @param source Whether the source was on during the measurement
+/// @param filter Filter setting used during the measurement
+/// @param lv_setting Low voltage setting used during the measurement
+/// @param scanned_layer Layer number that was scanned in the measurement
+/// @param scanned_hv High voltage setting for the scanned layer
+/// @param other_hv High voltage setting for the other layers
 struct MeasurementMetadata {
     std::string name;
     std::string measurement_type;
