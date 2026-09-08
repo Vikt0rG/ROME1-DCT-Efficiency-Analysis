@@ -902,6 +902,16 @@ void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, Measureme
     summary_tree->Branch("track_avg_tot_eta1_error", &data.tot_results_tracks.avg_tot_eta1_error, Form("track_avg_tot_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
     summary_tree->Branch("track_avg_tot_eta2_error", &data.tot_results_tracks.avg_tot_eta2_error, Form("track_avg_tot_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
+    summary_tree->Branch("beam_avg_tot_eta1", &data.tot_results_beam.avg_tot_eta1, Form("beam_avg_tot_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("beam_avg_tot_eta2", &data.tot_results_beam.avg_tot_eta2, Form("beam_avg_tot_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("beam_avg_tot_eta1_error", &data.tot_results_beam.avg_tot_eta1_error, Form("beam_avg_tot_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("beam_avg_tot_eta2_error", &data.tot_results_beam.avg_tot_eta2_error, Form("beam_avg_tot_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+
+    summary_tree->Branch("beam_track_avg_tot_eta1", &data.tot_results_beam_track.avg_tot_eta1, Form("beam_track_avg_tot_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("beam_track_avg_tot_eta2", &data.tot_results_beam_track.avg_tot_eta2, Form("beam_track_avg_tot_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("beam_track_avg_tot_eta1_error", &data.tot_results_beam_track.avg_tot_eta1_error, Form("beam_track_avg_tot_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("beam_track_avg_tot_eta2_error", &data.tot_results_beam_track.avg_tot_eta2_error, Form("beam_track_avg_tot_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+
     summary_tree->Branch("avg_multiplicity_eta1", &data.multiplicity_results.avg_multiplicity_eta1, Form("avg_multiplicity_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
     summary_tree->Branch("avg_multiplicity_eta2", &data.multiplicity_results.avg_multiplicity_eta2, Form("avg_multiplicity_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
     summary_tree->Branch("avg_multiplicity_eta1_error", &data.multiplicity_results.avg_multiplicity_eta1_error, Form("avg_multiplicity_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
@@ -1243,8 +1253,8 @@ void getDeadStrips(DeadStrips& dead_strips) {
     }
 }
 
-void getAverageToT(TFile* input_file, ToTResults& tot_results,
-    bool in_valid_track_only, DeadStrips& dead_strips)
+void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_beam_only,
+    bool in_valid_track_only, DeadStrips& dead_strips, const RoI& region_of_interest)
 {
     TTree* processed_tree = input_file->Get<TTree>("ProcessedData");
     TTree* track_tree = input_file->Get<TTree>("TrackReconstruction");
@@ -1261,6 +1271,7 @@ void getAverageToT(TFile* input_file, ToTResults& tot_results,
     TTreeReaderValue<std::vector<int>>  tot2(reader_processed, "proc_tot2");
     TTreeReaderValue<std::vector<int>>  strips(reader_processed, "proc_strip");
     TTreeReaderValue<std::vector<int>>  layers(reader_processed, "proc_layer");
+    TTreeReaderValue<std::vector<int>>  dts(reader_processed, "proc_dt_time1_time2");
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(reader_track, "in_valid_track_eta1");
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(reader_track, "in_valid_track_eta2");
 
@@ -1269,30 +1280,31 @@ void getAverageToT(TFile* input_file, ToTResults& tot_results,
     Accumulator eta2[LAYER_COUNT][STRIPS_PER_LAYER];
 
     while (reader_processed.Next() && reader_track.Next()) {
-        if (tot1.GetSetupStatus() != 0 || in_valid_track_eta1.GetSetupStatus() != 0) continue;
-
-        /* WIP: Figuring out why track reco leads to fewer entries per event than the processed data, which is causing size mismatches
-        requireEqualSizes({
-            {"tot1", tot1->size()},
-            {"tot2", tot2->size()},
-            {"strips", strips->size()},
-            {"layers", layers->size()},
-            {"in_valid_track_eta1", in_valid_track_eta1->size()},
-            {"in_valid_track_eta2", in_valid_track_eta2->size()}
-        });
-        */
+        if (tot1.GetSetupStatus() != 0 || in_valid_track_eta1.GetSetupStatus() != 0 || dts.GetSetupStatus() != 0) continue;
 
         const size_t n_hits = std::min({tot1->size(), tot2->size(), strips->size(), layers->size(),
-            in_valid_track_eta1->size(), in_valid_track_eta2->size()});
+            dts->size(), in_valid_track_eta1->size(), in_valid_track_eta2->size()});
 
         for (size_t i = 0; i < n_hits; ++i) {
             int layer = (*layers)[i];
             int strip = perFileHelpers::remapStrip((*strips)[i]);
+            int dt = (*dts)[i];
 
             if (layer < 0 || layer >= LAYER_COUNT || strip < 0 || strip >= STRIPS_PER_LAYER) continue;
 
-            // Accumulate for all hits or only for hits that are part of valid tracks based on the flag
-            if (!in_valid_track_only) {
+            // Track Cut
+            bool pass_track_cut = !in_valid_track_only || ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]);
+
+            // Beam Cut
+            bool pass_beam_cut = true;
+            if (in_beam_only) {
+                pass_beam_cut = std::find(region_of_interest.beam_region.begin(),
+                                          region_of_interest.beam_region.end(),
+                                          std::make_pair(strip, dt)) != region_of_interest.beam_region.end();
+            }
+
+            // Accumulate if both beam and track cuts pass
+            if (pass_track_cut && pass_beam_cut) {
                 if ((*tot1)[i] > 0) {
                     eta1[layer][strip].sum += (*tot1)[i];
                     eta1[layer][strip].hits++;
@@ -1300,17 +1312,6 @@ void getAverageToT(TFile* input_file, ToTResults& tot_results,
                 if ((*tot2)[i] > 0) {
                     eta2[layer][strip].sum += (*tot2)[i];
                     eta2[layer][strip].hits++;
-                }
-            } else {
-                if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
-                    if ((*tot1)[i] > 0) {
-                        eta1[layer][strip].sum += (*tot1)[i];
-                        eta1[layer][strip].hits++;
-                    }
-                    if ((*tot2)[i] > 0) {
-                        eta2[layer][strip].sum += (*tot2)[i];
-                        eta2[layer][strip].hits++;
-                    }
                 }
             }
         }
@@ -1321,12 +1322,9 @@ void getAverageToT(TFile* input_file, ToTResults& tot_results,
     };
 
     auto assignAverageAndError = [](const Accumulator& acc, bool is_dead, double& avg, ErrorRange& err) {
-        if (is_dead) {
+        if (is_dead || acc.hits == 0) {
             avg = std::numeric_limits<double>::quiet_NaN();
             err = ErrorRange(std::numeric_limits<double>::quiet_NaN());
-        } else if (acc.hits == 0) {
-            avg = 0.0;
-            err = ErrorRange(0.0);
         } else {
             avg = static_cast<double>(acc.sum) / acc.hits;
             err = ErrorRange(std::sqrt(avg) / acc.hits);
@@ -1386,9 +1384,18 @@ void getAverageMultiplicity(TFile* input_file, MultiplicityResults& mult_results
     int active_events_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {0};
 
     while (reader_input.Next() && reader_processed.Next() && reader_track.Next()) {
-        if (in_valid_track_eta1.GetSetupStatus() != 0 || in_valid_track_eta2.GetSetupStatus() != 0) continue;
+        if (raw_time1.GetSetupStatus() < 0 || raw_time2.GetSetupStatus() < 0 || rise.GetSetupStatus() < 0 ||
+            strips.GetSetupStatus() < 0 || layers.GetSetupStatus() < 0 ||
+            in_valid_track_eta1.GetSetupStatus() < 0 || in_valid_track_eta2.GetSetupStatus() < 0)
+        {
+            continue;
+        }
 
-        const size_t n_hits = std::min({strips->size(), layers->size(), in_valid_track_eta1->size(), in_valid_track_eta2->size()});
+        const size_t n_hits = std::min({
+            raw_time1->size(), raw_time2->size(), rise->size(),
+            strips->size(), layers->size(),
+            in_valid_track_eta1->size(), in_valid_track_eta2->size()
+        });
 
         // Temporary flags to see if a strip fired in this event
         bool hit_in_event_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {false};
@@ -1628,50 +1635,44 @@ void DataAnalyzer::produceGlobalStats(TFile* input_file, MeasurementData& data) 
     getClusterSize(input_file, data.cluster_size_results);
     getRate(input_file, data.rate_results);
     getDeadStrips(data.dead_strips);
-    getAverageToT(input_file, data.tot_results, false, data.dead_strips);
-    getAverageToT(input_file, data.tot_results_tracks, true, data.dead_strips);
+    getAverageToT(input_file, data.tot_results, false, false, data.dead_strips, data.region_of_interest);
+    getAverageToT(input_file, data.tot_results_tracks, false, true, data.dead_strips, data.region_of_interest);
+    getAverageToT(input_file, data.tot_results_beam, true, false, data.dead_strips, data.region_of_interest);
+    getAverageToT(input_file, data.tot_results_beam_track, true, true, data.dead_strips, data.region_of_interest);
     getAverageMultiplicity(input_file, data.multiplicity_results, false, data.dead_strips);
     getAverageMultiplicity(input_file, data.multiplicity_results_tracks, true, data.dead_strips);
     processToF(input_file, data.tof_results, data.time_resolution_results, data.dead_strips);
 }
 
 void DataAnalyzer::produceSummaryStats() {
-
-    // Process each config file and build the list of measurement entries and summaries
     std::cout << _output_directory << std::endl;
     std::filesystem::create_directories(_output_directory / "root_summaries");
-
-    // Prepare a measurement structure (measurement's metadata + data/statistics) and a root
-    // file for this config
-    ScanData scan;
-    scan.config_path = _config_path;
-    scan.metadata = ConfigUtils::parseMeasurementMetadata(_config_path);
 
     std::filesystem::path config_stem = std::filesystem::path(_config_path).stem();
     std::filesystem::path summary_root_path = _output_directory / "root_summaries" / (config_stem.string() + "_summary.root");
 
-    // Create a ROOT file and tree to store summary statistics for this config
-    TFile summary_root_file(summary_root_path.string().c_str(), "RECREATE");
+    TFile* summary_root_file = new TFile(summary_root_path.string().c_str(), "RECREATE");
     TTree* summary_tree = new TTree("summary", "summary");
+
+    ScanData scan;
+    scan.config_path = _config_path;
+    scan.metadata = ConfigUtils::parseMeasurementMetadata(_config_path);
 
     MeasurementMetadata metadata;
     MeasurementData data;
 
-    // Set up branches for the summary tree
+    // Set up branches
     summaryHelpers::setupBranches(summary_tree, metadata, data);
 
-    // Process each measurement entry in this config file
     for (const auto& metadata_entry : scan.metadata) {
         if (metadata_entry.root_file.empty()) {
-            std::cout << "Warning: Skipping entry '" << metadata_entry.name << "' due to missing ROOT file path." << std::endl;
+            std::cout << "Warning: Skipping entry due to missing file." << std::endl;
             continue;
         }
 
         TFile* input_file = TFile::Open(metadata_entry.root_file.c_str(), "UPDATE");
         if (!input_file || input_file->IsZombie()) {
-            std::cout << "Error: Failed to open ROOT file '" << metadata_entry.root_file << "' for entry '" << metadata_entry.name << "'. Skipping this entry." << std::endl;
             if (input_file) {
-                std::cout << "Closing and deleting invalid ROOT file object for entry '" << metadata_entry.name << "'." << std::endl;
                 input_file->Close();
                 delete input_file;
             }
@@ -1681,22 +1682,29 @@ void DataAnalyzer::produceSummaryStats() {
         data.clear();
         metadata = metadata_entry;
 
-        // Calculate and fill per-file relevant statistics for this measurement entry and save into the input ROOT file
-        producePerFileStats(input_file, data);
-
-        // Calculate and store file statistics into the summary tree for this measurement entry
+        // Calculate and store file statistics
         produceGlobalStats(input_file, data);
 
-        // Fill the summary tree with the extracted statistics for this measurement entry
+        summary_root_file->cd();
         summary_tree->Fill();
+
         scan.data.push_back(data);
 
-        // Clean up and close the input ROOT file for this measurement entry
         input_file->Close();
         delete input_file;
     }
 
-    summary_root_file.cd();
+    std::cout << "Check 1" << std::endl;
+
+    summary_root_file->cd();
+    std::cout << "Check 2" << std::endl;
+
     summary_tree->Write("", TObject::kOverwrite);
-    summary_root_file.Close();
+    summary_tree->ResetBranchAddresses();
+    std::cout << "Check 3" << std::endl;
+
+    summary_root_file->Close();
+    delete summary_root_file;
+
+    std::cout << "Check 4" << std::endl;
 }

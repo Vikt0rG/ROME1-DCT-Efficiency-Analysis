@@ -61,15 +61,17 @@ namespace summaryHelpers {
         size_t hits{0};   ///< Count of hits accumulated
     };
 
-    /// @brief Helper function to calculate average ToT for each strip and layer, along with
-    /// associated error ranges, and store the results in the provided ToTResults structures
-    /// @param input_file Pointer to the input ROOT file containing processed DCT data for a
-    /// specific measurement entry
-    /// @param tot_results Reference to a ToTResults structure to store the calculated average
-    /// ToT and error ranges for all hits
-    /// @param in_valid_track_only Flag to indicate whether to calculate averages for all hits
-    /// or only for hits that are part of valid tracks
-    void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_track_only);
+    void getEfficiency(TFile* input_file,
+        EfficiencyResults& efficiency_results, EfficiencyResults& efficiency_results_tracks);
+    void getClusterSize(TFile* input_file, ClusterSizeResults& cluster_size_results);
+    void getRate(TFile* input_file, RateResults& rate_results);
+    void getDeadStrips(DeadStrips& dead_strips);
+    void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_valid_track_only,
+        bool in_beam_only, const DeadStrips& dead_strips, const RoI& region_of_interest);
+    void getAverageMultiplicity(TFile* input_file, MultiplicityResults& mult_results,
+        bool in_valid_track_only, DeadStrips& dead_strips);
+    void processToF(TFile* input_file, ToFResults& tof_results,
+        TimeResolutionResults& time_resolution_results, DeadStrips& dead_strips);
 }
 
 // ==========================================================================================
