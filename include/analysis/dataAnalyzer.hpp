@@ -39,12 +39,13 @@ namespace perFileHelpers {
     }};
 
     void plotStrip(TFile* input_file);
-    void plotCS(TFile* input_file);
-    void plotToT(TFile* input_file);
     void extractBeamSpotRoI(TH2* agg_hist, RoI& roi,
         double beam_threshold = 0.15, double halo_threshold = 0.05);
     void plotDtVsStrip(TFile* input_file, RoI& region_of_interest);
+    void plotCS(TFile* input_file);
+    void plotToT(TFile* input_file, const RoI& region_of_interest);
     void plotToTVsStrip(TFile* input_file);
+    void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest);
     void plotMultiplicityAndDelayVsStrip(TFile* input_file);
     void plotToFs(TFile* input_file);
 }

@@ -13,6 +13,7 @@
 #include <TH1F.h>
 #include <TH2F.h>
 #include <THStack.h>
+#include <TProfile2D.h>
 #include <TGraphAsymmErrors.h>
 #include <TCanvas.h>
 #include <TTreeReader.h>
@@ -172,208 +173,6 @@ void plotStrip(TFile* input_file) {
     }
 }
 
-void plotCS(TFile* input_file) {
-    TDirectory* analysis_dir = input_file->GetDirectory("analysis");
-    TDirectory* cs_dir = analysis_dir->GetDirectory("cluster_size");
-    if (!analysis_dir || !cs_dir) std::cerr << "Error: Missing analysis or cluster size directory in input file." << std::endl;
-    cs_dir->cd();
-
-    TTree* cluster_tree = dynamic_cast<TTree*>(input_file->Get("Clusterization"));
-    if (!cluster_tree || cluster_tree->IsZombie()) {
-        std::cerr << "Error: Invalid clusterization tree for analysis." << std::endl;
-        return;
-    }
-
-    // Read processed data into vectors
-    TTreeReader readerClusterData(cluster_tree);
-    TTreeReaderValue<std::vector<int>> cluster_eta1_layer0(readerClusterData, "cluster_size_eta1_layer0");
-    TTreeReaderValue<std::vector<int>> cluster_eta1_layer1(readerClusterData, "cluster_size_eta1_layer1");
-    TTreeReaderValue<std::vector<int>> cluster_eta1_layer2(readerClusterData, "cluster_size_eta1_layer2");
-    TTreeReaderValue<std::vector<int>> cluster_eta2_layer0(readerClusterData, "cluster_size_eta2_layer0");
-    TTreeReaderValue<std::vector<int>> cluster_eta2_layer1(readerClusterData, "cluster_size_eta2_layer1");
-    TTreeReaderValue<std::vector<int>> cluster_eta2_layer2(readerClusterData, "cluster_size_eta2_layer2");
-
-    const int nConfigs = 2;
-    const char* categories[nConfigs] = {"cs_eta1", "cs_eta2"};
-
-    std::map<std::string, std::map<int, TH1*>> strip_histograms;
-    for (int c = 0; c < nConfigs; ++c) {
-        for (int layer : {0, 1, 2}) {
-            auto* hist = new TH1F(Form("h1d_%s_layer%d", categories[c], layer),
-                                  Form("Cluster Size Layer %d;Cluster Size [Strips];Counts", layer),
-                                  6, 0.5, 6.5);
-
-            strip_histograms[categories[c]][layer] = hist;
-        }
-    }
-
-    while (readerClusterData.Next()) {
-        for (int cs : *cluster_eta1_layer0) strip_histograms["cs_eta1"][0]->Fill(cs);
-        for (int cs : *cluster_eta1_layer1) strip_histograms["cs_eta1"][1]->Fill(cs);
-        for (int cs : *cluster_eta1_layer2) strip_histograms["cs_eta1"][2]->Fill(cs);
-
-        for (int cs : *cluster_eta2_layer0) strip_histograms["cs_eta2"][0]->Fill(cs);
-        for (int cs : *cluster_eta2_layer1) strip_histograms["cs_eta2"][1]->Fill(cs);
-        for (int cs : *cluster_eta2_layer2) strip_histograms["cs_eta2"][2]->Fill(cs);
-    }
-
-    cs_dir->cd();
-
-    for (int c = 0; c < nConfigs; ++c) {
-        for (int layer : {0, 1, 2}) {
-            TH1* hist = strip_histograms[categories[c]][layer];
-
-            if (hist->GetEntries() < 5) {
-                hist->Write("", TObject::kOverwrite);
-                continue;
-            }
-
-            // Shifted Poisson: x-1 represents the "extra" strips beyond the guaranteed 1.
-            // [0] = Amplitude, [1] = Mean number of extra strips
-            TF1* cs_fit = new TF1("cs_poisson", "[0] * TMath::Poisson(x - 1.0, [1])", 0.5, 6.5);
-
-            double max_val = hist->GetMaximum();
-            double raw_mean = hist->GetMean();
-
-            cs_fit->SetParameter(0, max_val);
-
-            double initial_lambda = std::max(raw_mean - 1.0, 0.01);
-            cs_fit->SetParameter(1, initial_lambda);
-            cs_fit->SetParLimits(1, 0.001, 5.0);
-
-            cs_fit->SetLineColor(kRed);
-            cs_fit->SetLineWidth(2);
-
-            hist->Fit(cs_fit, "Q");
-
-            hist->Write("", TObject::kOverwrite);
-        }
-    }
-}
-
-void plotToT(TFile* input_file) {
-    TDirectory* analysis_dir = input_file->GetDirectory("analysis");
-    TDirectory* tot_dir = analysis_dir->GetDirectory("tot");
-    tot_dir->cd();
-
-    TTree* input_data_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
-    if (!input_data_tree || input_data_tree->IsZombie()) {
-        std::cerr << "Error: Invalid input data tree for analysis." << std::endl;
-        return;
-    }
-    TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
-    if (!proc_tree || proc_tree->IsZombie()) {
-        std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
-        return;
-    }
-    TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
-    if (!track_tree || track_tree->IsZombie()) {
-        std::cerr << "Error: Invalid track reconstruction tree for analysis." << std::endl;
-        return;
-    }
-
-    TTreeReader readerInputData(input_data_tree);
-    TTreeReader readerProcData(proc_tree);
-    TTreeReader readerTrackData(track_tree);
-    TTreeReaderValue<std::vector<int>> raw_time1(readerInputData, "hit_raw_time1");
-    TTreeReaderValue<std::vector<int>> raw_time2(readerInputData, "hit_raw_time2");
-    TTreeReaderValue<std::vector<int>> tot1(readerProcData, "proc_tot1");
-    TTreeReaderValue<std::vector<int>> tot2(readerProcData, "proc_tot2");
-    TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
-    TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
-    TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
-
-    const int nConfigs = 8;
-    const char* categories[nConfigs] = { "tot_eta1", "tot_eta2",
-        "tot_eta1_valid1", "tot_eta2_valid1", "tot_eta1_valid2", "tot_eta2_valid2", "tot_eta1_valid_all", "tot_eta2_valid_all" };
-    const char* comments[nConfigs] = { "Before Track Reco", "Before Track Reco",
-        "After Track Reco (#eta1)", "After Track Reco (#eta2)",
-        "After Track Reco (#eta1)", "After Track Reco (#eta2)",
-        "After Track Reco (#eta1 & #eta2)", "After Track Reco (#eta1 & #eta2)" };
-
-    const int nBins = 25;
-    const float xMin = 0.0;
-    const float xMax = 25.0;
-    std::map<std::string, std::map<int, TH1*>> strip_histograms;
-    for (int c = 0; c < nConfigs; ++c) {
-        for (int layer : {0, 1, 2}) {
-            auto* hist = new TH1F(Form("h1d_%s_layer%d", categories[c], layer),
-                            Form("Layer %d: %s;ToT [ns];Hits", layer, comments[c]),
-                            nBins, xMin, xMax);
-            strip_histograms[categories[c]][layer] = hist;
-        }
-    }
-
-    while (readerInputData.Next() && readerProcData.Next() && readerTrackData.Next()) {
-        for (size_t i = 0; i < tot1->size(); ++i) {
-            int layer = (*layers)[i];
-
-            double tot1_ns = TimeUtils::ticksToTime((*tot1)[i]);
-            double tot2_ns = TimeUtils::ticksToTime((*tot2)[i]);
-            bool valid_eta1 = (*in_valid_track_eta1)[i];
-            bool valid_eta2 = (*in_valid_track_eta2)[i];
-
-            if ((*raw_time1)[i] != 0) strip_histograms["tot_eta1"][layer]->Fill(tot1_ns);
-            if ((*raw_time2)[i] != 0) strip_histograms["tot_eta2"][layer]->Fill(tot2_ns);
-            if ((*raw_time1)[i] != 0 && valid_eta1) strip_histograms["tot_eta1_valid1"][layer]->Fill(tot1_ns);
-            if ((*raw_time2)[i] != 0 && valid_eta1) strip_histograms["tot_eta2_valid1"][layer]->Fill(tot2_ns);
-            if ((*raw_time1)[i] != 0 && valid_eta2) strip_histograms["tot_eta1_valid2"][layer]->Fill(tot1_ns);
-            if ((*raw_time2)[i] != 0 && valid_eta2) strip_histograms["tot_eta2_valid2"][layer]->Fill(tot2_ns);
-            if ((*raw_time1)[i] != 0 && valid_eta1 && valid_eta2) strip_histograms["tot_eta1_valid_all"][layer]->Fill(tot1_ns);
-            if ((*raw_time2)[i] != 0 && valid_eta1 && valid_eta2) strip_histograms["tot_eta2_valid_all"][layer]->Fill(tot2_ns);
-        }
-    }
-
-    struct StackPairing {
-        std::string eta1_cat;
-        std::string eta2_cat;
-        std::string suffix;
-        std::string title_modifier;
-    };
-
-    std::vector<StackPairing> pairings = {
-        {"tot_eta1",           "tot_eta2",           "all",       "Before Track Reco"},
-        {"tot_eta1_valid1",    "tot_eta2_valid1",    "valid1",    "After Track Reco (#eta1 Valid)"},
-        {"tot_eta1_valid2",    "tot_eta2_valid2",    "valid2",    "After Track Reco (#eta2 Valid)"},
-        {"tot_eta1_valid_all", "tot_eta2_valid_all", "valid_all", "After Track Reco (#eta1 and #eta2 Valid)"}
-    };
-
-    // Store stacks
-    for (int layer : {0, 1, 2}) {
-        for (const auto& pair : pairings) {
-            auto* h_tot1 = strip_histograms[pair.eta1_cat][layer];
-            auto* h_tot2 = strip_histograms[pair.eta2_cat][layer];
-
-            // Style them distinctly inside the stack
-            h_tot1->SetLineColor(kBlue);
-            h_tot1->SetMarkerColor(kBlue);
-            
-            h_tot2->SetLineColor(kRed);
-            h_tot2->SetMarkerColor(kRed);
-
-            // Construct unique name and descriptive title for each specific stack pairing
-            std::string stack_name = Form("h1d_tot_%s_layer%d", pair.suffix.c_str(), layer);
-            std::string stack_title = Form("Layer %d: %s", layer, pair.title_modifier.c_str());
-
-            auto* stack = new THStack(stack_name.c_str(), stack_title.c_str());
-
-            // Add to stack (h_tot1 drawn on top of h_tot2 if using "nostack" option later)
-            stack->Add(h_tot2);
-            stack->Add(h_tot1);
-
-            stack->Write("", TObject::kOverwrite);
-            delete stack;
-        }
-    }
-
-    for (int c = 0; c < nConfigs; ++c) {
-        for (int layer : {0, 1, 2}) {
-            strip_histograms[categories[c]][layer]->Write("", TObject::kOverwrite);
-            delete strip_histograms[categories[c]][layer];
-        }
-    }
-}
-
 void extractBeamSpotRoI(TH2* agg_hist, RoI& roi, double core_frac, double halo_frac) {
     roi.clear();
     if (!agg_hist) return;
@@ -457,6 +256,7 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     TH2F* h_agg = (TH2F*)dt_strip_histograms["dt_strip_track"][0]->Clone("h2d_agg_tracks");
     h_agg->Add(dt_strip_histograms["dt_strip_track"][1]);
     h_agg->Add(dt_strip_histograms["dt_strip_track"][2]);
+    h_agg->SetTitle("Aggregated dt vs Strip for All Layers;Strip;#Delta#it{t} [Ticks]");
 
     double beam_threshold = 0.50;
     double halo_threshold = 0.05;
@@ -500,6 +300,221 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     }
 }
 
+void plotCS(TFile* input_file) {
+    TDirectory* analysis_dir = input_file->GetDirectory("analysis");
+    TDirectory* cs_dir = analysis_dir->GetDirectory("cluster_size");
+    if (!analysis_dir || !cs_dir) std::cerr << "Error: Missing analysis or cluster size directory in input file." << std::endl;
+    cs_dir->cd();
+
+    TTree* cluster_tree = dynamic_cast<TTree*>(input_file->Get("Clusterization"));
+    if (!cluster_tree || cluster_tree->IsZombie()) {
+        std::cerr << "Error: Invalid clusterization tree for analysis." << std::endl;
+        return;
+    }
+
+    // Read processed data into vectors
+    TTreeReader readerClusterData(cluster_tree);
+    TTreeReaderValue<std::vector<int>> cluster_eta1_layer0(readerClusterData, "cluster_size_eta1_layer0");
+    TTreeReaderValue<std::vector<int>> cluster_eta1_layer1(readerClusterData, "cluster_size_eta1_layer1");
+    TTreeReaderValue<std::vector<int>> cluster_eta1_layer2(readerClusterData, "cluster_size_eta1_layer2");
+    TTreeReaderValue<std::vector<int>> cluster_eta2_layer0(readerClusterData, "cluster_size_eta2_layer0");
+    TTreeReaderValue<std::vector<int>> cluster_eta2_layer1(readerClusterData, "cluster_size_eta2_layer1");
+    TTreeReaderValue<std::vector<int>> cluster_eta2_layer2(readerClusterData, "cluster_size_eta2_layer2");
+
+    const int nConfigs = 2;
+    const char* categories[nConfigs] = {"cs_eta1", "cs_eta2"};
+
+    std::map<std::string, std::map<int, TH1*>> strip_histograms;
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            auto* hist = new TH1F(Form("h1d_%s_layer%d", categories[c], layer),
+                                  Form("Cluster Size Layer %d;Cluster Size [Strips];Counts", layer),
+                                  6, 0.5, 6.5);
+
+            strip_histograms[categories[c]][layer] = hist;
+        }
+    }
+
+    while (readerClusterData.Next()) {
+        for (int cs : *cluster_eta1_layer0) strip_histograms["cs_eta1"][0]->Fill(cs);
+        for (int cs : *cluster_eta1_layer1) strip_histograms["cs_eta1"][1]->Fill(cs);
+        for (int cs : *cluster_eta1_layer2) strip_histograms["cs_eta1"][2]->Fill(cs);
+
+        for (int cs : *cluster_eta2_layer0) strip_histograms["cs_eta2"][0]->Fill(cs);
+        for (int cs : *cluster_eta2_layer1) strip_histograms["cs_eta2"][1]->Fill(cs);
+        for (int cs : *cluster_eta2_layer2) strip_histograms["cs_eta2"][2]->Fill(cs);
+    }
+
+    cs_dir->cd();
+
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            TH1* hist = strip_histograms[categories[c]][layer];
+
+            if (hist->GetEntries() < 5) {
+                hist->Write("", TObject::kOverwrite);
+                continue;
+            }
+
+            // Shifted Poisson: x-1 represents the "extra" strips beyond the guaranteed 1.
+            // [0] = Amplitude, [1] = Mean number of extra strips
+            TF1* cs_fit = new TF1("cs_poisson", "[0] * TMath::Poisson(x - 1.0, [1])", 0.5, 6.5);
+
+            double max_val = hist->GetMaximum();
+            double raw_mean = hist->GetMean();
+
+            cs_fit->SetParameter(0, max_val);
+
+            double initial_lambda = std::max(raw_mean - 1.0, 0.01);
+            cs_fit->SetParameter(1, initial_lambda);
+            cs_fit->SetParLimits(1, 0.001, 5.0);
+
+            cs_fit->SetLineColor(kRed);
+            cs_fit->SetLineWidth(2);
+
+            hist->Fit(cs_fit, "Q");
+
+            hist->Write("", TObject::kOverwrite);
+        }
+    }
+}
+
+void plotToT(TFile* input_file, const RoI& region_of_interest) {
+    TDirectory* analysis_dir = input_file->GetDirectory("analysis");
+    TDirectory* tot_dir = analysis_dir->GetDirectory("tot");
+    tot_dir->cd();
+
+    TTree* input_data_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
+    if (!input_data_tree || input_data_tree->IsZombie()) {
+        std::cerr << "Error: Invalid input data tree for analysis." << std::endl;
+        return;
+    }
+    TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
+    if (!proc_tree || proc_tree->IsZombie()) {
+        std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
+        return;
+    }
+    TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
+    if (!track_tree || track_tree->IsZombie()) {
+        std::cerr << "Error: Invalid track reconstruction tree for analysis." << std::endl;
+        return;
+    }
+
+    TTreeReader readerInputData(input_data_tree);
+    TTreeReader readerProcData(proc_tree);
+    TTreeReader readerTrackData(track_tree);
+    TTreeReaderValue<std::vector<int>> raw_time1(readerInputData, "hit_raw_time1");
+    TTreeReaderValue<std::vector<int>> raw_time2(readerInputData, "hit_raw_time2");
+    TTreeReaderValue<std::vector<int>> tot1(readerProcData, "proc_tot1");
+    TTreeReaderValue<std::vector<int>> tot2(readerProcData, "proc_tot2");
+    TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
+    TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
+    TTreeReaderValue<std::vector<int>> dts(readerProcData, "proc_dt_time1_time2");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
+
+    const int nConfigs = 6;
+    const char* categories[nConfigs] = {
+        "tot_eta1_before_reco", "tot_eta2_before_reco",
+        "tot_eta1_after_reco", "tot_eta2_after_reco",
+        "tot_eta1_beam", "tot_eta2_beam"
+    };
+    const char* comments[nConfigs] = {
+        "Before Track Reco", "Before Track Reco",
+        "After Track Reco", "After Track Reco",
+        "Beam Spot Region", "Beam Spot Region"
+    };
+
+    const int nBins = 25;
+    const float xMin = 0.0;
+    const float xMax = 25.0;
+    std::map<std::string, std::map<int, TH1*>> strip_histograms;
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            auto* hist = new TH1F(Form("h1d_%s_layer%d", categories[c], layer),
+                            Form("Layer %d: %s;ToT [ns];Hits", layer, comments[c]),
+                            nBins, xMin, xMax);
+            strip_histograms[categories[c]][layer] = hist;
+        }
+    }
+
+    while (readerInputData.Next() && readerProcData.Next() && readerTrackData.Next()) {
+        const size_t n_hits = std::min({tot1->size(), tot2->size(), strips->size(), layers->size(), dts->size()});
+        for (size_t i = 0; i < n_hits; ++i) {
+            int layer = (*layers)[i];
+            if (layer < 0 || layer > 2) continue;
+
+            int strip = perFileHelpers::remapStrip((*strips)[i]);
+            int dt = (*dts)[i];
+
+            double tot1_ns = TimeUtils::ticksToTime((*tot1)[i]);
+            double tot2_ns = TimeUtils::ticksToTime((*tot2)[i]);
+            bool valid_track = (*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i];
+
+            bool in_beam = std::find(region_of_interest.beam_region.begin(),
+                                     region_of_interest.beam_region.end(),
+                                     std::make_pair(strip, dt)) != region_of_interest.beam_region.end();
+
+            // Before reco
+            if ((*raw_time1)[i] != 0) strip_histograms["tot_eta1_before_reco"][layer]->Fill(tot1_ns);
+            if ((*raw_time2)[i] != 0) strip_histograms["tot_eta2_before_reco"][layer]->Fill(tot2_ns);
+
+            // After reco
+            if ((*raw_time1)[i] != 0 && valid_track) strip_histograms["tot_eta1_after_reco"][layer]->Fill(tot1_ns);
+            if ((*raw_time2)[i] != 0 && valid_track) strip_histograms["tot_eta2_after_reco"][layer]->Fill(tot2_ns);
+
+            // Beam spot region
+            if ((*raw_time1)[i] != 0 && in_beam) strip_histograms["tot_eta1_beam"][layer]->Fill(tot1_ns);
+            if ((*raw_time2)[i] != 0 && in_beam) strip_histograms["tot_eta2_beam"][layer]->Fill(tot2_ns);
+        }
+    }
+
+    struct StackPairing {
+        std::string eta1_cat;
+        std::string eta2_cat;
+        std::string suffix;
+        std::string title_modifier;
+    };
+
+    std::vector<StackPairing> pairings = {
+        {"tot_eta1_before_reco", "tot_eta2_before_reco", "before_reco", "Before Track Reco"},
+        {"tot_eta1_after_reco",  "tot_eta2_after_reco",  "after_reco",  "After Track Reco"},
+        {"tot_eta1_beam",        "tot_eta2_beam",        "beam",        "Beam Spot Region"}
+    };
+
+    // Store stacks combining both sides
+    for (int layer : {0, 1, 2}) {
+        for (const auto& pair : pairings) {
+            auto* h_tot1 = strip_histograms[pair.eta1_cat][layer];
+            auto* h_tot2 = strip_histograms[pair.eta2_cat][layer];
+
+            h_tot1->SetLineColor(kBlue);
+            h_tot1->SetMarkerColor(kBlue);
+            
+            h_tot2->SetLineColor(kRed);
+            h_tot2->SetMarkerColor(kRed);
+
+            std::string stack_name = Form("h1d_tot_%s_layer%d", pair.suffix.c_str(), layer);
+            std::string stack_title = Form("Layer %d: %s", layer, pair.title_modifier.c_str());
+
+            auto* stack = new THStack(stack_name.c_str(), stack_title.c_str());
+
+            stack->Add(h_tot2);
+            stack->Add(h_tot1);
+
+            stack->Write("", TObject::kOverwrite);
+            delete stack;
+        }
+    }
+
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            strip_histograms[categories[c]][layer]->Write("", TObject::kOverwrite);
+            delete strip_histograms[categories[c]][layer];
+        }
+    }
+}
+
 void plotToTVsStrip(TFile* input_file) {
     TDirectory* analysis_dir = input_file->GetDirectory("analysis");
     TDirectory* tot_strip_dir = analysis_dir->GetDirectory("tot_strip");
@@ -507,16 +522,11 @@ void plotToTVsStrip(TFile* input_file) {
 
     TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
     TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
-    if (!proc_tree || proc_tree->IsZombie()) {
-        std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
-        return;
-    }
-    if (!track_tree || track_tree->IsZombie()) {
-        std::cerr << "Error: Invalid track reconstruction tree for analysis." << std::endl;
+    if (!proc_tree || proc_tree->IsZombie() || !track_tree || track_tree->IsZombie()) {
+        std::cerr << "Error: Invalid trees for plotToTVsStrip analysis." << std::endl;
         return;
     }
 
-    // Read processed data into vectors and create 2D histograms for dt vs strip for each layer and valid track category
     TTreeReader readerProcData(proc_tree);
     TTreeReader readerTrackData(track_tree);
     TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
@@ -526,57 +536,161 @@ void plotToTVsStrip(TFile* input_file) {
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
-    // Create histograms using arrays
-    const int nConfigs = 8;
-    const char* suffixes[nConfigs] = {"tot1_strip_all", "tot2_strip_all", "tot1_strip_valid1", "tot2_strip_valid1",
-        "tot1_strip_valid2", "tot2_strip_valid2", "tot1_strip_valid_all", "tot2_strip_valid_all"};
-    const char* comments[nConfigs] = {"Before Track Reco", "Before Track Reco", "After Track Reco (#eta1)", "After Track Reco (#eta1)",
-        "After Track Reco (#eta2)", "After Track Reco (#eta2)", "After Track Reco (#eta1 and #eta2)", "After Track Reco (#eta1 and #eta2)"};
+    const int nConfigs = 4;
+    const char* suffixes[nConfigs] = {
+        "tot1_before_reco", "tot2_before_reco", 
+        "tot1_after_reco", "tot2_after_reco"
+    };
+    const char* comments[nConfigs] = {
+        "Before Track Reco (#eta_{1})", "Before Track Reco (#eta_{2})",
+        "After Track Reco (#eta_{1})", "After Track Reco (#eta_{2})"
+    };
 
     std::map<std::string, std::map<int, TH2*>> tot_strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
-                            Form("Layer %d: %s;Strip;ToT [ns]; Entries", layer, comments[c]),
-                            24, 0, 24, 34, 1, 35);
+                            Form("Layer %d: %s;Strip;ToT [ns];Entries", layer, comments[c]),
+                            24, 0, 24, 25, 0, 25);
             tot_strip_histograms[suffixes[c]][layer] = hist;
         }
     }
 
     while (readerProcData.Next() && readerTrackData.Next()) {
-        for (size_t i = 0; i < strips->size(); ++i) {
+        const size_t n_hits = std::min({strips->size(), layers->size(), proc_tot1->size(), proc_tot2->size()});
+        for (size_t i = 0; i < n_hits; ++i) {
             int layer = (*layers)[i];
-            
-            int strip = remapStrip((*strips)[i]);
-            int tot1 = (*proc_tot1)[i];
-            int tot2 = (*proc_tot2)[i];
+            if (layer < 0 || layer > 2) continue;
 
-            
-            tot_strip_histograms["tot1_strip_all"][layer]->Fill(strip, tot1);
-            tot_strip_histograms["tot2_strip_all"][layer]->Fill(strip, tot2);
-            if ((*in_valid_track_eta1)[i]) {
-                tot_strip_histograms["tot1_strip_valid1"][layer]->Fill(strip, tot1);
-                tot_strip_histograms["tot2_strip_valid1"][layer]->Fill(strip, tot2);
-            }
-            if ((*in_valid_track_eta2)[i]) {
-                tot_strip_histograms["tot1_strip_valid2"][layer]->Fill(strip, tot1);
-                tot_strip_histograms["tot2_strip_valid2"][layer]->Fill(strip, tot2);
-            }
-            if ((*in_valid_track_eta1)[i] && (*in_valid_track_eta2)[i]) {
-                tot_strip_histograms["tot1_strip_valid_all"][layer]->Fill(strip, tot1);
-                tot_strip_histograms["tot2_strip_valid_all"][layer]->Fill(strip, tot2);
+            int strip = perFileHelpers::remapStrip((*strips)[i]);
+            double tot1_ns = TimeUtils::ticksToTime((*proc_tot1)[i]);
+            double tot2_ns = TimeUtils::ticksToTime((*proc_tot2)[i]);
+            bool valid_track = (*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i];
+
+            // Before Reco
+            tot_strip_histograms["tot1_before_reco"][layer]->Fill(strip, tot1_ns);
+            tot_strip_histograms["tot2_before_reco"][layer]->Fill(strip, tot2_ns);
+
+            // After Reco (either eta1 or eta2 valid track)
+            if (valid_track) {
+                tot_strip_histograms["tot1_after_reco"][layer]->Fill(strip, tot1_ns);
+                tot_strip_histograms["tot2_after_reco"][layer]->Fill(strip, tot2_ns);
             }
         }
     }
 
-    // Write histograms to file and clean up
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {   
             tot_strip_histograms[suffixes[c]][layer]->Write("", TObject::kOverwrite);
             delete tot_strip_histograms[suffixes[c]][layer];
         }
     }
+}
 
+void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest) {
+    TDirectory* analysis_dir = input_file->GetDirectory("analysis");
+    TDirectory* tot_dt_strip_dir = analysis_dir->GetDirectory("tot_dt_strip");
+    if (!tot_dt_strip_dir) {
+        tot_dt_strip_dir = analysis_dir->mkdir("tot_dt_strip");
+    }
+    tot_dt_strip_dir->cd();
+
+    TTree* input_data_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
+    TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
+    TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
+    if (!input_data_tree || !proc_tree || !track_tree) {
+        std::cerr << "Error: Invalid trees for plotToTVsDtVsStrip analysis." << std::endl;
+        return;
+    }
+
+    TTreeReader readerInputData(input_data_tree);
+    TTreeReader readerProcData(proc_tree);
+    TTreeReader readerTrackData(track_tree);
+
+    TTreeReaderValue<std::vector<int>> raw_time1(readerInputData, "hit_raw_time1");
+    TTreeReaderValue<std::vector<int>> raw_time2(readerInputData, "hit_raw_time2");
+    TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
+    TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
+    TTreeReaderValue<std::vector<int>> dts(readerProcData, "proc_dt_time1_time2");
+    TTreeReaderValue<std::vector<int>> proc_tot1(readerProcData, "proc_tot1");
+    TTreeReaderValue<std::vector<int>> proc_tot2(readerProcData, "proc_tot2");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
+
+    const int nConfigs = 6;
+    const char* categories[nConfigs] = {
+        "tot_eta1_dt_strip_before_reco", "tot_eta2_dt_strip_before_reco",
+        "tot_eta1_dt_strip_after_reco", "tot_eta2_dt_strip_after_reco",
+        "tot_eta1_dt_strip_beam", "tot_eta2_dt_strip_beam"
+    };
+    const char* comments[nConfigs] = {
+        "Before Track Reco (#eta_{1})", "Before Track Reco (#eta_{2})",
+        "After Track Reco (#eta_{1})", "After Track Reco (#eta_{2})",
+        "Beam Spot Region (#eta_{1})", "Beam Spot Region (#eta_{2})"
+    };
+
+    std::map<std::string, std::map<int, TProfile2D*>> profile_histograms;
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            auto* hist = new TProfile2D(Form("h2d_%s_layer%d", categories[c], layer),
+                            Form("Layer %d: %s;Strip;#Delta#it{t} [ns];<ToT> [ns]", layer, comments[c]),
+                            24, 0, 24, 20, -10, 10);
+            profile_histograms[categories[c]][layer] = hist;
+        }
+    }
+
+    while (readerInputData.Next() && readerProcData.Next() && readerTrackData.Next()) {
+        const size_t n_hits = std::min({strips->size(), layers->size(), dts->size(), proc_tot1->size(), proc_tot2->size()});
+        for (size_t i = 0; i < n_hits; ++i) {
+            int layer = (*layers)[i];
+            if (layer < 0 || layer > 2) continue;
+
+            int strip = perFileHelpers::remapStrip((*strips)[i]);
+            int dt = TimeUtils::ticksToTime((*dts)[i]);
+            double tot1_ns = TimeUtils::ticksToTime((*proc_tot1)[i]);
+            double tot2_ns = TimeUtils::ticksToTime((*proc_tot2)[i]);
+            bool valid_track = (*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i];
+
+            bool in_beam = std::find(region_of_interest.beam_region.begin(),
+                                     region_of_interest.beam_region.end(),
+                                     std::make_pair(strip, dt)) != region_of_interest.beam_region.end();
+
+            // Before Reco
+            if ((*raw_time1)[i] != 0) profile_histograms["tot_eta1_dt_strip_before_reco"][layer]->Fill(strip, dt, tot1_ns);
+            if ((*raw_time2)[i] != 0) profile_histograms["tot_eta2_dt_strip_before_reco"][layer]->Fill(strip, dt, tot2_ns);
+
+            // After Reco
+            if ((*raw_time1)[i] != 0 && valid_track) profile_histograms["tot_eta1_dt_strip_after_reco"][layer]->Fill(strip, dt, tot1_ns);
+            if ((*raw_time2)[i] != 0 && valid_track) profile_histograms["tot_eta2_dt_strip_after_reco"][layer]->Fill(strip, dt, tot2_ns);
+
+            // Beam Region
+            if ((*raw_time1)[i] != 0 && in_beam) profile_histograms["tot_eta1_dt_strip_beam"][layer]->Fill(strip, dt, tot1_ns);
+            if ((*raw_time2)[i] != 0 && in_beam) profile_histograms["tot_eta2_dt_strip_beam"][layer]->Fill(strip, dt, tot2_ns);
+        }
+    }
+
+    const double min_entries_cut = 5.0;
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            TProfile2D* prof = profile_histograms[categories[c]][layer];
+
+            int n_bins_x = prof->GetNbinsX();
+            int n_bins_y = prof->GetNbinsY();
+
+            for (int x = 1; x <= n_bins_x; ++x) {
+                for (int y = 1; y <= n_bins_y; ++y) {
+                    int bin = prof->GetBin(x, y);
+                    if (prof->GetBinEntries(bin) < min_entries_cut) {
+                        prof->SetBinContent(bin, 0.0);
+                        prof->SetBinEntries(bin, 0.0);
+                    }
+                }
+            }
+
+            prof->Write("", TObject::kOverwrite);
+            delete prof;
+        }
+    }
 }
 
 void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
@@ -1612,9 +1726,10 @@ void DataAnalyzer::producePerFileStats(TFile* input_file, MeasurementData& data)
     // Produce relevant plots for this file using helper functions
     perFileHelpers::plotStrip(input_file);
     perFileHelpers::plotCS(input_file);
-    perFileHelpers::plotToT(input_file);
     perFileHelpers::plotDtVsStrip(input_file, data.region_of_interest);
+    perFileHelpers::plotToT(input_file, data.region_of_interest);
     perFileHelpers::plotToTVsStrip(input_file);
+    perFileHelpers::plotToTVsDtVsStrip(input_file, data.region_of_interest);
     perFileHelpers::plotMultiplicityAndDelayVsStrip(input_file);
     perFileHelpers::plotToFs(input_file);
 
@@ -1645,34 +1760,42 @@ void DataAnalyzer::produceGlobalStats(TFile* input_file, MeasurementData& data) 
 }
 
 void DataAnalyzer::produceSummaryStats() {
+
+    // Process each config file and build the list of measurement entries and summaries
     std::cout << _output_directory << std::endl;
     std::filesystem::create_directories(_output_directory / "root_summaries");
 
-    std::filesystem::path config_stem = std::filesystem::path(_config_path).stem();
-    std::filesystem::path summary_root_path = _output_directory / "root_summaries" / (config_stem.string() + "_summary.root");
-
-    TFile* summary_root_file = new TFile(summary_root_path.string().c_str(), "RECREATE");
-    TTree* summary_tree = new TTree("summary", "summary");
-
+    // Prepare a measurement structure (measurement's metadata + data/statistics) and a root
+    // file for this config
     ScanData scan;
     scan.config_path = _config_path;
     scan.metadata = ConfigUtils::parseMeasurementMetadata(_config_path);
 
+    std::filesystem::path config_stem = std::filesystem::path(_config_path).stem();
+    std::filesystem::path summary_root_path = _output_directory / "root_summaries" / (config_stem.string() + "_summary.root");
+
+    // Create a ROOT file and tree to store summary statistics for this config
+    TFile summary_root_file(summary_root_path.string().c_str(), "RECREATE");
+    TTree* summary_tree = new TTree("summary", "summary");
+
     MeasurementMetadata metadata;
     MeasurementData data;
 
-    // Set up branches
+    // Set up branches for the summary tree
     summaryHelpers::setupBranches(summary_tree, metadata, data);
 
+    // Process each measurement entry in this config file
     for (const auto& metadata_entry : scan.metadata) {
         if (metadata_entry.root_file.empty()) {
-            std::cout << "Warning: Skipping entry due to missing file." << std::endl;
+            std::cout << "Warning: Skipping entry '" << metadata_entry.name << "' due to missing ROOT file path." << std::endl;
             continue;
         }
 
         TFile* input_file = TFile::Open(metadata_entry.root_file.c_str(), "UPDATE");
         if (!input_file || input_file->IsZombie()) {
+            std::cout << "Error: Failed to open ROOT file '" << metadata_entry.root_file << "' for entry '" << metadata_entry.name << "'. Skipping this entry." << std::endl;
             if (input_file) {
+                std::cout << "Closing and deleting invalid ROOT file object for entry '" << metadata_entry.name << "'." << std::endl;
                 input_file->Close();
                 delete input_file;
             }
@@ -1682,29 +1805,26 @@ void DataAnalyzer::produceSummaryStats() {
         data.clear();
         metadata = metadata_entry;
 
-        // Calculate and store file statistics
+        // Calculate and fill per-file relevant statistics for this measurement entry and save into the input ROOT file
+        producePerFileStats(input_file, data);
+
+        // Calculate and store file statistics into the summary tree for this measurement entry
         produceGlobalStats(input_file, data);
 
-        summary_root_file->cd();
+        // Fill the summary tree
+        summary_root_file.cd();
         summary_tree->Fill();
-
-        scan.data.push_back(data);
+        scan.data.push_back(std::move(data));
 
         input_file->Close();
         delete input_file;
     }
 
     std::cout << "Check 1" << std::endl;
-
-    summary_root_file->cd();
+    summary_root_file.cd();
     std::cout << "Check 2" << std::endl;
-
     summary_tree->Write("", TObject::kOverwrite);
-    summary_tree->ResetBranchAddresses();
     std::cout << "Check 3" << std::endl;
-
-    summary_root_file->Close();
-    delete summary_root_file;
-
+    summary_root_file.Close();
     std::cout << "Check 4" << std::endl;
 }
