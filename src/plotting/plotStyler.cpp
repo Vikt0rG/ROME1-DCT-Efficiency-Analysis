@@ -1503,12 +1503,12 @@ namespace PlotStyler {
 
         applyATLASStyle(obj, canvas);
 
-        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_x0 = 1.0 - canvas->GetRightMargin();
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         std::string plot_title = obj ? obj->GetTitle() : "";
         drawATLASHeaderBlock(
-            ndc_x0 + 0.03, ndc_y0 - 0.10,
+            ndc_x0 - 0.03, ndc_y0 - 0.10,
             "Work in Progress",
             plot_title,
             32,
