@@ -118,6 +118,7 @@ namespace PlotStyler {
             static const std::regex single_layer_re("layer[ _]?(\\d+)");
             static const std::regex lv_re("lv[ _]?(\\d+)");
             static const std::regex source_re("(?:source|filter)[ _]?(\\d+[._]\\d+|OFF)");
+            static const std::regex mixture_re("mix(?:ture)?[ _]?(\\w+)");
 
             // A. Layer prefixes (e.g., "layer0" or "layer1")
             if (std::regex_search(clean_group, match, single_layer_re)) {
@@ -136,6 +137,10 @@ namespace PlotStyler {
                     std::replace(extracted.begin(), extracted.end(), '_', '.');
                     labels.push_back("Filter " + extracted);
                 }
+            }
+            // D. Mixture prefixes (e.g., "mixSTD/mixECO1")
+            else if (std::regex_search(clean_group, match, mixture_re)) {
+                labels.push_back("Mixture " + match[1].str());
             }
             // Z. Default case: Use the cleaned group name as-is
             else {
