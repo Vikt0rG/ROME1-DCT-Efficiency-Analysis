@@ -225,7 +225,11 @@ namespace {
         "track_eff_eta1_external", "track_eff_eta2_external", "track_eff_or_external", "track_eff_and_external",
         "track_eff_eta1_rpc", "track_eff_eta2_rpc", "track_eff_or_rpc", "track_eff_and_rpc",
         "avg_cluster_size_eta1_layers", "avg_cluster_size_eta2_layers",
-        "rate_eta1", "rate_eta2"
+        "rate_eta1", "rate_eta2",
+        "avg_tot_layer_eta1", "avg_tot_layer_eta2",
+        "track_avg_tot_layer_eta1", "track_avg_tot_layer_eta2",
+        "beam_avg_tot_layer_eta1", "beam_avg_tot_layer_eta2",
+        "beam_track_avg_tot_layer_eta1", "beam_track_avg_tot_layer_eta2"
     };
 
     const std::vector<std::string> scalar_metrics = {
@@ -234,8 +238,10 @@ namespace {
 
     const std::vector<std::string> strip_layer_metrics = {
         "rate_strips_eta1", "rate_strips_eta2",
-        "avg_tot_eta1", "avg_tot_eta2",
-        "track_avg_tot_eta1", "track_avg_tot_eta2",
+        "avg_tot_strip_eta1", "avg_tot_strip_eta2",
+        "track_avg_tot_strip_eta1", "track_avg_tot_strip_eta2",
+        "beam_avg_tot_strip_eta1", "beam_avg_tot_strip_eta2",
+        "beam_track_avg_tot_strip_eta1", "beam_track_avg_tot_strip_eta2",
         "avg_multiplicity_eta1", "avg_multiplicity_eta2",
         "track_avg_multiplicity_eta1", "track_avg_multiplicity_eta2"
     };
@@ -290,7 +296,8 @@ TDirectory* DataPlotter::setupScanDirectories(TDirectory* config_dir, const std:
     PathUtils::ensureDirectory(scan_dir, "cluster_analysis");
     PathUtils::ensureDirectory(scan_dir, "rate_layers_analysis");
     PathUtils::ensureDirectory(scan_dir, "rate_strips_analysis");
-    PathUtils::ensureDirectory(scan_dir, "tot_analysis");
+    PathUtils::ensureDirectory(scan_dir, "tot_layers_analysis");
+    PathUtils::ensureDirectory(scan_dir, "tot_strips_analysis");
     PathUtils::ensureDirectory(scan_dir, "multiplicity_analysis");
     PathUtils::ensureDirectory(scan_dir, "tof_analysis");
 
@@ -556,6 +563,7 @@ void DataPlotter::plotLayerMetrics(
     TDirectory* eff_dir  = scan_dir->GetDirectory("efficiency_analysis");
     TDirectory* clus_dir = scan_dir->GetDirectory("cluster_analysis");
     TDirectory* nois_dir = scan_dir->GetDirectory("rate_layers_analysis");
+    TDirectory* tot_dir  = scan_dir->GetDirectory("tot_layers_analysis");
 
     for (const auto& [metric_name, series] : layer_metrics) {
 
@@ -569,6 +577,7 @@ void DataPlotter::plotLayerMetrics(
         }
         else if (metric_name.rfind("avg_cluster", 0) == 0) metric_dir = clus_dir;
         else if (metric_name.rfind("rate_eta", 0) == 0) metric_dir = nois_dir;
+        else if (metric_name.find("tot") != std::string::npos) metric_dir = tot_dir;
 
         if (!metric_dir) continue;
         metric_dir->cd();
@@ -654,7 +663,7 @@ void DataPlotter::plotStripMetrics(
     if (!scan_dir) return;
 
     TDirectory* nois_dir = scan_dir->GetDirectory("rate_strips_analysis");
-    TDirectory* tot_dir = scan_dir->GetDirectory("tot_analysis");
+    TDirectory* tot_dir = scan_dir->GetDirectory("tot_strips_analysis");
     TDirectory* mult_dir = scan_dir->GetDirectory("multiplicity_analysis");
 
     for (const auto& [metric_name, layer_map] : strip_metrics) {
