@@ -167,6 +167,12 @@ struct RoI {
 };
 
 struct ToTResults {
+    double avg_tot_eta1_layer[LAYER_COUNT] = {};
+    double avg_tot_eta2_layer[LAYER_COUNT] = {};
+
+    ErrorRange avg_tot_eta1_layer_error[LAYER_COUNT] = {};
+    ErrorRange avg_tot_eta2_layer_error[LAYER_COUNT] = {};
+
     double avg_tot_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {};
     double avg_tot_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {};
 
