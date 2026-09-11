@@ -687,6 +687,7 @@ void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest) {
                 }
             }
 
+            prof->SetOption("COLZ");
             prof->Write("", TObject::kOverwrite);
             delete prof;
         }
