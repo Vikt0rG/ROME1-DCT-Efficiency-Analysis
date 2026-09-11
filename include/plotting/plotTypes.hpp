@@ -25,7 +25,8 @@ namespace PlotterHelpers {
         TimeResolutionVsHV,
         MeanClusterSizeVsHV,
         RateVsHV,
-        AvgToTVsHV,
+        AvgToTLayerVsHV,
+        AvgToTStripVsHV,
         AvgMultVsHV,
         Default = -1
     };
