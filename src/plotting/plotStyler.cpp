@@ -848,12 +848,11 @@ namespace PlotStyler {
     }
 
     void styleAvgToTVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
-
         auto mg = dynamic_cast<TMultiGraph*>(obj);
         auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
 
-        // Differentiate between a 24-strip plot and a 3-layer plot
-        bool is_strip_plot = (mg && mg->GetListOfGraphs() && mg->GetListOfGraphs()->GetSize() > 10);
+        int n_graphs = (mg && mg->GetListOfGraphs()) ? mg->GetListOfGraphs()->GetSize() : 0;
+        bool is_strip_plot = (n_graphs > 3);
 
         if (is_strip_plot) gStyle->SetPalette(kViridis);
 
@@ -876,30 +875,43 @@ namespace PlotStyler {
 
         applyATLASStyle(obj, canvas);
 
-        // Add a strip colorbar
-        if (is_strip_plot) {
+        if (is_strip_plot && n_graphs > 0) {
             canvas->SetRightMargin(0.16);
 
-            int n_colors = TColor::GetNumberOfColors();
-            int max_strip = STRIPS_PER_LAYER - 1;
+            // Find min and max strip indices present in this specific multigraph
+            int min_strip = INT_MAX;
+            int max_strip = INT_MIN;
+            TIter pass1(mg->GetListOfGraphs());
+            TObject* gr_obj_p1;
+            while ((gr_obj_p1 = pass1())) {
+                std::smatch match;
+                std::string gr_title = gr_obj_p1->GetTitle();
+                if (std::regex_search(gr_title, match, std::regex("Strip (\\d+)"))) {
+                    int s_idx = std::stoi(match[1].str());
+                    if (s_idx < min_strip) min_strip = s_idx;
+                    if (s_idx > max_strip) max_strip = s_idx;
+                }
+            }
+            if (min_strip > max_strip) { min_strip = 0; max_strip = STRIPS_PER_LAYER - 1; }
+            int strip_range = std::max(1, max_strip - min_strip);
 
-            // Recolor the 24 graphs to match the continuous palette
+            int n_colors = TColor::GetNumberOfColors();
+
+            // Recolor the graphs based on their actual relative position in the subset
             TIter next(mg->GetListOfGraphs());
             TObject* gr_obj;
             while ((gr_obj = next())) {
                 if (auto gr = dynamic_cast<TGraph*>(gr_obj)) {
-                    int strip_idx = 0;
+                    int strip_idx = min_strip;
                     std::smatch match;
                     std::string gr_title = gr->GetTitle();
 
-                    // Extract the strip number from the title (e.g. "Strip 5")
                     if (std::regex_search(gr_title, match, std::regex("Strip (\\d+)"))) {
                         strip_idx = std::stoi(match[1].str());
                     }
-                    strip_idx = std::max(0, std::min(strip_idx, max_strip)); // Safety clamp
+                    strip_idx = std::max(min_strip, std::min(strip_idx, max_strip));
 
-                    // Map the strip number [0, 23] to the palette index [0, 255]
-                    int color_idx = TColor::GetColorPalette((strip_idx * (n_colors - 1)) / max_strip);
+                    int color_idx = TColor::GetColorPalette(((strip_idx - min_strip) * (n_colors - 1)) / strip_range);
 
                     gr->SetMarkerColor(color_idx);
                     gr->SetMarkerStyle(70);
@@ -909,20 +921,19 @@ namespace PlotStyler {
                 }
             }
 
-            // Create a dummy histogram specifically to draw the Z-axis (Colorbar)
+            // Draw dummy Z-axis matching the active strip bounds
             TH2D* dummy_z = new TH2D(Form("dummy_z_%p", mg), "", 1, -2000, -1000, 1, -2000, -1000);
             dummy_z->SetDirectory(nullptr);
             dummy_z->SetBinContent(1, 1, 0.0);
-            dummy_z->SetMinimum(0);
-            dummy_z->SetMaximum(STRIPS_PER_LAYER);
-            dummy_z->SetContour(STRIPS_PER_LAYER);
+            dummy_z->SetMinimum(min_strip);
+            dummy_z->SetMaximum(max_strip + 1);
+            dummy_z->SetContour(256);
 
             TAxis* zAxis = dummy_z->GetZaxis();
             zAxis->SetTitle("Strip Number");
             zAxis->SetTitleOffset(1.0);
             zAxis->SetTitleSize(0.05);
             zAxis->SetLabelSize(0.04);
-            zAxis->SetNdivisions(6, 4, 0, kFALSE);
 
             dummy_z->Draw("COL Z SAME");
         }
