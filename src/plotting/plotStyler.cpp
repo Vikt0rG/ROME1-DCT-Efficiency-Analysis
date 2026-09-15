@@ -692,11 +692,11 @@ namespace PlotStyler {
         // Set axis ranges and labels
         if (mg && mg->GetHistogram()) {
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
-                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 4500.0});
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 5200.0});
                 xAxis->SetTitle(x_label.c_str());
             }
             if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
-                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 4500.0});
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 5200.0});
                 yAxis->SetTitle(y_label.c_str());
             }
         }
@@ -861,11 +861,11 @@ namespace PlotStyler {
 
         if (mg && mg->GetHistogram()) {
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
-                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 4500.0});
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 5200.0});
                 xAxis->SetTitle(x_label.c_str());
             }
             if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
-                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt);
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 5200.0});
                 yAxis->SetTitle(y_label.c_str());
             }
         }
@@ -975,11 +975,11 @@ namespace PlotStyler {
 
         if (mg && mg->GetHistogram()) {
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
-                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 4500.0});
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 5200.0});
                 xAxis->SetTitle(x_label.c_str());
             }
             if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
-                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 4500.0});
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 5200.0});
                 yAxis->SetTitle(y_label.c_str());
             }
         }
@@ -1462,11 +1462,14 @@ namespace PlotStyler {
     }
 
     void styleToFHeatmap(TObject* obj, TCanvas* canvas, TClass* cl) {
-
         auto h2 = dynamic_cast<TH2*>(obj);
+        if (!h2) return;
+
+        setRange(h2, h2->GetXaxis(), AxisType::X, std::nullopt, std::nullopt, {.x_min = 5200.0});
+
         h2->Draw("COLZ");
 
-        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), h2);
+        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(h2->GetTitle(), h2);
         if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
             named_obj->SetTitle(title.c_str());
         }
