@@ -1872,11 +1872,7 @@ void DataAnalyzer::produceSummaryStats() {
         delete input_file;
     }
 
-    std::cout << "Check 1" << std::endl;
     summary_root_file.cd();
-    std::cout << "Check 2" << std::endl;
     summary_tree->Write("", TObject::kOverwrite);
-    std::cout << "Check 3" << std::endl;
     summary_root_file.Close();
-    std::cout << "Check 4" << std::endl;
 }
