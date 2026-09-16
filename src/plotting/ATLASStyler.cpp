@@ -245,6 +245,7 @@ namespace ATLASStyler {
         leg->SetFillStyle(0);
         leg->SetTextFont(42);
         leg->SetTextSize(0.04);
+        leg->SetTextAlign(12);
 
         TIter next_item(items_list);
         TObject* child = nullptr;
@@ -259,7 +260,7 @@ namespace ATLASStyler {
                 label = legend_entries[idx];
             }
 
-            std::string draw_option = is_stack ? "f" : "pe";
+            std::string draw_option = is_stack ? "f" : "pef";
             leg->AddEntry(child, label.c_str(), draw_option.c_str());
 
             idx++;
