@@ -26,6 +26,7 @@
 #include <TColor.h>
 #include <TVirtualPad.h>
 #include <TMath.h>
+#include <TFitResult.h>
 
 #include "plotStyler.hpp"
 #include "core/constants.hpp"
@@ -73,7 +74,7 @@ namespace PlotStyler {
         {PlotCategory::ToFDistribution,             &styleToFDistribution},
         {PlotCategory::ToFHeatmap,                  &styleToFHeatmap},
         {PlotCategory::AvgToFVsHV,                  &styleAvgToFVsHV},
-        {PlotCategory::TimeResolutionVsHV,          &styleAvgToFVsHV},
+        {PlotCategory::TimeResolutionVsHV,          &styleAvgTRVsHV},
         {PlotCategory::AvgToTLayerVsHV,             &styleAvgClusterSizeVsHV},
         {PlotCategory::AvgToTStripVsHV,             &styleAvgToTVsHV},
         {PlotCategory::AvgMultVsHV,                 &styleAvgMulVsHV},
@@ -834,6 +835,146 @@ namespace PlotStyler {
             kWhite, 0.70,             // semi-transparent white background
             kBlack, 1,                // Black 1px border line
             0.01                      // Inner padding
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        double legend_y = header->GetY1NDC() - 0.02;
+        int alignment = 33;
+        drawATLASLegend(obj, legend_entries, ndc_x0, legend_y, alignment);
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleAvgTRVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto mg = dynamic_cast<TMultiGraph*>(obj);
+        if (!mg) return;
+        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+
+        canvas->cd();
+        mg->Draw("AP0Z");
+        canvas->Update();
+
+        double fit_x_max = 6000.0;
+
+        // Set axis ranges and labels
+        if (TH1* frame = mg->GetHistogram()) {
+            if (TAxis* xAxis = frame->GetXaxis()) {
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 5200.0});
+                xAxis->SetTitle(x_label.c_str());
+                fit_x_max = xAxis->GetXmax();
+            }
+
+            if (TAxis* yAxis = frame->GetYaxis()) {
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 5200.0});
+                yAxis->SetTitle(y_label.c_str());
+            }
+        }
+
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
+            named_obj->SetTitle(title.c_str());
+        }
+
+        applyATLASStyle(obj, canvas);
+        canvas->cd();
+
+        const std::vector<Color_t> palette = {
+            kAzure + 2, kGreen + 2, kOrange + 10, kMagenta + 2, kYellow - 3, kCyan - 4
+        };
+
+        if (mg->GetListOfGraphs()) {
+            TIter next(mg->GetListOfGraphs());
+            TObject* gr_obj;
+            int color_idx = 0;
+
+            while ((gr_obj = next())) {
+                if (auto gr = dynamic_cast<TGraph*>(gr_obj)) {
+                    Color_t color = palette[color_idx % palette.size()];
+
+                    gr->SetMarkerStyle(52);
+                    gr->SetMarkerSize(1.8);
+                    gr->SetMarkerColor(color);
+                    gr->SetLineColor(color);
+                    gr->SetLineWidth(1);
+
+                    gr->SetFillColorAlpha(color, 0.25);
+                    gr->SetFillStyle(1001);
+
+                    double fit_x_min = 5000.0;
+                    double gr_max_x = TMath::MaxElement(gr->GetN(), gr->GetX());
+                    double end_x = std::min(fit_x_max, gr_max_x) + 50.0;
+
+                    // Prevent ROOT's global function registry from deleting fits during batch runs
+                    std::string fit_name = Form("fit_pol1_%p_%d", (void*)gr, color_idx);
+                    TF1* fit = new TF1(fit_name.c_str(), "pol1", fit_x_min, end_x);
+
+                    TFitResultPtr r = gr->Fit(fit, "Q0SR", "", fit_x_min, end_x);
+
+                    if (static_cast<int>(r) == 0) {
+                        double p0 = r->Parameter(0);
+                        double p1 = r->Parameter(1);
+                        double ep0 = r->Error(0);
+                        double ep1 = r->Error(1);
+                        double cov01 = r->CovMatrix(0, 1);
+
+                        // Account for excess scatter in the data
+                        double chi2 = r->Chi2();
+                        double ndf = r->Ndf();
+                        double scatter_scale = (ndf > 0 && (chi2 / ndf) > 1.0) ? std::sqrt(chi2 / ndf) : 1.0;
+
+                        int n_points = 200;
+                        double step = (end_x - fit_x_min) / n_points;
+                        TGraphErrors* band = new TGraphErrors(n_points);
+
+                        for (int i = 0; i < n_points; ++i) {
+                            double x = fit_x_min + i * step;
+                            double y = p0 + p1 * x;
+
+                            double var = (ep0 * ep0) + (x * x * ep1 * ep1) + (2.0 * x * cov01);
+
+                            // Apply the 1-Sigma multiplier and the scatter scale
+                            double err = scatter_scale * std::sqrt(std::max(0.0, var));
+
+                            band->SetPoint(i, x, y);
+                            band->SetPointError(i, 0, err);
+                        }
+
+                        band->SetFillColorAlpha(color, 0.25);
+                        band->SetLineColor(color);
+                        band->SetLineWidth(1);
+                        band->Draw("E3");
+
+                        fit->SetLineColor(color);
+                        fit->SetLineStyle(2);
+                        fit->SetLineWidth(2);
+                        fit->Draw("SAME");
+                    }
+
+                    color_idx++;
+                }
+            }
+            mg->Draw("P0Z");
+        }
+
+        canvas->RedrawAxis();
+        canvas->Modified();
+        canvas->Update();
+
+        double ndc_x0 = 1.0 - canvas->GetRightMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 - 0.03,
+            ndc_y0 - 0.09,
+            "Work in Progress",
+            plot_title,
+            32,
+            kWhite, 0.70,
+            kBlack, 0,
+            0.01
         );
 
         canvas->Modified();
