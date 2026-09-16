@@ -40,7 +40,7 @@ constexpr float TIME_TICK_NS = 0.833;               // Duration of one time tick
 
 // Physical contrains and constants
 constexpr float TOT_ROI_MIN = 4.0;                  // ToT lower bound for valid hits (ns)
-constexpr float TOT_ROI_MAX = 12.0;                 // ToT upper bound for valid hits (ns)
+constexpr float TOT_ROI_MAX = 20.0;                 // ToT upper bound for valid hits (ns)
 
 // Suffixed and other constants for plotting and analysis
 const std::array<std::string, LAYER_PAIR_COUNT> LAYER_PAIR_SUFFIXES = {"0_1", "0_2", "1_2"};
