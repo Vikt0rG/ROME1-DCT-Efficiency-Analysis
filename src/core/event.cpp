@@ -52,10 +52,16 @@ void Event::calculateTOT() {
     // Note: For pairing rely on eta1 side only unless it doesn't have time information, then use eta2 side.
     std::vector<bool> paired(_hits.size(), false);
 
-    // Determine if we have more rising edges than falling edges in the event, which can indicate potential data issues (?)
+    // Determine if we have more rising edges than falling edges in the event, which can indicate data issues
     auto [rising_count, falling_count] = countEdges();
     bool more_rising_edges = rising_count > falling_count;
     bool more_falling_edges = !more_rising_edges;
+
+    // Helper struct to keep track of potential partners
+    struct Partner {
+        int index;
+        int dt;
+    };
 
     for (size_t i = 0; i < _hits.size(); i++) {
         Hit& hit = _hits[i];
@@ -69,10 +75,8 @@ void Event::calculateTOT() {
         // Greedy approach: Skip hits with edges that are more common, to match those to the less common ones
         if ((hit.getRise() == 0 && more_falling_edges) || (hit.getRise() == 1 && more_rising_edges)) continue;
 
-        // Find the closest in-time partner edge on the same channel with a different edge type
-        int best_j = -1;
-        int min_dt = INT_MAX;
         const int target_rise = (hit.getRise() == 1) ? 0 : 1;
+        std::vector<Partner> valid_partners;
 
         for (size_t j = 0; j < _hits.size(); j++) {
             Hit& potential_partner = _hits[j];
@@ -90,13 +94,29 @@ void Event::calculateTOT() {
                 continue; // Skip if neither hit has valid time information
             }
 
-            if (dt > 0 && dt < min_dt) {
-                min_dt = dt;
-                best_j = static_cast<int>(j);
+            // Collect all subsequent valid partners
+            if (dt > 0) {
+                valid_partners.push_back({static_cast<int>(j), dt});
             }
         }
 
-        // Now calculate both ToTs using the same best pair
+        int best_j = -1;
+
+        if (!valid_partners.empty()) {
+            // Sort partners by dt ascending (closest in time first)
+            std::sort(valid_partners.begin(), valid_partners.end(), [](const Partner& a, const Partner& b) {
+                return a.dt < b.dt;
+            });
+
+            // "By-one-further" logic: if the closest edge results in ToT < 4 and a second one exists, skip the first
+            if (valid_partners[0].dt < 4 && valid_partners.size() > 1) {
+                best_j = valid_partners[1].index;
+            } else {
+                best_j = valid_partners[0].index;
+            }
+        }
+
+        // Now calculate both ToTs using the chosen best pair
         if (best_j != -1) {
             Hit& partner = _hits[best_j];
             paired[i] = true;
@@ -452,8 +472,8 @@ void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
     // Iterate over hits to set efficiency flags
     for (Hit& hit : _hits) {
 
-        // Side η1 efficiency flag updates
-        if (hit.hasEta1Time() && hit.getChannel() != _trigger_channel && hit.getRise() == 1) {
+        // Side η1 efficiency flag updates (removed && hit.getRise() == 1 to allow falling edges too)
+        if (hit.hasEta1Time() && hit.getChannel() != _trigger_channel) {
 
             bool within_time_window = true;
             if (_use_external_trigger) {
@@ -485,7 +505,7 @@ void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
         }
 
         // Side η2 efficiency flag updates (same logic as for η1)
-        if (hit.hasEta2Time() && hit.getChannel() != _trigger_channel && hit.getRise() == 1) {
+        if (hit.hasEta2Time() && hit.getChannel() != _trigger_channel) {
             bool within_time_window = true;
             if (_use_external_trigger) {
                 if (_trigger_time == -1) {
