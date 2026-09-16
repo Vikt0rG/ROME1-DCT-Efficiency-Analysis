@@ -1633,7 +1633,8 @@ namespace PlotStyler {
         auto h2 = dynamic_cast<TH2*>(obj);
         if (!h2) return;
 
-        setRange(h2, h2->GetXaxis(), AxisType::X, std::nullopt, std::nullopt, {.x_min = 5200.0});
+        double max_x = h2->GetXaxis()->GetXmax();
+        h2->GetXaxis()->SetRangeUser(5200.0, max_x);
 
         h2->Draw("COLZ");
 
