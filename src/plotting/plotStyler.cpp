@@ -1541,7 +1541,7 @@ namespace PlotStyler {
             if (y_max_line > 0) {
                 TLine* edge = new TLine(x, 0.0, x, y_max_line);
                 edge->SetLineColorAlpha(kOrange + 7, 0.55);
-                edge->SetLineWidth(1);
+                edge->SetLineWidth(2);
                 edge->Draw();
             }
         }
