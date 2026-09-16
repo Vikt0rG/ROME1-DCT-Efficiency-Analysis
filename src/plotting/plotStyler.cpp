@@ -1777,6 +1777,19 @@ namespace PlotStyler {
         Objects::line(pad1, TOT_ROI_MAX, TOT_ROI_MAX, y_min, y_max, kBlack, 9, 1);
         Objects::hatchedRegion(pad1, TOT_ROI_MAX, x_max, y_min, y_max, 3244);
 
+        double x_ndc = (TOT_ROI_MAX - pad1->GetX1()) / (pad1->GetX2() - pad1->GetX1());
+        x_ndc += 0.015;
+        double y_ndc = 0.35;
+
+        TLatex* roi_text = new TLatex();
+        roi_text->SetNDC(true);
+        roi_text->SetTextAngle(90);
+        roi_text->SetTextAlign(23);
+        roi_text->SetTextFont(42);
+        roi_text->SetTextSize(0.035);
+        roi_text->SetTextColor(kGray + 2);
+        roi_text->DrawLatex(x_ndc, y_ndc, "Streamer/Afterpulse Region");
+
         // Draw Vertical Mean Lines on Top Pad
         for (const auto& data : mean_line_data) {
             double mean_x = data.first;
@@ -1807,8 +1820,8 @@ namespace PlotStyler {
         pad1->Modified();
         pad1->Update();
 
-        double legend_y = header ? header->GetY1NDC() - 0.15 : 0.70;
-        drawATLASLegend(stack, legend_entries, 0.92, legend_y, 31);
+        double legend_y = header ? header->GetY1NDC() - 0.05 : 0.70;
+        drawATLASLegend(stack, legend_entries, ndc_x0 - 0.05, legend_y, 32);
 
         // Calculate & Draw Bottom Pad (Ratio Plot)
         pad2->cd();
