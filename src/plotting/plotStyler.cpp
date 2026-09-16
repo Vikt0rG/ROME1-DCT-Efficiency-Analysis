@@ -1124,7 +1124,7 @@ namespace PlotStyler {
         int index = 0;
 
         while ((hist = static_cast<TH1*>(next()))) {
-            Color_t base_color = (index == 0) ? kAzure - 3 : kRed + 1;
+            Color_t base_color = (index == 0) ? kRed + 1 : kAzure - 3;
 
             hist->SetLineColor(base_color);
             hist->SetLineWidth(2);
@@ -1133,6 +1133,22 @@ namespace PlotStyler {
             Int_t trans_color = TColor::GetColorTransparent(base_color, 0.30);
             hist->SetFillColor(trans_color);
             hist->SetFillStyle(1001);
+
+            for (int i = 1; i < hist->GetNbinsX(); ++i) {
+                double x = hist->GetXaxis()->GetBinUpEdge(i);
+
+                double y_left = hist->GetBinContent(i);
+                double y_right = hist->GetBinContent(i + 1);
+
+                double y_max_line = std::min(y_left, y_right);
+
+                if (y_max_line > 0) {
+                    TLine* edge = new TLine(x, 0.0, x, y_max_line);
+                    edge->SetLineColorAlpha(base_color, 0.55);
+                    edge->SetLineWidth(2);
+                    edge->Draw();
+                }
+            }
 
             index++;
         }

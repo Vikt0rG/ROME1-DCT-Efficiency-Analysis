@@ -141,8 +141,8 @@ void plotStrip(TFile* input_file) {
     };
 
     std::vector<StackPairing> stack_pairings = {
-        {"eta1", {"strip_eta1_before_reco", "strip_eta1_after_reco"}, "after_before_reco"},
-        {"eta2", {"strip_eta2_before_reco", "strip_eta2_after_reco"}, "after_before_reco"},
+        {"eta1", {"strip_eta1_after_reco", "strip_eta1_before_reco"}, "after_before_reco"},
+        {"eta2", {"strip_eta2_after_reco", "strip_eta2_before_reco"}, "after_before_reco"},
         {"eta1", {"strip_eta1_after_reco", "strip_eta1_rejected"}, "after_reco_rejected"},
         {"eta2", {"strip_eta2_after_reco", "strip_eta2_rejected"}, "after_reco_rejected"}
     };
@@ -155,8 +155,8 @@ void plotStrip(TFile* input_file) {
             TH1* first_hist = strip_histograms[pairing.pair.first][layer];
             TH1* second_hist = strip_histograms[pairing.pair.second][layer];
 
-            first_hist->SetFillColor(kBlue - 2);
-            second_hist->SetFillColor(kRed - 3);
+            first_hist->SetFillColor(kRed - 3);
+            second_hist->SetFillColor(kBlue - 2);
 
             stack->Add(first_hist);
             stack->Add(second_hist);
