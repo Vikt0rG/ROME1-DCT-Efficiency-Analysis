@@ -1704,31 +1704,43 @@ void processToF(TFile* input_file, ToFResults& tof_results,
         // Pass 1: Global fit to find the general location of the peak
         TFitResultPtr r1 = hist->Fit("gaus", "Q0S");
 
-        // Strict pointer and validity check
         if (r1.Get() != nullptr && r1->IsValid() && static_cast<int>(r1) == 0) {
             double p_mean  = r1->Parameter(1);
             double p_sigma = r1->Parameter(2);
+            double p_sigma_err = r1->Error(2);
 
             if (p_sigma <= 0.0) return;
 
-            // Prevent 0 NDF: Ensure the fit window covers at least ~4 bins total
-            double fit_width = std::max(1.5 * p_sigma, 2.0);
-
             // Pass 2: Core fit restricted to ignore tails
+            double fit_width = std::max(1.5 * p_sigma, 2.0);
             TFitResultPtr r2 = hist->Fit("gaus", "Q0S", "", p_mean - fit_width, p_mean + fit_width);
 
             if (r2.Get() != nullptr && r2->IsValid() && static_cast<int>(r2) == 0) {
                 mean_out = r2->Parameter(1);
                 mean_err_out = ErrorRange{r2->Error(1)};
-
-                res_out = r2->Parameter(2) / std::sqrt(2.0);
-                res_err_out = ErrorRange{r2->Error(2) / std::sqrt(2.0)};
+                p_sigma = r2->Parameter(2);
+                p_sigma_err = r2->Error(2);
             } else {
-                // Fallback to the first fit if the second fit fails (e.g. narrow peak)
                 mean_out = p_mean;
                 mean_err_out = ErrorRange{r1->Error(1)};
-                res_out = p_sigma / std::sqrt(2.0);
-                res_err_out = ErrorRange{r1->Error(2) / std::sqrt(2.0)};
+            }
+
+            // Quantization (Sheppard's) Correction
+            const double TDC_TICK = 1.0;
+            const double TDC_VARIANCE = (TDC_TICK * TDC_TICK) / 12.0;
+
+            double raw_res_sq = (p_sigma * p_sigma) / 2.0;
+            double intrinsic_res_sq = raw_res_sq - TDC_VARIANCE;
+
+            if (intrinsic_res_sq > 0.0) {
+                res_out = std::sqrt(intrinsic_res_sq);
+                // Standard error propagation: df/d(sigma) * sigma_err
+                double propagated_err = (p_sigma / (2.0 * res_out)) * p_sigma_err;
+                res_err_out = ErrorRange{propagated_err};
+            } else {
+                // If the variance is negative, the width is entirely dominated by the TDC binning
+                res_out = 0.0;
+                res_err_out = ErrorRange{0.0};
             }
         }
     };
