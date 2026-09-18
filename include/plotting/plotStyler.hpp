@@ -34,6 +34,8 @@ namespace PlotStyler {
     void styleEfficiency(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleEfficiencyVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleAvgClusterSizeVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
+    void styleRateVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
+    void styleRateStripVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleAvgToFVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleAvgTRVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleAvgToTVsHV(TObject* obj, TCanvas* canvas, TClass* cl);

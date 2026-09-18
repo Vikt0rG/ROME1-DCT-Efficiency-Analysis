@@ -55,7 +55,7 @@ namespace PlotStyler {
         {"eff",                     TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
         {"avg_cluster_size",        TMultiGraph::Class(),          PlotCategory::MeanClusterSizeVsHV},
         {"rate_eta",                TMultiGraph::Class(),          PlotCategory::RateVsHV},
-        {"rate_strips_eta",         TMultiGraph::Class(),          PlotCategory::AvgToTStripVsHV},
+        {"rate_strips_eta",         TMultiGraph::Class(),          PlotCategory::RateStripVsHV},
         {"avg_tot_layer_eta",       TMultiGraph::Class(),          PlotCategory::AvgToTLayerVsHV},
         {"avg_tot_strip_eta",       TMultiGraph::Class(),          PlotCategory::AvgToTStripVsHV},
         {"avg_multiplicity",        TMultiGraph::Class(),          PlotCategory::AvgMultVsHV},
@@ -69,7 +69,8 @@ namespace PlotStyler {
         {PlotCategory::Efficiency,                  &styleEfficiency},
         {PlotCategory::EfficiencyVsHV,              &styleEfficiencyVsHV},
         {PlotCategory::MeanClusterSizeVsHV,         &styleAvgClusterSizeVsHV},
-        {PlotCategory::RateVsHV,                    &styleAvgClusterSizeVsHV},
+        {PlotCategory::RateVsHV,                    &styleRateVsHV},
+        {PlotCategory::RateStripVsHV,               &styleRateStripVsHV},
         {PlotCategory::CSDistribution,              &styleCSDistribution},
         {PlotCategory::ToFDistribution,             &styleToFDistribution},
         {PlotCategory::ToFHeatmap,                  &styleToFHeatmap},
@@ -761,6 +762,213 @@ namespace PlotStyler {
 
         double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
         drawATLASLegend(obj, legend_entries, 0.18, legend_y, 13);
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleRateVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
+
+        // Extract title and axis labels from the object's title string
+        auto mg = dynamic_cast<TMultiGraph*>(obj);
+        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+
+        obj->Draw("AP0Z");
+
+        // Set axis ranges and labels
+        if (mg && mg->GetHistogram()) {
+            if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 4550.0});
+                xAxis->SetTitle(x_label.c_str());
+            }
+            if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 4550.0});
+                yAxis->SetTitle(y_label.c_str());
+            }
+        }
+
+        // Set color and marker style for the graphs in the multigraph
+        const std::vector<Color_t> palette = {
+            kAzure + 2,
+            kGreen + 2,
+            kOrange + 10,
+            kMagenta + 2,
+            kYellow - 3,
+            kCyan - 4
+        };
+        if (mg && mg->GetListOfGraphs()) {
+            TIter next(mg->GetListOfGraphs());
+            TObject* gr_obj;
+            int color_idx = 0;
+            while ((gr_obj = next())) {
+                if (auto gr = dynamic_cast<TGraph*>(gr_obj)) {
+                    Color_t color = palette[color_idx % palette.size()];
+
+                    gr->SetMarkerStyle(52);
+                    gr->SetMarkerSize(1.8);
+                    gr->SetMarkerColor(color);
+                    gr->SetLineColor(color);
+                    gr->SetLineWidth(1);
+
+                    color_idx++;
+                }
+            }
+        }
+
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
+            named_obj->SetTitle(title.c_str());
+        }
+
+        applyATLASStyle(obj, canvas);
+
+        canvas->Modified();
+        canvas->Update();
+
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 + 0.03,
+            ndc_y0 - 0.09,            // Coordinates for the header box
+            "Work in Progress",       // Status string
+            plot_title,               // Title string
+            12,                       // Alignment
+            kWhite, 0.70,             // semi-transparent white background
+            kBlack, 1,                // Black 1px border line
+            0.01                      // Inner padding
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
+        drawATLASLegend(obj, legend_entries, 0.18, legend_y, 13);
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleRateStripVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto mg = dynamic_cast<TMultiGraph*>(obj);
+        auto [title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+
+        int n_graphs = (mg && mg->GetListOfGraphs()) ? mg->GetListOfGraphs()->GetSize() : 0;
+        bool is_strip_plot = (n_graphs > 3);
+
+        if (is_strip_plot) gStyle->SetPalette(kViridis);
+
+        obj->Draw("APZ");
+
+        if (mg && mg->GetHistogram()) {
+            if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 4550.0});
+                xAxis->SetTitle(x_label.c_str());
+            }
+            if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 4550.0});
+                yAxis->SetTitle(y_label.c_str());
+            }
+        }
+
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
+            named_obj->SetTitle(title.c_str());
+        }
+
+        applyATLASStyle(obj, canvas);
+
+        if (is_strip_plot && n_graphs > 0) {
+            canvas->SetRightMargin(0.16);
+
+            // Find min and max strip indices present in this specific multigraph
+            int min_strip = INT_MAX;
+            int max_strip = INT_MIN;
+            TIter pass1(mg->GetListOfGraphs());
+            TObject* gr_obj_p1;
+            while ((gr_obj_p1 = pass1())) {
+                std::smatch match;
+                std::string gr_title = gr_obj_p1->GetTitle();
+                if (std::regex_search(gr_title, match, std::regex("Strip (\\d+)"))) {
+                    int s_idx = std::stoi(match[1].str());
+                    if (s_idx < min_strip) min_strip = s_idx;
+                    if (s_idx > max_strip) max_strip = s_idx;
+                }
+            }
+            if (min_strip > max_strip) { min_strip = 0; max_strip = STRIPS_PER_LAYER - 1; }
+            int strip_range = std::max(1, max_strip - min_strip);
+
+            int n_colors = TColor::GetNumberOfColors();
+
+            // Recolor the graphs based on their actual relative position in the subset
+            TIter next(mg->GetListOfGraphs());
+            TObject* gr_obj;
+            while ((gr_obj = next())) {
+                if (auto gr = dynamic_cast<TGraph*>(gr_obj)) {
+                    int strip_idx = min_strip;
+                    std::smatch match;
+                    std::string gr_title = gr->GetTitle();
+
+                    if (std::regex_search(gr_title, match, std::regex("Strip (\\d+)"))) {
+                        strip_idx = std::stoi(match[1].str());
+                    }
+                    strip_idx = std::max(min_strip, std::min(strip_idx, max_strip));
+
+                    int color_idx = TColor::GetColorPalette(((strip_idx - min_strip) * (n_colors - 1)) / strip_range);
+
+                    gr->SetMarkerColor(color_idx);
+                    gr->SetMarkerStyle(70);
+                    gr->SetMarkerSize(1.8);
+                    gr->SetLineColor(color_idx);
+                    gr->SetLineWidth(2.0);
+                }
+            }
+
+            // Draw dummy Z-axis matching the active strip bounds
+            TH2D* dummy_z = new TH2D(Form("dummy_z_%p", mg), "", 1, -2000, -1000, 1, -2000, -1000);
+            dummy_z->SetDirectory(nullptr);
+            dummy_z->SetBinContent(1, 1, 0.0);
+            dummy_z->SetMinimum(min_strip);
+            dummy_z->SetMaximum(max_strip + 1);
+            dummy_z->SetContour(256);
+
+            TAxis* zAxis = dummy_z->GetZaxis();
+            zAxis->SetTitle("Strip Number");
+            zAxis->SetTitleOffset(1.0);
+            zAxis->SetTitleSize(0.05);
+            zAxis->SetLabelSize(0.04);
+
+            dummy_z->Draw("COL Z SAME");
+        }
+
+        canvas->Modified();
+        canvas->Update();
+
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 + 0.03, ndc_y0 - 0.10,
+            "Work in Progress",
+            plot_title,
+            12,
+            kWhite, 0.70,
+            kBlack, 1,
+            0.01
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        if (!is_strip_plot) {
+            double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
+            TLegend* leg = drawATLASLegend(obj, legend_entries, 0.18, legend_y, 13);
+            if (leg) {
+                leg->SetBorderSize(1);
+                leg->SetLineWidth(1);
+                leg->SetLineColor(kBlack);
+            }
+        }
 
         canvas->Modified();
         canvas->Update();
