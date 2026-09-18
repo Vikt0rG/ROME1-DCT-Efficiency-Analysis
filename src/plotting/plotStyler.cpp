@@ -585,6 +585,8 @@ namespace PlotStyler {
                     gr->SetMarkerColor(color);
                     gr->SetLineColor(color);
                     gr->SetLineWidth(1);
+                    gr->SetFillColorAlpha(color, 0.25);
+                    gr->SetFillStyle(1001);
 
                     color_idx++;
 
@@ -676,7 +678,7 @@ namespace PlotStyler {
         canvas->Update();
 
         double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
-        drawATLASLegend(obj, legend_entries, 0.18, legend_y, 13);
+        drawATLASLegend(obj, legend_entries, 0.18, legend_y, 13, "pef");
 
         canvas->Modified();
         canvas->Update();
@@ -982,7 +984,7 @@ namespace PlotStyler {
 
         double legend_y = header->GetY1NDC() - 0.02;
         int alignment = 33;
-        drawATLASLegend(obj, legend_entries, ndc_x0, legend_y, alignment);
+        drawATLASLegend(obj, legend_entries, ndc_x0, legend_y, alignment, "pef");
 
         canvas->Modified();
         canvas->Update();

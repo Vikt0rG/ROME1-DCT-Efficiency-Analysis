@@ -193,8 +193,11 @@ namespace ATLASStyler {
         return pave;
     }
 
-    TLegend* drawATLASLegend(TObject* obj, const std::vector<std::string>& legend_entries,
-        float ndc_x, float ndc_y, short alignment) {
+    TLegend* drawATLASLegend(
+        TObject* obj, const std::vector<std::string>& legend_entries,
+        float ndc_x, float ndc_y, short alignment,
+        const std::optional<std::string>& draw_option
+    ) {
 
         if (!obj || !gPad) return nullptr;
 
@@ -260,8 +263,12 @@ namespace ATLASStyler {
                 label = legend_entries[idx];
             }
 
-            std::string draw_option = is_stack ? "f" : "pef";
-            leg->AddEntry(child, label.c_str(), draw_option.c_str());
+            if (draw_option == std::nullopt) {
+                std::string default_option = is_stack ? "f" : "pe";
+                leg->AddEntry(child, label.c_str(), default_option.c_str());
+            } else {
+                leg->AddEntry(child, label.c_str(), draw_option->c_str());
+            }
 
             idx++;
         }

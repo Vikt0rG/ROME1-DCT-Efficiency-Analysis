@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <vector>
 #include <string>
 #include <Rtypes.h>
@@ -27,7 +28,8 @@ namespace ATLASStyler {
         double innerPadding = 0.01);
 
     TLegend* drawATLASLegend(TObject* obj, const std::vector<std::string>& legend_entries,
-                             float ndc_x, float ndc_y, short alignment);
+                             float ndc_x, float ndc_y, short alignment,
+                             const std::optional<std::string>& draw_option = std::nullopt);
 
     void applyATLASStyle(TObject* obj, TPad* pad);
 
