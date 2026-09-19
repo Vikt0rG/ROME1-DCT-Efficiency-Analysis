@@ -483,7 +483,7 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
         {"tot_eta1_beam",        "tot_eta2_beam",        "beam",        "Beam Spot Region"}
     };
 
-    // Store stacks combining both sides
+    // Store stacks combining both sides (eta1 vs eta2 per layer)
     for (int layer : {0, 1, 2}) {
         for (const auto& pair : pairings) {
             auto* h_tot1 = strip_histograms[pair.eta1_cat][layer];
@@ -495,7 +495,7 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
             h_tot2->SetLineColor(kRed);
             h_tot2->SetMarkerColor(kRed);
 
-            std::string stack_name = Form("h1d_tot_%s_layer%d", pair.suffix.c_str(), layer);
+            std::string stack_name = Form("stack_tot_side_%s_layer%d", pair.suffix.c_str(), layer);
             std::string stack_title = Form("Layer %d: %s", layer, pair.title_modifier.c_str());
 
             auto* stack = new THStack(stack_name.c_str(), stack_title.c_str());
@@ -506,6 +506,23 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
             stack->Write("", TObject::kOverwrite);
             delete stack;
         }
+    }
+
+    // Store stacks combining layers
+    for (int c = 0; c < nConfigs; ++c) {
+        std::string cat = categories[c];
+        std::string side_label = (cat.find("eta1") != std::string::npos) ? "Side #eta_{1}" : "Side #eta_{2}";
+        std::string stack_name = Form("stack_tot_layer_%s", cat.c_str());
+        std::string stack_title = Form("%s: %s", comments[c], side_label.c_str());
+
+        auto* stack = new THStack(stack_name.c_str(), stack_title.c_str());
+
+        for (int layer : {0, 1, 2}) {
+            stack->Add(strip_histograms[cat][layer]);
+        }
+
+        stack->Write("", TObject::kOverwrite);
+        delete stack;
     }
 
     for (int c = 0; c < nConfigs; ++c) {
