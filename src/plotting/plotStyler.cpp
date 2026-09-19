@@ -289,7 +289,6 @@ namespace PlotStyler {
             } else if (metric_name.find("strip") != std::string::npos) {
 
                 static const std::regex reco_status("before|after|rejected");
-
                 auto words_begin = std::sregex_iterator(metric_name.begin(), metric_name.end(), reco_status);
                 auto words_end = std::sregex_iterator();
 
@@ -303,6 +302,16 @@ namespace PlotStyler {
                     } else if (status == "rejected") {
                         legend_entries.push_back("Rejected");
                     }
+                }
+            } else {
+
+                static const std::regex layer_re("layer(\\d+)");
+                auto words_begin = std::sregex_iterator(metric_name.begin(), metric_name.end(), layer_re);
+                auto words_end = std::sregex_iterator();
+
+                for (std::sregex_iterator i = words_begin; i != words_end; ++i) {
+                    std::string layer = (*i).str(1);
+                    legend_entries.push_back("Layer " + layer);
                 }
             }
         }
