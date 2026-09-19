@@ -392,7 +392,7 @@ namespace PlotStyler {
                     found_valid_points = true;
                 }
             }
-            // DATA 2: Histograms (Handles TH1, TH2, TH3 seamlessly)
+            // DATA 2: Histograms (Handles TH1, TH2, TH3)
             else if (auto h = dynamic_cast<TH1*>(current_obj)) {
                 int n_bins_x = h->GetNbinsX();
                 int n_bins_y = h->GetNbinsY();
@@ -456,10 +456,29 @@ namespace PlotStyler {
 
             axis->SetLimits(dynamic_min, dynamic_max);
             axis->SetRangeUser(dynamic_min, dynamic_max);
+
+            if (axis_type == AxisType::Y) {
+                if (auto st = dynamic_cast<THStack*>(obj)) {
+                    st->SetMinimum(dynamic_min);
+                    st->SetMaximum(dynamic_max);
+                } else if (auto h1 = dynamic_cast<TH1*>(obj)) {
+                    h1->SetMinimum(dynamic_min);
+                    h1->SetMaximum(dynamic_max);
+                }
+            }
         } else {
             if (default_min.has_value() && default_max.has_value()) {
                 axis->SetLimits(default_min.value(), default_max.value());
                 axis->SetRangeUser(default_min.value(), default_max.value());
+                if (axis_type == AxisType::Y) {
+                    if (auto st = dynamic_cast<THStack*>(obj)) {
+                        st->SetMinimum(default_min.value());
+                        st->SetMaximum(default_max.value());
+                    } else if (auto h1 = dynamic_cast<TH1*>(obj)) {
+                        h1->SetMinimum(default_min.value());
+                        h1->SetMaximum(default_max.value());
+                    }
+                }
             }
         }
     }
