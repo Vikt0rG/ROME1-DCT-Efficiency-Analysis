@@ -20,6 +20,7 @@
 #include <TTreeReaderValue.h>
 #include <TFitResult.h>
 #include <TFitResultPtr.h>
+#include <TLegend.h>
 
 #include "configParser.hpp"
 #include "dataPlotter.hpp"
@@ -694,24 +695,195 @@ void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest) {
     }
 }
 
-void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
+void plotMultiplicity(TFile* input_file) {
     TDirectory* analysis_dir = input_file->GetDirectory("analysis");
     TDirectory* mult_strip_dir = analysis_dir->GetDirectory("multiplicity_strip");
-    TDirectory* delay_strip_dir = analysis_dir->GetDirectory("delay_strip");
+    if (!mult_strip_dir) {
+        mult_strip_dir = analysis_dir->mkdir("multiplicity_strip");
+    }
+    mult_strip_dir->cd();
 
     TTree* input_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
     TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
     TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
-    if (!proc_tree || proc_tree->IsZombie()) {
-        std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
-        return;
-    }
-    if (!track_tree || track_tree->IsZombie()) {
-        std::cerr << "Error: Invalid track reconstruction tree for analysis." << std::endl;
+
+    if (!input_tree || !proc_tree || !track_tree) {
+        std::cerr << "Error: Invalid trees for plotMultiplicity analysis." << std::endl;
         return;
     }
 
-    // Read processed data into vectors and create 2D histograms for dt vs strip for each layer and valid track category
+    TTreeReader readerInputData(input_tree);
+    TTreeReader readerProcData(proc_tree);
+    TTreeReader readerTrackData(track_tree);
+    TTreeReaderValue<std::vector<int>> raw_time1(readerInputData, "hit_raw_time1");
+    TTreeReaderValue<std::vector<int>> raw_time2(readerInputData, "hit_raw_time2");
+    TTreeReaderValue<std::vector<int>> rise(readerInputData, "hit_rise");
+    TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
+    TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
+
+    const int nConfigs = 4;
+    const char* categories[nConfigs] = {
+        "mult_eta1_before_reco", "mult_eta2_before_reco",
+        "mult_eta1_after_reco",  "mult_eta2_after_reco"
+    };
+    const char* comments[nConfigs] = {
+        "Before Track Reco: Side #eta_{1}", "Before Track Reco: Side #eta_{2}",
+        "After Track Reco: Side #eta_{1}", "After Track Reco: Side #eta_{2}"
+    };
+
+    // [category][layer] -> histogram
+    std::map<std::string, std::map<int, TH2F*>> h2d_mult;         // Strip vs Multiplicity vs Entries
+    std::map<std::string, std::map<int, TH1F*>> h1d_mult;         // Multiplicity vs Entries (Integrated)
+    std::map<std::string, std::map<int, TProfile*>> prof_avg;     // Strip vs Average Multiplicity
+    std::map<std::string, std::map<int, TProfile*>> prof_frac;    // Strip vs Fraction of Mult > 1
+
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            // 2D Map (Strip vs Multiplicity)
+            h2d_mult[categories[c]][layer] = new TH2F(
+                Form("h2d_%s_layer%d", categories[c], layer),
+                Form("Layer %d: %s;Strip;Multiplicity;Entries", layer, comments[c]),
+                24, 0, 24, 9, 1, 10);
+
+            // 1D Distribution (Summed Multiplicity)
+            h1d_mult[categories[c]][layer] = new TH1F(
+                Form("h1d_%s_layer%d", categories[c], layer),
+                Form("Layer %d: %s;Multiplicity;Entries", layer, comments[c]),
+                4, 1, 5);
+
+            // 1D Profile (Average Multiplicity vs Strip)
+            prof_avg[categories[c]][layer] = new TProfile(
+                Form("prof_avg_%s_layer%d", categories[c], layer),
+                Form("Layer %d: %s;Strip;#LTAverage Multiplicity#GT [Hits]", layer, comments[c]),
+                24, 0, 24);
+
+            // 1D Profile (Fraction of Mult > 1 vs Strip)
+            prof_frac[categories[c]][layer] = new TProfile(
+                Form("prof_frac_%s_layer%d", categories[c], layer),
+                Form("Layer %d: %s;Strip;#frac{N_{mult > 1}}{N_{events}}", layer, comments[c]),
+                24, 0, 24);
+        }
+    }
+
+    // Event Loop
+    while (readerInputData.Next() && readerProcData.Next() && readerTrackData.Next()) {
+
+        // Reset lookup table for the current event: counts[category][layer][strip]
+        std::map<int, std::map<int, int>> counts[nConfigs];
+
+        const size_t n_hits = std::min({
+            strips->size(),
+            layers->size(),
+            rise->size(),
+            raw_time1->size(),
+            raw_time2->size(),
+            in_valid_track_eta1->size(),
+            in_valid_track_eta2->size()
+        });
+
+        // Count hits per strip for this event
+        for (size_t i = 0; i < n_hits; ++i) {
+            if ((*rise)[i] == 0) continue; // Skip falling edge hits
+
+            int layer = (*layers)[i];
+            if (layer < 0 || layer > 2) continue;
+
+            int strip = perFileHelpers::remapStrip((*strips)[i]);
+            bool valid_track = (*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i];
+
+            if ((*raw_time1)[i] != 0) {
+                counts[0][layer][strip]++;
+                if (valid_track) counts[2][layer][strip]++;
+            }
+            if ((*raw_time2)[i] != 0) {
+                counts[1][layer][strip]++;
+                if (valid_track) counts[3][layer][strip]++;
+            }
+        }
+
+        // Fill all 4 statistics using the aggregated counts
+        for (int c = 0; c < nConfigs; ++c) {
+            for (int layer : {0, 1, 2}) {
+                for (const auto& [strip, count] : counts[c][layer]) {
+                    // Only process strips that actually had hits this event
+                    if (count > 0) {
+                        h2d_mult[categories[c]][layer]->Fill(strip, count);
+                        h1d_mult[categories[c]][layer]->Fill(count);
+                        prof_avg[categories[c]][layer]->Fill(strip, count);
+
+                        // Pass 1.0 if mult > 1, pass 0.0 if mult == 1.
+                        prof_frac[categories[c]][layer]->Fill(strip, count > 1 ? 1.0 : 0.0);
+                    }
+                }
+            }
+        }
+    }
+
+    mult_strip_dir->cd();
+
+    int colors[3] = {kBlack, kBlue+1, kRed+1};
+    int markers[3] = {20, 21, 22};
+
+    for (int c = 0; c < nConfigs; ++c) {
+        // Write the 2D maps and 1D distributions individually
+        for (int layer : {0, 1, 2}) {
+            h2d_mult[categories[c]][layer]->Write("", TObject::kOverwrite);
+            h1d_mult[categories[c]][layer]->Write("", TObject::kOverwrite);
+        }
+
+        // Combine the Average Multiplicity Profiles into a THStack
+        THStack* stack_avg = new THStack(Form("stack_avg_%s", categories[c]), Form("%s;Strip;Average Multiplicity", comments[c]));
+        for (int layer : {0, 1, 2}) {
+            prof_avg[categories[c]][layer]->SetLineColor(colors[layer]);
+            prof_avg[categories[c]][layer]->SetMarkerColor(colors[layer]);
+            prof_avg[categories[c]][layer]->SetMarkerStyle(markers[layer]);
+
+            stack_avg->Add(prof_avg[categories[c]][layer], "PE");
+        }
+        stack_avg->Write("", TObject::kOverwrite);
+
+        // Combine the Fraction Profiles into a THStack
+        THStack* stack_frac = new THStack(Form("stack_frac_%s", categories[c]), Form("%s;Strip;N_{mult > 1} / N_{events}", comments[c]));
+        for (int layer : {0, 1, 2}) {
+            prof_frac[categories[c]][layer]->SetLineColor(colors[layer]);
+            prof_frac[categories[c]][layer]->SetMarkerColor(colors[layer]);
+            prof_frac[categories[c]][layer]->SetMarkerStyle(markers[layer]);
+
+            stack_frac->Add(prof_frac[categories[c]][layer], "PE");
+        }
+        stack_frac->Write("", TObject::kOverwrite);
+
+        delete stack_avg;
+        delete stack_frac;
+
+        for (int layer : {0, 1, 2}) {
+            delete h2d_mult[categories[c]][layer];
+            delete h1d_mult[categories[c]][layer];
+            delete prof_avg[categories[c]][layer];
+            delete prof_frac[categories[c]][layer];
+        }
+    }
+}
+
+void plotDelay(TFile* input_file) {
+    TDirectory* analysis_dir = input_file->GetDirectory("analysis");
+    TDirectory* delay_strip_dir = analysis_dir->GetDirectory("delay_strip");
+    if (!delay_strip_dir) {
+        delay_strip_dir = analysis_dir->mkdir("delay_strip");
+    }
+    delay_strip_dir->cd();
+
+    TTree* input_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
+    TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
+    TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
+
+    if (!input_tree || !proc_tree || !track_tree) {
+        std::cerr << "Error: Invalid trees for plotDelay analysis." << std::endl;
+        return;
+    }
+
     TTreeReader readerInputData(input_tree);
     TTreeReader readerProcData(proc_tree);
     TTreeReader readerTrackData(track_tree);
@@ -725,101 +897,86 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
-    // Create histograms using arrays
-    const int nConfigs = 8;
+    const int nConfigs = 4;
     const char* categories[nConfigs] = {
-        "mult1_all", "mult2_all",           // Multiplicity for all hits based on time1 and time2
-        "mult1_valid1", "mult2_valid1",     // Multiplicity for hits in valid tracks on eta1 side based on time1 and time2
-        "mult1_valid2", "mult2_valid2",      // Multiplicity for hits in valid tracks on eta2 side based on time1 and time2
-        "mult1_valid_all", "mult2_valid_all" // Multiplicity for hits in valid tracks on both sides based on time1 and time2
+        "delay_eta1_before_reco", "delay_eta2_before_reco",
+        "delay_eta1_after_reco",  "delay_eta2_after_reco"
     };
     const char* comments[nConfigs] = {
-        "Before Track Reco", "Before Track Reco",
-        "After Track Reco (#eta1)", "After Track Reco (#eta1)",
-        "After Track Reco (#eta2)", "After Track Reco (#eta2)",
-        "After Track Reco (#eta1 and #eta2)", "After Track Reco (#eta1 and #eta2)"
+        "Before Track Reco: Side #eta_{1}", "Before Track Reco: Side #eta_{2}",
+        "After Track Reco: Side #eta_{1}", "After Track Reco: Side #eta_{2}"
     };
 
-    std::map<std::string, std::map<int, TH2*>> multiplicity_histograms;
+    std::map<std::string, std::map<int, TH2F*>> h2d_delay;        // 2D Heatmap: Strip vs Delay vs Entries
+    std::map<std::string, std::map<int, TH1F*>> h1d_delay;        // 1D Distribution: Delay vs Entries
+    std::map<std::string, std::map<int, TProfile*>> prof_delay;   // 1D Profile: Strip vs Avg Delay
+
+    const int max_delay_ticks = 100;
+
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
-            auto* hist = new TH2F(Form("h2d_%s_layer%d", categories[c], layer),
-                            Form("Layer %d: %s;Strip;Multiplicity; Entries", layer, comments[c]),
-                            24, 0, 24, 9, 1, 10);
-            multiplicity_histograms[categories[c]][layer] = hist;
-        }
-    }
-    std::map<std::string, std::map<int, TH2*>> delay_histograms;
-    for (int c = 0; c < nConfigs; ++c) {
-        for (int layer : {0, 1, 2}) {
-            auto* hist = new TH2F(Form("h2d_delay_%s_layer%d", categories[c], layer),
-                            Form("Layer %d: %s;Strip;Delay from First Hit [Ticks]; Entries", layer, comments[c]),
-                            24, 0, 24, 100, 0, 100);
-            delay_histograms[categories[c]][layer] = hist;
+            // 2D Heatmap
+            h2d_delay[categories[c]][layer] = new TH2F(
+                Form("h2d_%s_layer%d", categories[c], layer),
+                Form("Layer %d: %s;Strip;Delay from First Hit [Ticks];Entries", layer, comments[c]),
+                24, 0, 24, max_delay_ticks, 0, max_delay_ticks);
+
+            // Global 1D Distribution
+            h1d_delay[categories[c]][layer] = new TH1F(
+                Form("h1d_%s_layer%d", categories[c], layer),
+                Form("Layer %d: %s;Delay from First Hit [Ticks];Entries", layer, comments[c]),
+                max_delay_ticks, 0, max_delay_ticks);
+
+            // 1D Profile (Spatial Average)
+            prof_delay[categories[c]][layer] = new TProfile(
+                Form("prof_avg_%s_layer%d", categories[c], layer),
+                Form("Layer %d: %s;Strip;#LTAverage Delay#GT [ns]", layer, comments[c]),
+                24, 0, 24);
         }
     }
 
     while (readerInputData.Next() && readerProcData.Next() && readerTrackData.Next()) {
+        std::map<int, std::map<int, std::vector<int>>> event_delays[nConfigs];
 
-        // Create lookup tables for each entry
-        std::map<int, std::map<int, int>> counts[8];    // layer -> strip -> count (for each of the 8 categories)
-        std::map<int, std::map<int, std::vector<int>>> delays[8];
+        const size_t n_hits = std::min({strips->size(), layers->size(), rise->size(), time1->size(), time2->size()});
 
-        for (size_t i = 0; i < strips->size(); ++i) {
-
+        for (size_t i = 0; i < n_hits; ++i) {
             if ((*rise)[i] == 0) continue; // Skip falling edge hits
 
             int layer = (*layers)[i];
-            int strip = remapStrip((*strips)[i]);
+            if (layer < 0 || layer > 2) continue;
+
+            int strip = perFileHelpers::remapStrip((*strips)[i]);
+            bool valid_track = (*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i];
 
             if ((*raw_time1)[i] != 0) {
-                counts[0][layer][strip]++;
-                delays[0][layer][strip].push_back((*time1)[i]);
-                if ((*in_valid_track_eta1)[i]) {
-                    counts[2][layer][strip]++;
-                    delays[2][layer][strip].push_back((*time1)[i]);
-                }
-                if ((*in_valid_track_eta2)[i]) {
-                    counts[4][layer][strip]++;
-                    delays[4][layer][strip].push_back((*time1)[i]);
-                }
-                if ((*in_valid_track_eta1)[i] && (*in_valid_track_eta2)[i]) {
-                    counts[6][layer][strip]++;
-                    delays[6][layer][strip].push_back((*time1)[i]);
-                }
+                event_delays[0][layer][strip].push_back((*time1)[i]);
+                if (valid_track) event_delays[2][layer][strip].push_back((*time1)[i]);
             }
             if ((*raw_time2)[i] != 0) {
-                counts[1][layer][strip]++;
-                delays[1][layer][strip].push_back((*time2)[i]);
-                if ((*in_valid_track_eta1)[i]) {
-                    counts[3][layer][strip]++;
-                    delays[3][layer][strip].push_back((*time2)[i]);
-                }
-                if ((*in_valid_track_eta2)[i]) {
-                    counts[5][layer][strip]++;
-                    delays[5][layer][strip].push_back((*time2)[i]);
-                }
-                if ((*in_valid_track_eta1)[i] && (*in_valid_track_eta2)[i]) {
-                    counts[7][layer][strip]++;
-                    delays[7][layer][strip].push_back((*time2)[i]);
-                }
+                event_delays[1][layer][strip].push_back((*time2)[i]);
+                if (valid_track) event_delays[3][layer][strip].push_back((*time2)[i]);
             }
         }
 
-        // Fill histograms for this entry based on the counts and delays in the lookup tables
+        // Calculate differences and fill histograms
         for (int c = 0; c < nConfigs; ++c) {
             for (int layer : {0, 1, 2}) {
-                for (const auto& [strip, count] : counts[c][layer]) {
-                    multiplicity_histograms[categories[c]][layer]->Fill(strip, count);
-                }
+                for (const auto& [strip, delay_vec] : event_delays[c][layer]) {
 
-                for (const auto& [strip, delay_vec] : delays[c][layer]) {
-                    if (!delay_vec.empty()) {
-                        auto min_delay = std::min_element(delay_vec.begin(), delay_vec.end());
-                        size_t min_index = std::distance(delay_vec.begin(), min_delay);
+                    if (delay_vec.size() > 1) {
+                        auto min_delay_it = std::min_element(delay_vec.begin(), delay_vec.end());
+                        int min_delay = *min_delay_it;
+                        size_t min_index = std::distance(delay_vec.begin(), min_delay_it);
+
                         for (size_t i = 0; i < delay_vec.size(); ++i) {
-                            if (i == min_index) continue; // Skip the first hit (minimum delay)
-                            delay_histograms[categories[c]][layer]->Fill(strip, delay_vec[i] - *min_delay);
+                            if (i == min_index) continue; // Skip the primary (first) hit
+
+                            int dt = delay_vec[i] - min_delay;
+
+                            h2d_delay[categories[c]][layer]->Fill(strip, dt);
+                            h1d_delay[categories[c]][layer]->Fill(dt);
+                            prof_delay[categories[c]][layer]->Fill(strip, dt);
                         }
                     }
                 }
@@ -827,15 +984,36 @@ void plotMultiplicityAndDelayVsStrip(TFile* input_file) {
         }
     }
 
-    // Write histograms to file and clean up
+    delay_strip_dir->cd();
+
+    int colors[3] = {kBlack, kBlue+1, kRed+1};
+    int markers[3] = {20, 21, 22};
+
     for (int c = 0; c < nConfigs; ++c) {
+        // Create the THStack
+        THStack* stack_avg = new THStack(Form("stack_avg_%s", categories[c]), Form("%s;Strip;Average Delay [Ticks]", comments[c]));
+
         for (int layer : {0, 1, 2}) {
-            mult_strip_dir->cd();
-            multiplicity_histograms[categories[c]][layer]->Write("", TObject::kOverwrite);
-            delete multiplicity_histograms[categories[c]][layer];
-            delay_strip_dir->cd();
-            delay_histograms[categories[c]][layer]->Write("", TObject::kOverwrite);
-            delete delay_histograms[categories[c]][layer];
+            // Write individually
+            h2d_delay[categories[c]][layer]->Write("", TObject::kOverwrite);
+            h1d_delay[categories[c]][layer]->Write("", TObject::kOverwrite);
+
+            // Style and add to stack
+            prof_delay[categories[c]][layer]->SetLineColor(colors[layer]);
+            prof_delay[categories[c]][layer]->SetMarkerColor(colors[layer]);
+            prof_delay[categories[c]][layer]->SetMarkerStyle(markers[layer]);
+
+            stack_avg->Add(prof_delay[categories[c]][layer], "PE");
+        }
+
+        stack_avg->Write("", TObject::kOverwrite);
+
+        // Cleanup
+        delete stack_avg;
+        for (int layer : {0, 1, 2}) {
+            delete h2d_delay[categories[c]][layer];
+            delete h1d_delay[categories[c]][layer];
+            delete prof_delay[categories[c]][layer];
         }
     }
 }
@@ -1774,6 +1952,12 @@ DataAnalyzer::~DataAnalyzer() {
 
 void DataAnalyzer::producePerFileStats(TFile* input_file, MeasurementData& data) {
 
+    TDirectory* old_dir = input_file->GetDirectory("analysis");
+    if (old_dir) {
+        input_file->Delete("analysis;*");
+        input_file->rmdir("analysis");
+    }
+
     // Set up output directories for per-file statistics and plots
     std::vector<std::string> dir_names = {
         "analysis/strip",
@@ -1794,7 +1978,8 @@ void DataAnalyzer::producePerFileStats(TFile* input_file, MeasurementData& data)
     perFileHelpers::plotToT(input_file, data.region_of_interest);
     perFileHelpers::plotToTVsStrip(input_file);
     perFileHelpers::plotToTVsDtVsStrip(input_file, data.region_of_interest);
-    perFileHelpers::plotMultiplicityAndDelayVsStrip(input_file);
+    perFileHelpers::plotMultiplicity(input_file);
+    perFileHelpers::plotDelay(input_file);
     perFileHelpers::plotToFs(input_file);
 
     // Write analysis directory into the file

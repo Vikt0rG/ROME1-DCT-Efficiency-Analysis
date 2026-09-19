@@ -46,7 +46,8 @@ namespace perFileHelpers {
     void plotToT(TFile* input_file, const RoI& region_of_interest);
     void plotToTVsStrip(TFile* input_file);
     void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest);
-    void plotMultiplicityAndDelayVsStrip(TFile* input_file);
+    void plotMultiplicity(TFile* input_file);
+    void plotDelay(TFile* input_file);
     void plotToFs(TFile* input_file);
 }
 
