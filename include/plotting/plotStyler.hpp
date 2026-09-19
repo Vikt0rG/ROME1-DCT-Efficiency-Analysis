@@ -48,6 +48,10 @@ namespace PlotStyler {
     void styleToFHeatmap(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleToTDistribution(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleToTCombinedDistribution(TObject* obj, TCanvas* canvas, TClass* cl);
+    void styleDistribution1D(TObject* obj, TCanvas* canvas, TClass* cl);
+    void styleAvgMultStrip(TObject* obj, TCanvas* canvas, TClass* cl);
+    void styleFracMultStrip(TObject* obj, TCanvas* canvas, TClass* cl);
+    void styleAvgDelayStrip(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleDefaultPlot(TObject* obj, TCanvas* canvas, TClass* cl);
 
 } // namespace PlotStyler

@@ -29,6 +29,10 @@ namespace PlotterHelpers {
         AvgToTLayerVsHV,
         AvgToTStripVsHV,
         AvgMultVsHV,
+        AvgDelayStrip,
+        AvgMultStrip,
+        FracMultStrip,
+        Distribution1D,
         Default = -1
     };
 

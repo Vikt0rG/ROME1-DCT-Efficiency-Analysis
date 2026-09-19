@@ -59,6 +59,11 @@ namespace PlotStyler {
         {"avg_tot_layer_eta",       TMultiGraph::Class(),          PlotCategory::AvgToTLayerVsHV},
         {"avg_tot_strip_eta",       TMultiGraph::Class(),          PlotCategory::AvgToTStripVsHV},
         {"avg_multiplicity",        TMultiGraph::Class(),          PlotCategory::AvgMultVsHV},
+        {"h1d_mult",                TH1::Class(),                  PlotCategory::Distribution1D},
+        {"stack_avg_mult",          THStack::Class(),              PlotCategory::AvgMultStrip},
+        {"stack_frac_mult",         THStack::Class(),              PlotCategory::FracMultStrip},
+        {"h1d_delay",               TH1::Class(),                  PlotCategory::Distribution1D},
+        {"stack_avg_delay",         THStack::Class(),              PlotCategory::AvgDelayStrip},
         {"summary_v50_eff",         TGraphErrors::Class(),         PlotCategory::Efficiency},
         {"summary_v50_track_eff",   TGraphErrors::Class(),         PlotCategory::Efficiency},
         {"summary_vwp_eff",         TGraphErrors::Class(),         PlotCategory::Efficiency},
@@ -84,6 +89,10 @@ namespace PlotStyler {
         {PlotCategory::RoI,                         &styleRoI},
         {PlotCategory::ToTDistribution,             &styleToTDistribution},
         {PlotCategory::ToTCombinedDistribution,     &styleToTCombinedDistribution},
+        {PlotCategory::AvgMultStrip,                &styleAvgMultStrip},
+        {PlotCategory::FracMultStrip,               &styleFracMultStrip},
+        {PlotCategory::AvgDelayStrip,               &styleAvgDelayStrip},
+        {PlotCategory::Distribution1D,              &styleDistribution1D},
         {PlotCategory::Default,                     &styleDefaultPlot}
     };
 
@@ -2095,10 +2104,330 @@ namespace PlotStyler {
         canvas->Update();
     }
 
+    void styleDistribution1D(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto h1 = dynamic_cast<TH1*>(obj);
+        if (!h1) return;
+
+        std::string title = obj->GetTitle();
+        auto [plot_title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), h1);
+
+        h1->SetLineColor(kAzure + 2);
+        h1->SetLineWidth(2);
+        h1->SetFillColorAlpha(kAzure + 2, 0.3);
+
+        // Draw as a histogram
+        h1->Draw("HIST");
+
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
+            named_obj->SetTitle(title.c_str());
+        }
+
+        applyATLASStyle(obj, canvas);
+        enforceIntegerMinorTicks(h1->GetXaxis());
+        canvas->Modified();
+        canvas->Update();
+
+        double ndc_x0 = 1.0 - canvas->GetRightMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        drawATLASHeaderBlock(
+            ndc_x0 - 0.03, ndc_y0 - 0.09,
+            "Work in Progress", title, 32,
+            kWhite, 0.00,
+            kBlack, 0, 0.01
+        );
+
+        canvas->RedrawAxis();
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleAvgDelayStrip(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto stack = dynamic_cast<THStack*>(obj);
+        if (!stack) return;
+
+        // Extract the title
+        std::string full_title = obj->GetTitle();
+        size_t semicolon_pos = full_title.find(';');
+        std::string title = (semicolon_pos != std::string::npos) ? full_title.substr(0, semicolon_pos) : full_title;
+
+        std::vector<TH1*> histograms;
+        double global_max_with_err = -std::numeric_limits<double>::max();
+        const std::vector<Color_t> palette = {
+            kAzure + 2,
+            kGreen + 2,
+            kOrange + 10,
+            kMagenta + 2,
+            kYellow - 3,
+            kCyan - 4
+        };
+        if (TList* hists = stack->GetHists()) {
+            TIter next(hists);
+            TObject* hist_obj;
+            int idx = 0;
+
+            while ((hist_obj = next())) {
+                if (auto h = dynamic_cast<TH1*>(hist_obj)) {
+                    Color_t color = palette[idx % palette.size()];
+
+                    h->SetMarkerStyle(8);
+                    h->SetMarkerSize(1);
+                    h->SetMarkerColor(color);
+                    h->SetLineColor(color);
+                    h->SetLineWidth(1);
+
+                    // Extract max + error for this specific histogram
+                    for (int bin = 1; bin <= h->GetNbinsX(); ++bin) {
+                        double val_with_err = h->GetBinContent(bin) + h->GetBinError(bin);
+                        if (val_with_err > global_max_with_err) {
+                            global_max_with_err = val_with_err;
+                        }
+                    }
+
+                    histograms.push_back(h);
+                    idx++;
+                }
+            }
+        }
+
+        stack->Draw("NOSTACK PE");
+
+        if (auto h = stack->GetHistogram()) {
+            if (TAxis* yAxis = h->GetYaxis()) {
+                if (global_max_with_err <= 0) global_max_with_err = 1.0;
+                yAxis->SetRangeUser(0.0, global_max_with_err * 1.25);
+            }
+        }
+
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) named_obj->SetTitle(title.c_str());
+
+        // Update canvas offsets, margins and enforce integer minor ticks
+        applyATLASStyle(obj, canvas);
+        if (stack->GetHistogram()) enforceIntegerMinorTicks(stack->GetHistogram()->GetXaxis());
+        canvas->Modified();
+        canvas->Update();
+
+        // Draw the ATLAS header block
+        double ndc_x0 = 1.0 - canvas->GetRightMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 - 0.03, ndc_y0 - 0.09,
+            "Work in Progress", title, 32,
+            kWhite, 0.70, kBlack, 0, 0.01
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        // Draw the legend
+        std::vector<std::string> legend_entries = {"Layer 0", "Layer 1", "Layer 2"};
+        double legend_y = header ? header->GetY1NDC() - 0.02 : 0.70;
+        double leg_width = 0.15;
+        double leg_height = histograms.size() * 0.04;
+
+        TLegend* leg = new TLegend(ndc_x0 - 0.03 - leg_width, legend_y - leg_height, ndc_x0 - 0.03, legend_y);
+        leg->SetBorderSize(0);
+        leg->SetLineColor(kWhite);
+        leg->SetFillStyle(1001);
+        leg->SetFillColorAlpha(kWhite, 0.5);
+        leg->SetTextFont(42);
+        leg->SetTextSize(0.04);
+
+        for (size_t i = 0; i < histograms.size() && i < legend_entries.size(); ++i) {
+            leg->AddEntry(histograms[i], legend_entries[i].c_str(), "pe");
+        }
+        leg->Draw();
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleAvgMultStrip(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto stack = dynamic_cast<THStack*>(obj);
+        if (!stack) return;
+
+        // Extract the title
+        std::string full_title = obj->GetTitle();
+        size_t semicolon_pos = full_title.find(';');
+        std::string title = (semicolon_pos != std::string::npos) ? full_title.substr(0, semicolon_pos) : full_title;
+
+        stack->Draw("NOSTACK PE");
+
+        if (auto h = stack->GetHistogram()) {
+            if (TAxis* yAxis = h->GetYaxis()) {
+                setRange(stack, yAxis, AxisType::Y, 0.95, std::nullopt, {.y_max = 2.0});
+            }
+        }
+
+        std::vector<TH1*> histograms;
+        const std::vector<Color_t> palette = {
+            kAzure + 2,
+            kGreen + 2,
+            kOrange + 10,
+            kMagenta + 2,
+            kYellow - 3,
+            kCyan - 4
+        };
+        if (TList* hists = stack->GetHists()) {
+            TIter next(hists);
+            TObject* hist_obj;
+            int idx = 0;
+
+            while ((hist_obj = next())) {
+                if (auto h = dynamic_cast<TH1*>(hist_obj)) {
+                    Color_t color = palette[idx % palette.size()];
+
+                    h->SetMarkerStyle(8);
+                    h->SetMarkerSize(1);
+                    h->SetMarkerColor(color);
+                    h->SetLineColor(color);
+                    h->SetLineWidth(1);
+
+                    idx++;
+                    histograms.push_back(h);
+                }
+            }
+        }
+
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) named_obj->SetTitle(title.c_str());
+
+        applyATLASStyle(obj, canvas);
+        enforceIntegerMinorTicks(stack->GetXaxis());
+        canvas->Modified();
+        canvas->Update();
+
+        double ndc_x0 = 1.0 - canvas->GetRightMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 - 0.03, ndc_y0 - 0.09,
+            "Work in Progress", title, 32,
+            kWhite, 0.70, kBlack, 0, 0.01
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        // Draw legend
+        std::vector<std::string> legend_entries = {"Layer 0", "Layer 1", "Layer 2"};
+        double legend_y = header ? header->GetY1NDC() - 0.02 : 0.70;
+        double leg_width = 0.15;
+        double leg_height = histograms.size() * 0.04;
+
+        TLegend* leg = new TLegend(ndc_x0 - 0.03 - leg_width, legend_y - leg_height, ndc_x0 - 0.03, legend_y);
+        leg->SetBorderSize(0);
+        leg->SetLineColor(kWhite);
+        leg->SetFillStyle(1001);
+        leg->SetFillColorAlpha(kWhite, 0.5);
+        leg->SetTextFont(42);
+        leg->SetTextSize(0.04);
+
+        for (size_t i = 0; i < histograms.size() && i < legend_entries.size(); ++i) {
+            leg->AddEntry(histograms[i], legend_entries[i].c_str(), "pe");
+        }
+        leg->Draw();
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleFracMultStrip(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto stack = dynamic_cast<THStack*>(obj);
+        if (!stack) return;
+
+        // Extract the title
+        std::string full_title = obj->GetTitle();
+        size_t semicolon_pos = full_title.find(';');
+        std::string title = (semicolon_pos != std::string::npos) ? full_title.substr(0, semicolon_pos) : full_title;
+
+        std::vector<TH1*> histograms;
+        const std::vector<Color_t> palette = {
+            kAzure + 2,
+            kGreen + 2,
+            kOrange + 10,
+            kMagenta + 2,
+            kYellow - 3,
+            kCyan - 4
+        };
+        if (TList* hists = stack->GetHists()) {
+            TIter next(hists);
+            TObject* hist_obj;
+            int idx = 0;
+
+            while ((hist_obj = next())) {
+                if (auto h = dynamic_cast<TH1*>(hist_obj)) {
+                    Color_t color = palette[idx % palette.size()];
+
+                    h->SetMarkerStyle(8);
+                    h->SetMarkerSize(1);
+                    h->SetMarkerColor(color);
+                    h->SetLineColor(color);
+                    h->SetLineWidth(1);
+
+                    // Hide markers/errors for empty bins so they don't clutter the baseline
+                    for (int bin = 1; bin <= h->GetNbinsX(); ++bin) {
+                        if (h->GetBinContent(bin) == 0) {
+                            h->SetBinError(bin, 0.0);
+                        }
+                    }
+
+                    idx++;
+                    histograms.push_back(h);
+                }
+            }
+        }
+
+        stack->Draw("NOSTACK PE");
+
+        if (auto named_obj = dynamic_cast<TNamed*>(obj)) named_obj->SetTitle(title.c_str());
+
+        applyATLASStyle(obj, canvas);
+        enforceIntegerMinorTicks(stack->GetXaxis());
+        canvas->Modified();
+        canvas->Update();
+
+        double ndc_x0 = 1.0 - canvas->GetRightMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 - 0.03, ndc_y0 - 0.09,
+            "Work in Progress", title, 32,
+            kWhite, 0.70, kBlack, 0, 0.01
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        // Draw legend
+        std::vector<std::string> legend_entries = {"Layer 0", "Layer 1", "Layer 2"};
+        double legend_y = header ? header->GetY1NDC() - 0.02 : 0.70;
+        double leg_width = 0.15;
+        double leg_height = histograms.size() * 0.04;
+
+        TLegend* leg = new TLegend(ndc_x0 - 0.03 - leg_width, legend_y - leg_height, ndc_x0 - 0.03, legend_y);
+        leg->SetBorderSize(0);
+        leg->SetLineColor(kWhite);
+        leg->SetFillStyle(1001);
+        leg->SetFillColorAlpha(kWhite, 0.5);
+        leg->SetTextFont(42);
+        leg->SetTextSize(0.04);
+
+        for (size_t i = 0; i < histograms.size() && i < legend_entries.size(); ++i) {
+            leg->AddEntry(histograms[i], legend_entries[i].c_str(), "pe");
+        }
+        leg->Draw();
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
     void styleDefaultPlot(TObject* obj, TCanvas* canvas, TClass* cl) {
 
         if (cl->InheritsFrom(TH2::Class())) {
             obj->Draw("COLZ");
+        } else if (cl->InheritsFrom(TH1::Class())) {
+            obj->Draw("HIST");
         } else if (cl->InheritsFrom(TMultiGraph::Class()) || cl->InheritsFrom(TGraphAsymmErrors::Class())) {
             obj->Draw("AP");
             gStyle->SetEndErrorSize(8);
