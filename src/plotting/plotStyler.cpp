@@ -2675,8 +2675,6 @@ namespace PlotStyler {
 
         stack->Draw("NOSTACK PE");
 
-        if (auto named_obj = dynamic_cast<TNamed*>(obj)) named_obj->SetTitle(title.c_str());
-
         applyATLASStyle(obj, canvas);
         enforceIntegerMinorTicks(stack->GetXaxis());
         canvas->Modified();
