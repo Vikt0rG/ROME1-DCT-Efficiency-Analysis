@@ -213,18 +213,30 @@ struct ToFResults {
 };
 
 struct TimeResolutionResults {
-    std::array<double, LAYER_PAIR_COUNT> time_resolution_eta1 = {0.0, 0.0, 0.0};
-    std::array<double, LAYER_PAIR_COUNT> time_resolution_eta2 = {0.0, 0.0, 0.0};
+    std::array<double, LAYER_PAIR_COUNT> time_resolution_global_eta1 = {0.0, 0.0, 0.0};
+    std::array<double, LAYER_PAIR_COUNT> time_resolution_global_eta2 = {0.0, 0.0, 0.0};
 
-    std::array<ErrorRange, LAYER_PAIR_COUNT> time_resolution_eta1_error = {};
-    std::array<ErrorRange, LAYER_PAIR_COUNT> time_resolution_eta2_error = {};
-    
+    std::array<ErrorRange, LAYER_PAIR_COUNT> time_resolution_global_eta1_error = {};
+    std::array<ErrorRange, LAYER_PAIR_COUNT> time_resolution_global_eta2_error = {};
+
+    std::array<std::array<double, STRIPS_PER_LAYER>, LAYER_PAIR_COUNT> time_resolution_strip_eta1 = {};
+    std::array<std::array<double, STRIPS_PER_LAYER>, LAYER_PAIR_COUNT> time_resolution_strip_eta2 = {};
+    std::array<std::array<ErrorRange, STRIPS_PER_LAYER>, LAYER_PAIR_COUNT> time_resolution_strip_eta1_error = {};
+    std::array<std::array<ErrorRange, STRIPS_PER_LAYER>, LAYER_PAIR_COUNT> time_resolution_strip_eta2_error = {};
+
     void clear() {
         for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
-            time_resolution_eta1[i] = 0.0;
-            time_resolution_eta2[i] = 0.0;
-            time_resolution_eta1_error[i] = {0.0, 0.0};
-            time_resolution_eta2_error[i] = {0.0, 0.0};
+            time_resolution_global_eta1[i] = 0.0;
+            time_resolution_global_eta2[i] = 0.0;
+            time_resolution_global_eta1_error[i] = {0.0, 0.0};
+            time_resolution_global_eta2_error[i] = {0.0, 0.0};
+
+            for (int s = 0; s < STRIPS_PER_LAYER; ++s) {
+                time_resolution_strip_eta1[i][s] = 0.0;
+                time_resolution_strip_eta2[i][s] = 0.0;
+                time_resolution_strip_eta1_error[i][s] = {0.0, 0.0};
+                time_resolution_strip_eta2_error[i][s] = {0.0, 0.0};
+            }
         }
     }
 };

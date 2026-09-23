@@ -1268,10 +1268,15 @@ void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, Measureme
         summary_tree->Branch(Form("avg_time_of_flight_layer_%s_eta1_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.avg_time_of_flight_eta1_error[i], Form("avg_time_of_flight_layer_%s_eta1_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
         summary_tree->Branch(Form("avg_time_of_flight_layer_%s_eta2_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.avg_time_of_flight_eta2_error[i], Form("avg_time_of_flight_layer_%s_eta2_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
 
-        summary_tree->Branch(Form("time_resolution_layer_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_eta1[i]);
-        summary_tree->Branch(Form("time_resolution_layer_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_eta2[i]);
-        summary_tree->Branch(Form("time_resolution_layer_%s_eta1_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_eta1_error[i], Form("time_resolution_layer_%s_eta1_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
-        summary_tree->Branch(Form("time_resolution_layer_%s_eta2_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_eta2_error[i], Form("time_resolution_layer_%s_eta2_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
+        summary_tree->Branch(Form("time_resolution_layer_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_global_eta1[i]);
+        summary_tree->Branch(Form("time_resolution_layer_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_global_eta2[i]);
+        summary_tree->Branch(Form("time_resolution_layer_%s_eta1_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_global_eta1_error[i], Form("time_resolution_layer_%s_eta1_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
+        summary_tree->Branch(Form("time_resolution_layer_%s_eta2_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_global_eta2_error[i], Form("time_resolution_layer_%s_eta2_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
+
+        summary_tree->Branch(Form("time_resolution_layer_%s_strip_eta1", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_strip_eta1[i], Form("time_resolution_layer_%s_strip_eta1[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), STRIPS_PER_LAYER));
+        summary_tree->Branch(Form("time_resolution_layer_%s_strip_eta2", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_strip_eta2[i], Form("time_resolution_layer_%s_strip_eta2[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), STRIPS_PER_LAYER));
+        summary_tree->Branch(Form("time_resolution_layer_%s_strip_eta1_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_strip_eta1_error[i], Form("time_resolution_layer_%s_strip_eta1_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), STRIPS_PER_LAYER * 2));
+        summary_tree->Branch(Form("time_resolution_layer_%s_strip_eta2_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_strip_eta2_error[i], Form("time_resolution_layer_%s_strip_eta2_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), STRIPS_PER_LAYER * 2));
     }
 }
 
@@ -1852,39 +1857,87 @@ void processToF(TFile* input_file, ToFResults& tof_results,
 
     TTreeReader reader_track(track_tree);
 
+    // Global ToF Readers
     std::vector<std::unique_ptr<TTreeReaderValue<std::vector<int>>>> tof1_readers;
     std::vector<std::unique_ptr<TTreeReaderValue<std::vector<int>>>> tof2_readers;
 
+    // Strip Readers
+    std::vector<std::unique_ptr<TTreeReaderValue<std::vector<int>>>> stripF1_readers, stripS1_readers;
+    std::vector<std::unique_ptr<TTreeReaderValue<std::vector<int>>>> stripF2_readers, stripS2_readers;
+
+    // Global Histograms
     std::array<TH1D*, LAYER_PAIR_COUNT> h_tof1;
     std::array<TH1D*, LAYER_PAIR_COUNT> h_tof2;
 
+    // Per-Strip Histograms
+    std::array<std::array<TH1D*, STRIPS_PER_LAYER>, LAYER_PAIR_COUNT> h_tof_strip_eta1 = {};
+    std::array<std::array<TH1D*, STRIPS_PER_LAYER>, LAYER_PAIR_COUNT> h_tof_strip_eta2 = {};
+
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
-        std::string branch1 = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1";
-        std::string branch2 = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta2";
+        std::string base = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i];
 
-        tof1_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, branch1.c_str()));
-        tof2_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, branch2.c_str()));
+        // Link Eta 1 branches
+        tof1_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, (base + "_eta1").c_str()));
+        stripF1_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, (base + "_stripFirst_eta1").c_str()));
+        stripS1_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, (base + "_stripSecond_eta1").c_str()));
 
-        h_tof1[i] = new TH1D(Form("h_tof1_%s", LAYER_PAIR_SUFFIXES[i].c_str()),
-                             Form("ToF Eta1 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), 13, -6.5, 6.5);
-        h_tof2[i] = new TH1D(Form("h_tof2_%s", LAYER_PAIR_SUFFIXES[i].c_str()),
-                             Form("ToF Eta2 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), 13, -6.5, 6.5);
+        // Link Eta 2 branches
+        tof2_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, (base + "_eta2").c_str()));
+        stripF2_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, (base + "_stripFirst_eta2").c_str()));
+        stripS2_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, (base + "_stripSecond_eta2").c_str()));
+
+        // Initialize Global Histograms
+        h_tof1[i] = new TH1D(Form("h_tof1_%s", LAYER_PAIR_SUFFIXES[i].c_str()), Form("ToF Eta1 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), 13, -6.5, 6.5);
+        h_tof2[i] = new TH1D(Form("h_tof2_%s", LAYER_PAIR_SUFFIXES[i].c_str()), Form("ToF Eta2 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), 13, -6.5, 6.5);
+
+        // Initialize Per-Strip Histograms
+        for (int s = 0; s < STRIPS_PER_LAYER; ++s) {
+            h_tof_strip_eta1[i][s] = new TH1D(Form("h_tof1_%s_s%d", LAYER_PAIR_SUFFIXES[i].c_str(), s), "ToF", 13, -6.5, 6.5);
+            h_tof_strip_eta2[i][s] = new TH1D(Form("h_tof2_%s_s%d", LAYER_PAIR_SUFFIXES[i].c_str(), s), "ToF", 13, -6.5, 6.5);
+        }
     }
 
     while (reader_track.Next()) {
         for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
 
-            if (tof1_readers[i]->GetSetupStatus() == 0) {
-                for (int t : **tof1_readers[i]) {
-                    h_tof1[i]->Fill(t);
+            // Process Eta 1
+            if (tof1_readers[i]->GetSetupStatus() == 0 &&
+                stripF1_readers[i]->GetSetupStatus() == 0 &&
+                stripS1_readers[i]->GetSetupStatus() == 0)
+            {
+                const auto& tofs = **tof1_readers[i];
+                const auto& sF = **stripF1_readers[i];
+                const auto& sS = **stripS1_readers[i];
+
+                for (size_t k = 0; k < tofs.size(); ++k) {
+                    int t = tofs[k];
+                    h_tof1[i]->Fill(t); // Always fill global
                     tof_results.time_of_flight_eta1[i].push_back(t);
+
+                    // Only fill strip histogram if the hit was perfectly orthogonal (strips match)
+                    if (sF[k] == sS[k] && sF[k] >= 0 && sF[k] < STRIPS_PER_LAYER) {
+                        h_tof_strip_eta1[i][sF[k]]->Fill(t);
+                    }
                 }
             }
 
-            if (tof2_readers[i]->GetSetupStatus() == 0) {
-                for (int t : **tof2_readers[i]) {
+            // Process Eta 2
+            if (tof2_readers[i]->GetSetupStatus() == 0 &&
+                stripF2_readers[i]->GetSetupStatus() == 0 &&
+                stripS2_readers[i]->GetSetupStatus() == 0)
+            {
+                const auto& tofs = **tof2_readers[i];
+                const auto& sF = **stripF2_readers[i];
+                const auto& sS = **stripS2_readers[i];
+
+                for (size_t k = 0; k < tofs.size(); ++k) {
+                    int t = tofs[k];
                     h_tof2[i]->Fill(t);
                     tof_results.time_of_flight_eta2[i].push_back(t);
+
+                    if (sF[k] == sS[k] && sF[k] >= 0 && sF[k] < STRIPS_PER_LAYER) {
+                        h_tof_strip_eta2[i][sF[k]]->Fill(t);
+                    }
                 }
             }
         }
@@ -1941,14 +1994,37 @@ void processToF(TFile* input_file, ToFResults& tof_results,
     };
 
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+        // Calculate global fits
         fitAndExtract(h_tof1[i],
                       tof_results.avg_time_of_flight_eta1[i], tof_results.avg_time_of_flight_eta1_error[i],
-                      time_resolution_results.time_resolution_eta1[i], time_resolution_results.time_resolution_eta1_error[i]);
+                      time_resolution_results.time_resolution_global_eta1[i], time_resolution_results.time_resolution_global_eta1_error[i]);
 
         fitAndExtract(h_tof2[i],
                       tof_results.avg_time_of_flight_eta2[i], tof_results.avg_time_of_flight_eta2_error[i],
-                      time_resolution_results.time_resolution_eta2[i], time_resolution_results.time_resolution_eta2_error[i]);
+                      time_resolution_results.time_resolution_global_eta2[i], time_resolution_results.time_resolution_global_eta2_error[i]);
 
+        // Calculate per-strip fits
+        for (int s = 0; s < STRIPS_PER_LAYER; ++s) {
+            // We need dummy variables to catch the mean since we only save the resolution for the strips
+            double dummy_mean_eta1 = 0.0, dummy_mean_eta2 = 0.0;
+            ErrorRange dummy_mean_err_eta1 = {0.0, 0.0}, dummy_mean_err_eta2 = {0.0, 0.0};
+
+            fitAndExtract(h_tof_strip_eta1[i][s],
+                          dummy_mean_eta1, dummy_mean_err_eta1,
+                          time_resolution_results.time_resolution_strip_eta1[i][s],
+                          time_resolution_results.time_resolution_strip_eta1_error[i][s]);
+
+            fitAndExtract(h_tof_strip_eta2[i][s],
+                          dummy_mean_eta2, dummy_mean_err_eta2,
+                          time_resolution_results.time_resolution_strip_eta2[i][s],
+                          time_resolution_results.time_resolution_strip_eta2_error[i][s]);
+
+            // Clean up memory
+            delete h_tof_strip_eta1[i][s];
+            delete h_tof_strip_eta2[i][s];
+        }
+
+        // Clean up memory
         delete h_tof1[i];
         delete h_tof2[i];
     }

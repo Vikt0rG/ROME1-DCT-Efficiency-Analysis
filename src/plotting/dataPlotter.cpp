@@ -246,6 +246,15 @@ namespace {
         "track_avg_multiplicity_eta1", "track_avg_multiplicity_eta2"
     };
 
+    const std::vector<std::string> strip_layer_pair_metrics = []() {
+        std::vector<std::string> metrics;
+        for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
+            metrics.push_back("time_resolution_layer_" + LAYER_PAIR_SUFFIXES[i] + "_strip_eta1");
+            metrics.push_back("time_resolution_layer_" + LAYER_PAIR_SUFFIXES[i] + "_strip_eta2");
+        }
+        return metrics;
+    }();
+
     const std::vector<std::string> raw_metrics = []() {
         std::vector<std::string> metrics;
         for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
@@ -300,6 +309,7 @@ TDirectory* DataPlotter::setupScanDirectories(TDirectory* config_dir, const std:
     PathUtils::ensureDirectory(scan_dir, "tot_strips_analysis");
     PathUtils::ensureDirectory(scan_dir, "multiplicity_analysis");
     PathUtils::ensureDirectory(scan_dir, "tof_analysis");
+    PathUtils::ensureDirectory(scan_dir, "tof_strips_analysis");
 
     return scan_dir;
 }
@@ -351,12 +361,20 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
         layer_error_arrays.push_back(std::make_unique<TTreeReaderArray<double>>(readerSummary, (name + "_error").c_str()));
     }
 
-    // Readers for Strip Metrics
+    // Readers for Strip Metrics (Layer x Strip)
     std::vector<std::unique_ptr<TTreeReaderArray<double>>> strip_arrays;
     std::vector<std::unique_ptr<TTreeReaderArray<double>>> strip_error_arrays;
     for (const auto& name : strip_layer_metrics) {
         strip_arrays.push_back(std::make_unique<TTreeReaderArray<double>>(readerSummary, name.c_str()));
         strip_error_arrays.push_back(std::make_unique<TTreeReaderArray<double>>(readerSummary, (name + "_error").c_str()));
+    }
+
+    // Readers for Strip Metrics (ToF Layer Pairs)
+    std::vector<std::unique_ptr<TTreeReaderArray<double>>> strip_tof_arrays;
+    std::vector<std::unique_ptr<TTreeReaderArray<double>>> strip_tof_error_arrays;
+    for (const auto& name : strip_layer_pair_metrics) {
+        strip_tof_arrays.push_back(std::make_unique<TTreeReaderArray<double>>(readerSummary, name.c_str()));
+        strip_tof_error_arrays.push_back(std::make_unique<TTreeReaderArray<double>>(readerSummary, (name + "_error").c_str()));
     }
 
     // Readers for Raw Metrics
@@ -374,14 +392,14 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
         auto& current_scan = result[grp_name];
 
         // Extract Scalar Metrics (0D)
-        for (size_t i = 0; i < scalar_metrics.size(); ++i) {
+        for (size_t i{0}; i < scalar_metrics.size(); ++i) {
             const auto& metric_name = scalar_metrics[i];
             current_scan.scalar_x[metric_name].push_back(scan_hv);
             current_scan.scalar_y[metric_name].push_back(**scalar_values[i]);
         }
 
         // Extract Global Metrics (1D Graphs)
-        for (size_t i = 0; i < global_metrics.size(); ++i) {
+        for (size_t i{0}; i < global_metrics.size(); ++i) {
             const auto& metric_name = global_metrics[i];
 
             // Check if the branch actually exists in the file
@@ -398,7 +416,7 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
         }
 
         // Extract Raw Metrics (2D Heatmaps)
-        for (size_t i = 0; i < raw_metrics.size(); ++i) {
+        for (size_t i{0}; i < raw_metrics.size(); ++i) {
             const auto& metric_name = raw_metrics[i];
 
             if (raw_arrays[i]->GetSetupStatus() == 0) {
@@ -408,7 +426,7 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
         }
  
         // Extract Layer Metrics (1D)
-        for (size_t i = 0; i < layer_metrics.size(); ++i) {
+        for (size_t i{0}; i < layer_metrics.size(); ++i) {
             const auto& metric_name = layer_metrics[i];
             const auto& vals = *layer_arrays[i];
             const auto& errs = *layer_error_arrays[i];
@@ -428,7 +446,7 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
         }
 
         // Extract Strip Metrics (2D)
-        for (size_t i = 0; i < strip_layer_metrics.size(); ++i) {
+        for (size_t i{0}; i < strip_layer_metrics.size(); ++i) {
             const auto& metric_name = strip_layer_metrics[i];
             const auto& vals = *strip_arrays[i];
             const auto& errs = *strip_error_arrays[i];
@@ -447,6 +465,30 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
                     strip_series.y_error_low.push_back(errs[flat_idx * 2]);
                     strip_series.y_error_high.push_back(errs[flat_idx * 2 + 1]);
                 }
+            }
+        }
+
+        // Extract Strip Metrics for ToF Layer Pairs (1D per layer pair)
+        for (size_t i{0}; i < strip_layer_pair_metrics.size(); ++i) {
+            if (strip_tof_arrays[i]->GetSetupStatus() != 0) continue;
+
+            const auto& vals = *strip_tof_arrays[i];
+            const auto& errs = *strip_tof_error_arrays[i];
+
+            // Convert raw branch name back to base metric name to group eta sides
+            int pair_idx = i / 2;
+            std::string base_metric = (i % 2 == 0) ? "time_resolution_strip_eta1" : "time_resolution_strip_eta2";
+
+            for (size_t strip{0}; strip < STRIPS_PER_LAYER; ++strip) {
+                if (strip >= vals.GetSize()) break;
+                if (std::isnan(vals[strip])) continue;
+
+                // Reusing the int layer map slot for the pair index
+                auto& strip_series = current_scan.strip_metrics[base_metric][pair_idx][strip];
+                strip_series.x.push_back(scan_hv);
+                strip_series.y.push_back(vals[strip]);
+                strip_series.y_error_low.push_back(errs[strip * 2]);
+                strip_series.y_error_high.push_back(errs[strip * 2 + 1]);
             }
         }
     }
@@ -665,31 +707,39 @@ void DataPlotter::plotStripMetrics(
     TDirectory* nois_dir = scan_dir->GetDirectory("rate_strips_analysis");
     TDirectory* tot_dir = scan_dir->GetDirectory("tot_strips_analysis");
     TDirectory* mult_dir = scan_dir->GetDirectory("multiplicity_analysis");
+    TDirectory* tof_dir = scan_dir->GetDirectory("tof_strips_analysis");
 
     for (const auto& [metric_name, layer_map] : strip_metrics) {
 
-        // Route to the correct parent analysis directory (e.g., tot_analysis)
+        // Route to the correct parent analysis directory
         TDirectory* metric_dir = scan_dir;
         if (metric_name.find("rate_strips_eta") != std::string::npos) metric_dir = nois_dir;
         else if (metric_name.find("tot") != std::string::npos) metric_dir = tot_dir;
         else if (metric_name.find("multiplicity") != std::string::npos) metric_dir = mult_dir;
+        else if (metric_name.find("time_resolution") != std::string::npos) metric_dir = tof_dir; // NEW
 
         if (!metric_dir) continue;
 
-        // Loop through each layer to create a dedicated TMultiGraph
-        for (const auto& [layer, strip_map] : layer_map) {
+        // Loop through each layer (or layer pair) to create a dedicated TMultiGraph
+        for (const auto& [layer_idx, strip_map] : layer_map) {
 
-            std::string layer_folder = "layer" + std::to_string(layer);
+            // Override folder naming if this is a ToF metric (since layer_idx is a layer pair)
+            std::string layer_folder = "layer" + std::to_string(layer_idx);
+            if (metric_name.find("time_resolution") != std::string::npos) {
+                if (layer_idx == 0) layer_folder = "layer_0_1";
+                else if (layer_idx == 1) layer_folder = "layer_0_2";
+                else if (layer_idx == 2) layer_folder = "layer_1_2";
+            }
+
             TDirectory* l_dir = PathUtils::ensureDirectory(metric_dir, layer_folder.c_str());
             if (!l_dir) continue;
 
-            // Create the MultiGraph strictly for this layer (holding 24 strips)
             TMultiGraph* layer_multi_graph = new TMultiGraph();
-            std::string mg_name = metric_name + "_layer" + std::to_string(layer);
+            std::string mg_name = metric_name + "_" + layer_folder;
             layer_multi_graph->SetName(mg_name.c_str());
             layer_multi_graph->SetTitle((mg_name + ";HV;Value").c_str());
 
-            // Populate it with all the strips for this layer
+            // Populate it with all the strips
             for (const auto& [strip, data] : strip_map) {
                 if (data.x.empty()) continue;
 
@@ -706,13 +756,10 @@ void DataPlotter::plotStripMetrics(
 
                 layer_multi_graph->Add(g, "P");
 
-                // Switch into the layer folder to drop off the single-strip graph
                 l_dir->cd();
                 g->Write("", TObject::kOverwrite);
             }
 
-            // Switch back up to the analysis folder (e.g., tot_analysis) 
-            // to save the assembled MultiGraph alongside the layer folders
             metric_dir->cd();
             layer_multi_graph->Write("", TObject::kOverwrite);
             delete layer_multi_graph;
