@@ -181,9 +181,10 @@ int Track::getLayerCount() const {
     return count;
 }
 
-// Get track's time differences between layers for the track's eta side
-std::array<std::tuple<bool, std::pair<int, int>, int>, LAYER_COUNT> Track::getDts() const {
-    std::map<int, int> layer_times;
+// Get track's time differences and strip indices between layers for the track's eta side
+std::array<std::tuple<bool, std::pair<int, int>, int, int, int>, LAYER_COUNT> Track::getDts() const {
+    // Map layer -> {time, strip}
+    std::map<int, std::pair<int, int>> layer_best_hits;
 
     for (const Hit* hit : _track_hits) {
         int hit_time = (_eta_side == ETA1) ? hit->getTimeEta1() : hit->getTimeEta2();
@@ -193,14 +194,16 @@ std::array<std::tuple<bool, std::pair<int, int>, int>, LAYER_COUNT> Track::getDt
         }
 
         int hit_layer = hit->getLayer();
-        if (layer_times.find(hit_layer) == layer_times.end() || hit_time < layer_times[hit_layer]) {
-            layer_times[hit_layer] = hit_time;
+        int hit_strip = hit->getStrip();
+
+        if (layer_best_hits.find(hit_layer) == layer_best_hits.end() || hit_time < layer_best_hits[hit_layer].first) {
+            layer_best_hits[hit_layer] = {hit_time, hit_strip};
         }
     }
 
-    // Initialize result tuples with default values: {has_hits=false, layer, other_layer, is_adjacent=false, dt=0}
-    std::array<std::tuple<bool, std::pair<int, int>, int>, LAYER_COUNT> result_tuples;
-    result_tuples.fill({false, {-1, -1}, 0});
+    // Initialize result tuples with default values: {has_hits=false, {layer, other_layer}, dt=0, stripFirst=-1, stripSecond=-1}
+    std::array<std::tuple<bool, std::pair<int, int>, int, int, int>, LAYER_COUNT> result_tuples;
+    result_tuples.fill({false, {-1, -1}, 0, -1, -1});
 
     // Use a flat tracking counter to safely map combinations to the sequential array slots
     int tuple_idx = 0; 
@@ -209,12 +212,15 @@ std::array<std::tuple<bool, std::pair<int, int>, int>, LAYER_COUNT> Track::getDt
         for (int other_layer = layer + 1; other_layer < LAYER_COUNT; ++other_layer) {
 
             // Dynamically evaluate hits and time difference
-            if (layer_times.count(layer) && layer_times.count(other_layer)) {
-                int dt = layer_times[layer] - layer_times[other_layer];
-                result_tuples[tuple_idx] = {true, {layer, other_layer}, dt};
+            if (layer_best_hits.count(layer) && layer_best_hits.count(other_layer)) {
+                int dt = layer_best_hits[layer].first - layer_best_hits[other_layer].first;
+                int stripFirst = layer_best_hits[layer].second;
+                int stripSecond = layer_best_hits[other_layer].second;
+                
+                result_tuples[tuple_idx] = {true, {layer, other_layer}, dt, stripFirst, stripSecond};
             } else {
                 // If any layer misses a hit, keep track of layers and flag has_hits as false
-                result_tuples[tuple_idx] = {false, {layer, other_layer}, 0};
+                result_tuples[tuple_idx] = {false, {layer, other_layer}, 0, -1, -1};
             }
 
             // Move safely to the next array slot
@@ -230,7 +236,7 @@ int Track::getTimeSeparation() const {
     auto dts = getDts();
     int max_dt = -1; // Fallback default for no valid pairs
 
-    for (const auto& [has_hits, _, dt_val] : dts) {
+    for (const auto& [has_hits, layer_pair, dt_val, stripFirst, stripSecond] : dts) {
         if (has_hits) { 
             int dt = std::abs(dt_val);
             if (dt > max_dt) {
@@ -242,9 +248,9 @@ int Track::getTimeSeparation() const {
 }
 
 // Get time differences between layers for a track
-std::array<std::pair<bool, int>, LAYER_PAIR_COUNT> Track::getToFs() const {
+std::array<Track::ToFMeasurement, LAYER_PAIR_COUNT> Track::getToFs() const {
     auto dts = getDts();
-    std::array<std::pair<bool, int>, LAYER_PAIR_COUNT> time_differences;
+    std::array<ToFMeasurement, LAYER_PAIR_COUNT> time_differences;
     time_differences.fill({false, 0});
 
     auto getPairEnum = [](int l1, int l2) -> int {
@@ -254,15 +260,11 @@ std::array<std::pair<bool, int>, LAYER_PAIR_COUNT> Track::getToFs() const {
         return -1; 
     };
 
-    for (const auto& [has_hits, layer_pair, dt_val] : dts) {
+    for (const auto& [has_hits, layer_pair, dt_val, strip1, strip2] : dts) {
         if (has_hits) {
             int idx = getPairEnum(layer_pair.first, layer_pair.second);
-
             if (idx != -1) {
-                time_differences[idx] = {true, dt_val};
-            } else {
-                std::cerr << "Warning: Unexpected layer pair (" << layer_pair.first 
-                          << ", " << layer_pair.second << ") in getToFs().\n";
+                time_differences[idx] = {true, dt_val, strip1, strip2};
             }
         }
     }

@@ -17,6 +17,13 @@ public:
 
     enum LayerPairs { LAYER_0_1 = 0, LAYER_0_2 = 1, LAYER_1_2 = 2 };
 
+    struct ToFMeasurement {
+        bool valid = false;
+        int dt = 0;
+        int stripFirst = -1;
+        int stripSecond = -1;
+    };
+
     // Constructor
     Track(Hit* first_hit, EtaSide side);
 
@@ -48,8 +55,8 @@ public:
 
     // Track timing information
     int getTimeSeparation() const;  // Time difference between earliest and latest hit in track for the track's eta side
-    std::array<std::tuple<bool, std::pair<int, int>, int>, LAYER_COUNT> getDts() const;  // Time differences between different layers for the track's eta side
-    std::array<std::pair<bool, int>, LAYER_PAIR_COUNT> getToFs() const;  // ToFs for all layer pairs
+    std::array<std::tuple<bool, std::pair<int, int>, int, int, int>, LAYER_COUNT> getDts() const;  // Time differences between different layers for the track's eta side
+    std::array<ToFMeasurement, LAYER_PAIR_COUNT> getToFs() const;  // ToFs for all layer pairs
 
 private:
     int _track_id;                   // Unique identifier for the track
