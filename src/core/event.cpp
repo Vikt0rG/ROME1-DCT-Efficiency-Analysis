@@ -108,11 +108,14 @@ void Event::calculateTOT() {
                 return a.dt < b.dt;
             });
 
-            // "By-one-further" logic: if the closest edge results in ToT < 4 and a second one exists, skip the first
-            if (valid_partners[0].dt < 4 && valid_partners.size() > 1) {
-                best_j = valid_partners[1].index;
-            } else {
-                best_j = valid_partners[0].index;
+            best_j = valid_partners[0].index;
+
+            // Search for the first partner within the [4, 15] bounds
+            for (size_t i = 0; i < valid_partners.size(); ++i) {
+                if (valid_partners[i].dt >= 4 && valid_partners[i].dt <= 15) {
+                    best_j = valid_partners[i].index;
+                    break;
+                }
             }
         }
 
@@ -248,6 +251,12 @@ void Event::calculateTOTCluster() {
     bool more_eta1_centers = _clusters_eta1.size() > static_cast<size_t>(falling_count);
     bool more_eta2_centers = _clusters_eta2.size() > static_cast<size_t>(falling_count);
 
+    // Helper struct to keep track of potential partners
+    struct Partner {
+        int index;
+        int dt;
+    };
+
     /// Calculate ToT for cluster centers from eta1 clustering first
     for (size_t i = 0; i < _hits.size(); i++) {
         Hit& hit = _hits[i];
@@ -261,10 +270,8 @@ void Event::calculateTOTCluster() {
             (hit.getRise() == 1 && more_eta1_centers)       // Edge is rising and those are more common, so skip it
         ) continue;
 
-        // Find the closest in-time partner edge on the same channel with a different edge type for eta1 ToT calculation
-        int best_j_eta1 = -1;
-        int min_dt_eta1 = INT_MAX;
         const int target_rise = (hit.getRise() == 1) ? 0 : 1;
+        std::vector<Partner> valid_partners_eta1;
 
         for (size_t j = 0; j < _hits.size(); j++) {
             Hit& potential_partner = _hits[j];
@@ -284,9 +291,28 @@ void Event::calculateTOTCluster() {
             } else {
                 continue; // Skip if neither hit has valid time information
             }
-            if (dt > 0 && dt < min_dt_eta1) {
-                min_dt_eta1 = dt;
-                best_j_eta1 = static_cast<int>(j);
+            
+            if (dt > 0) {
+                valid_partners_eta1.push_back({static_cast<int>(j), dt});
+            }
+        }
+
+        int best_j_eta1 = -1;
+
+        if (!valid_partners_eta1.empty()) {
+            // Sort partners by dt ascending (closest in time first)
+            std::sort(valid_partners_eta1.begin(), valid_partners_eta1.end(), [](const Partner& a, const Partner& b) {
+                return a.dt < b.dt;
+            });
+
+            best_j_eta1 = valid_partners_eta1[0].index;
+
+            // Search for the first partner within the [4, 15] bounds
+            for (size_t k = 0; k < valid_partners_eta1.size(); ++k) {
+                if (valid_partners_eta1[k].dt >= 4 && valid_partners_eta1[k].dt <= 15) {
+                    best_j_eta1 = valid_partners_eta1[k].index;
+                    break;
+                }
             }
         }
 
@@ -329,10 +355,8 @@ void Event::calculateTOTCluster() {
             (hit.getRise() == 1 && more_eta2_centers)       // Edge is rising and those are more common, so skip it
         ) continue;
 
-        // Find the closest in-time partner edge on the same channel with a different edge type for eta2 ToT calculation
-        int best_j_eta2 = -1;
-        int min_dt_eta2 = INT_MAX;
         const int target_rise = (hit.getRise() == 1) ? 0 : 1;
+        std::vector<Partner> valid_partners_eta2;
 
         for (size_t j = 0; j < _hits.size(); j++) {
             Hit& potential_partner = _hits[j];
@@ -351,9 +375,28 @@ void Event::calculateTOTCluster() {
             } else {
                 continue; // Skip if neither hit has valid time information
             }
-            if (dt > 0 && dt < min_dt_eta2) {
-                min_dt_eta2 = dt;
-                best_j_eta2 = static_cast<int>(j);
+            
+            if (dt > 0) {
+                valid_partners_eta2.push_back({static_cast<int>(j), dt});
+            }
+        }
+
+        int best_j_eta2 = -1;
+
+        if (!valid_partners_eta2.empty()) {
+            // Sort partners by dt ascending (closest in time first)
+            std::sort(valid_partners_eta2.begin(), valid_partners_eta2.end(), [](const Partner& a, const Partner& b) {
+                return a.dt < b.dt;
+            });
+
+            best_j_eta2 = valid_partners_eta2[0].index;
+
+            // Search for the first partner within the [4, 15] bounds
+            for (size_t k = 0; k < valid_partners_eta2.size(); ++k) {
+                if (valid_partners_eta2[k].dt >= 4 && valid_partners_eta2[k].dt <= 15) {
+                    best_j_eta2 = valid_partners_eta2[k].index;
+                    break;
+                }
             }
         }
 
