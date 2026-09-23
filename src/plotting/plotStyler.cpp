@@ -2321,8 +2321,7 @@ namespace PlotStyler {
 
         std::vector<TH1*> ratios;
         for (size_t i = 0; i < histograms.size(); ++i) {
-            int layer_idx = 2 - i;
-            Color_t color = palette[layer_idx];
+            Color_t color = palette[i];
 
             TH1* h_ratio = static_cast<TH1*>(histograms[i]->Clone(Form("h_ratio_%zu", i)));
             h_ratio->SetDirectory(nullptr);
