@@ -1812,17 +1812,19 @@ void getAverageMultiplicity(TFile* input_file, MultiplicityResults& mult_results
     };
 
     auto assignAverageAndError = [](int count, int active_events, bool is_dead, double& avg, ErrorRange& err) {
-        if (is_dead) {
-            avg = std::numeric_limits<double>::quiet_NaN();
-            err = ErrorRange(std::numeric_limits<double>::quiet_NaN());
-        } else if (active_events == 0) {
-            avg = std::numeric_limits<double>::quiet_NaN();
-            err = ErrorRange(std::numeric_limits<double>::quiet_NaN());
-        } else {
-            avg = static_cast<double>(count) / active_events;
-            err = ErrorRange(std::sqrt(count) / active_events);
-        }
-    };
+    if (is_dead || active_events == 0) {
+        avg = std::numeric_limits<double>::quiet_NaN();
+        err = {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN()};
+    } else {
+        avg = static_cast<double>(count) / active_events;
+        double raw_err = std::sqrt(count) / active_events;
+
+        double err_low = (avg - raw_err < 1.0) ? (avg - 1.0) : raw_err;
+        double err_high = raw_err;
+
+        err = {err_low, err_high};
+    }
+};
 
     for (int layer = 0; layer < LAYER_COUNT; ++layer) {
         for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
