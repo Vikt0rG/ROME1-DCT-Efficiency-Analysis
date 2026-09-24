@@ -1916,9 +1916,12 @@ void processToF(TFile* input_file, ToFResults& tof_results,
                     h_tof1[i]->Fill(t); // Always fill global
                     tof_results.time_of_flight_eta1[i].push_back(t);
 
+                    int mapped_sF = perFileHelpers::remapStrip(sF[k]);
+                    int mapped_sS = perFileHelpers::remapStrip(sS[k]);
+
                     // Only fill strip histogram if the hit was perfectly orthogonal (strips match)
-                    if (sF[k] == sS[k] && sF[k] >= 0 && sF[k] < STRIPS_PER_LAYER) {
-                        h_tof_strip_eta1[i][sF[k]]->Fill(t);
+                    if (mapped_sF == mapped_sS && mapped_sF >= 0 && mapped_sF < STRIPS_PER_LAYER) {
+                        h_tof_strip_eta1[i][mapped_sF]->Fill(t);
                     }
                 }
             }
@@ -1937,8 +1940,11 @@ void processToF(TFile* input_file, ToFResults& tof_results,
                     h_tof2[i]->Fill(t);
                     tof_results.time_of_flight_eta2[i].push_back(t);
 
-                    if (sF[k] == sS[k] && sF[k] >= 0 && sF[k] < STRIPS_PER_LAYER) {
-                        h_tof_strip_eta2[i][sF[k]]->Fill(t);
+                    int mapped_sF = perFileHelpers::remapStrip(sF[k]);
+                    int mapped_sS = perFileHelpers::remapStrip(sS[k]);
+
+                    if (mapped_sF == mapped_sS && mapped_sF >= 0 && mapped_sF < STRIPS_PER_LAYER) {
+                        h_tof_strip_eta2[i][mapped_sF]->Fill(t);
                     }
                 }
             }
