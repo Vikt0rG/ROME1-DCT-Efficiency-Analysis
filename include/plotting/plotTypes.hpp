@@ -24,6 +24,7 @@ namespace PlotterHelpers {
         ToFHeatmap,
         AvgToFVsHV,
         TimeResolutionVsHV,
+        TimeResolutionStripVsHV,
         MeanClusterSizeVsHV,
         RateVsHV,
         RateStripVsHV,

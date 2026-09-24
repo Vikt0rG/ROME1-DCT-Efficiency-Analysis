@@ -38,6 +38,7 @@ namespace PlotStyler {
     void styleRateStripVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleAvgToFVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleAvgTRVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
+    void styleTRStripVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleAvgToTVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleAvgMulVsHV(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleStripDistribution(TObject* obj, TCanvas* canvas, TClass* cl);
