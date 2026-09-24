@@ -711,19 +711,16 @@ void DataPlotter::plotStripMetrics(
 
     for (const auto& [metric_name, layer_map] : strip_metrics) {
 
-        // Route to the correct parent analysis directory
         TDirectory* metric_dir = scan_dir;
         if (metric_name.find("rate_strips_eta") != std::string::npos) metric_dir = nois_dir;
         else if (metric_name.find("tot") != std::string::npos) metric_dir = tot_dir;
         else if (metric_name.find("multiplicity") != std::string::npos) metric_dir = mult_dir;
-        else if (metric_name.find("time_resolution") != std::string::npos) metric_dir = tof_dir; // NEW
+        else if (metric_name.find("time_resolution") != std::string::npos) metric_dir = tof_dir;
 
         if (!metric_dir) continue;
 
-        // Loop through each layer (or layer pair) to create a dedicated TMultiGraph
         for (const auto& [layer_idx, strip_map] : layer_map) {
 
-            // Override folder naming if this is a ToF metric (since layer_idx is a layer pair)
             std::string layer_folder = "layer" + std::to_string(layer_idx);
             if (metric_name.find("time_resolution") != std::string::npos) {
                 if (layer_idx == 0) layer_folder = "layer_0_1";
@@ -739,7 +736,6 @@ void DataPlotter::plotStripMetrics(
             layer_multi_graph->SetName(mg_name.c_str());
             layer_multi_graph->SetTitle((mg_name + ";HV;Value").c_str());
 
-            // Populate it with all the strips
             for (const auto& [strip, data] : strip_map) {
                 if (data.x.empty()) continue;
 

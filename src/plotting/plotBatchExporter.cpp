@@ -138,12 +138,12 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
         if (!analysis_dir) continue;
 
         // Differentiate between Strip Metrics and Layer Metrics
-        bool is_strip_analysis = (analysis_subdir_name == "tot_analysis" ||
+        bool is_strip_analysis = (analysis_subdir_name == "tot_strips_analysis" ||
+                                  analysis_subdir_name == "tof_strips_analysis" ||
                                   analysis_subdir_name == "multiplicity_analysis" ||
-                                  analysis_subdir_name == "noise_rate_strips_analysis");
+                                  analysis_subdir_name == "rate_strips_analysis");
 
         if (is_strip_analysis) {
-            // STRIP METRIC LOGIC: Fetch from layerX folders inside each group and assemble MGs
             TIter next_group(config_dir->GetListOfKeys());
             TKey* group_key = nullptr;
 
@@ -153,11 +153,19 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                 std::string prefix = "group_";
                 std::string clean_group = group_dir_name.substr(prefix.length());
 
-                for (int layer = 0; layer < LAYER_COUNT; ++layer) {
-                    std::string layer_folder = "layer" + std::to_string(layer);
-                    std::string target_path = group_dir_name + "/" + analysis_subdir_name + "/" + layer_folder;
+                std::string analysis_path = group_dir_name + "/" + analysis_subdir_name;
+                TDirectory* group_analysis_dir = config_dir->GetDirectory(analysis_path.c_str());
+                if (!group_analysis_dir) continue;
 
-                    TDirectory* layer_dir = config_dir->GetDirectory(target_path.c_str());
+                TIter next_layer(group_analysis_dir->GetListOfKeys());
+                TKey* layer_key = nullptr;
+
+                while ((layer_key = static_cast<TKey*>(next_layer()))) {
+                    TClass* cl_layer = TClass::GetClass(layer_key->GetClassName());
+                    if (!cl_layer || !cl_layer->InheritsFrom(TDirectory::Class())) continue;
+
+                    std::string layer_folder = layer_key->GetName();
+                    TDirectory* layer_dir = dynamic_cast<TDirectory*>(layer_key->ReadObj());
                     if (!layer_dir) continue;
 
                     std::map<std::string, TMultiGraph*> mg_map;
@@ -168,27 +176,23 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                         TObject* obj = strip_key->ReadObj();
                         if (auto g = dynamic_cast<TGraph*>(obj)) {
 
-                            // Check if this layer was actually scanned by looking at its X values
                             double x_start = 0.0, x_middle = 0.0, x_end = 0.0, y_dummy = 0.0;
                             g->GetPoint(0, x_start, y_dummy);
                             g->GetPoint(g->GetN() / 2, x_middle, y_dummy);
                             g->GetPoint(g->GetN() - 1, x_end, y_dummy);
 
-                            // Skip graphs that have no meaningful scan range (e.g., flatlined layers)
                             if (std::abs(x_end - x_start) < 1.0 && std::abs(x_middle - x_start) < 1.0) {
                                 delete obj;
-                                break;
+                                continue;
                             }
 
                             std::string g_name = g->GetName(); 
-
                             std::string base_metric = g_name;
                             size_t strip_pos = g_name.rfind("_strip");
                             if (strip_pos != std::string::npos) {
                                 base_metric = g_name.substr(0, strip_pos);
                             }
 
-                            // Avoid names like "layer0_layer0"
                             std::string dynamic_suffix = "_" + clean_group;
                             if (clean_group != layer_folder) {
                                 dynamic_suffix += "_" + layer_folder;
@@ -211,7 +215,6 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                     }
 
                     for (auto const& [base_metric, strip_mg] : mg_map) {
-
                         TCanvas* canvas = new TCanvas("c", "", 800, 600);
                         canvas->cd();
 
@@ -221,13 +224,10 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                         if (custom_styler) custom_styler(strip_mg, canvas, TMultiGraph::Class());
                         else PlotterHelpers::PlotStyler::styleDefaultPlot(strip_mg, canvas, TMultiGraph::Class());
 
-                        // Use the same smart naming logic for the PDF output
-                        std::string dynamic_suffix = "_" + clean_group;
-                        if (clean_group != layer_folder) {
-                            dynamic_suffix += "_" + layer_folder;
-                        }
+                        // Filename inherits the dynamic suffix with the appended group name
+                        std::string final_mg_name = base_metric + "_" + clean_group;
+                        if (clean_group != layer_folder) final_mg_name += "_" + layer_folder;
 
-                        std::string final_mg_name = base_metric + dynamic_suffix;
                         std::filesystem::path export_file = config_output_path / analysis_subdir_name / (final_mg_name + ".pdf");
                         std::filesystem::create_directories(export_file.parent_path());
 
@@ -235,8 +235,9 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                         delete canvas;
                         delete strip_mg;
                     }
-                }   // End of layer loop
-            }   // End of group loop
+                    delete layer_dir;
+                }
+            }
         } else {
             // LAYER & GLOBAL METRIC LOGIC: Handle 1D stitching and 2D Heatmaps
             TIter next_metric_key(analysis_dir->GetListOfKeys());
