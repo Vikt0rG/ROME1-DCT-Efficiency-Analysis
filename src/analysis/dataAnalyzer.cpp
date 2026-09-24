@@ -1992,7 +1992,12 @@ void processToF(TFile* input_file, ToFResults& tof_results,
                 res_out = std::sqrt(intrinsic_res_sq);
                 // Standard error propagation: df/d(sigma) * sigma_err
                 double propagated_err = (p_sigma / (2.0 * res_out)) * p_sigma_err;
-                res_err_out = ErrorRange{propagated_err};
+
+                // Enforce physical boundary at 0.0 for the lower error bar on resolution
+                double err_low = (res_out - propagated_err < 0.0) ? res_out : propagated_err;
+                double err_high = propagated_err;
+
+                res_err_out = ErrorRange{err_low, err_high};
             } else {
                 // If the variance is negative, the width is entirely dominated by the TDC binning
                 res_out = 0.0;
