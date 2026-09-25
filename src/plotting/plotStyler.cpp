@@ -1256,11 +1256,11 @@ namespace PlotStyler {
 
         if (mg && mg->GetHistogram()) {
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
-                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 5150.0, .y_min = 0.0, .y_max = 2.0});
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 5150.0, .y_max = 1.20});
                 xAxis->SetTitle(x_label.c_str());
             }
             if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
-                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 5150.0, .y_min = 0.0, .y_max = 2.0});
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 5150.0, .y_max = 1.20});
                 yAxis->SetTitle(y_label.c_str());
             }
         }
@@ -1345,7 +1345,7 @@ namespace PlotStyler {
             plot_title,
             12,
             kWhite, 0.70,
-            kBlack, 1,
+            kBlack, 0,
             0.01
         );
 
