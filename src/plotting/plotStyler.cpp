@@ -468,6 +468,9 @@ namespace PlotStyler {
                 } else if (auto h1 = dynamic_cast<TH1*>(obj)) {
                     h1->SetMinimum(dynamic_min);
                     h1->SetMaximum(dynamic_max);
+                } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
+                    mg->SetMinimum(dynamic_min);
+                    mg->SetMaximum(dynamic_max);
                 }
             }
         } else {
@@ -481,6 +484,9 @@ namespace PlotStyler {
                     } else if (auto h1 = dynamic_cast<TH1*>(obj)) {
                         h1->SetMinimum(default_min.value());
                         h1->SetMaximum(default_max.value());
+                    } else if (auto mg = dynamic_cast<TMultiGraph*>(obj)) {
+                        mg->SetMinimum(default_min.value());
+                        mg->SetMaximum(default_max.value());
                     }
                 }
             }
