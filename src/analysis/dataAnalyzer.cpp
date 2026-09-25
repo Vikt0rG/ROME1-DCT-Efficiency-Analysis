@@ -1955,6 +1955,11 @@ void processToF(TFile* input_file, ToFResults& tof_results,
     auto fitAndExtract = [](TH1D* hist, double& mean_out, ErrorRange& mean_err_out,
                             double& res_out, ErrorRange& res_err_out) {
 
+        mean_out = std::numeric_limits<double>::quiet_NaN();
+        mean_err_out = ErrorRange{std::numeric_limits<double>::quiet_NaN()};
+        res_out = std::numeric_limits<double>::quiet_NaN();
+        res_err_out = ErrorRange{std::numeric_limits<double>::quiet_NaN()};
+
         if (!hist || hist->Integral() < 20) return;
 
         // Pass 1: Global fit to find the general location of the peak
@@ -1998,10 +2003,6 @@ void processToF(TFile* input_file, ToFResults& tof_results,
                 double err_high = propagated_err;
 
                 res_err_out = ErrorRange{err_low, err_high};
-            } else {
-                // If the variance is negative, the width is entirely dominated by the TDC binning
-                res_out = 0.0;
-                res_err_out = ErrorRange{0.0};
             }
         }
     };
@@ -2018,7 +2019,6 @@ void processToF(TFile* input_file, ToFResults& tof_results,
 
         // Calculate per-strip fits
         for (int s = 0; s < STRIPS_PER_LAYER; ++s) {
-            // We need dummy variables to catch the mean since we only save the resolution for the strips
             double dummy_mean_eta1 = 0.0, dummy_mean_eta2 = 0.0;
             ErrorRange dummy_mean_err_eta1 = {0.0, 0.0}, dummy_mean_err_eta2 = {0.0, 0.0};
 
