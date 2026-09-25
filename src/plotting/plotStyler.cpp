@@ -942,11 +942,9 @@ namespace PlotStyler {
                 }
             }
             if (min_strip > max_strip) { min_strip = 0; max_strip = STRIPS_PER_LAYER - 1; }
-            int strip_range = std::max(1, max_strip - min_strip);
-
+            int n_strips_active = max_strip - min_strip + 1;
             int n_colors = TColor::GetNumberOfColors();
 
-            // Recolor the graphs based on their actual relative position in the subset
             TIter next(mg->GetListOfGraphs());
             TObject* gr_obj;
             while ((gr_obj = next())) {
@@ -960,7 +958,8 @@ namespace PlotStyler {
                     }
                     strip_idx = std::max(min_strip, std::min(strip_idx, max_strip));
 
-                    int color_idx = TColor::GetColorPalette(((strip_idx - min_strip) * (n_colors - 1)) / strip_range);
+                    int bin = strip_idx - min_strip;
+                    int color_idx = TColor::GetColorPalette((bin * n_colors) / n_strips_active);
 
                     gr->SetMarkerColor(color_idx);
                     gr->SetMarkerStyle(70);
@@ -970,13 +969,12 @@ namespace PlotStyler {
                 }
             }
 
-            // Draw dummy Z-axis matching the active strip bounds
             TH2D* dummy_z = new TH2D(Form("dummy_z_%p", mg), "", 1, -2000, -1000, 1, -2000, -1000);
             dummy_z->SetDirectory(nullptr);
             dummy_z->SetBinContent(1, 1, 0.0);
             dummy_z->SetMinimum(min_strip);
             dummy_z->SetMaximum(max_strip + 1);
-            dummy_z->SetContour(256);
+            dummy_z->SetContour(n_strips_active);
 
             TAxis* zAxis = dummy_z->GetZaxis();
             zAxis->SetTitle("Strip Number");
@@ -1291,11 +1289,9 @@ namespace PlotStyler {
                 }
             }
             if (min_strip > max_strip) { min_strip = 0; max_strip = STRIPS_PER_LAYER - 1; }
-            int strip_range = std::max(1, max_strip - min_strip);
-
+            int n_strips_active = max_strip - min_strip + 1;
             int n_colors = TColor::GetNumberOfColors();
 
-            // Recolor the graphs based on their actual relative position in the subset
             TIter next(mg->GetListOfGraphs());
             TObject* gr_obj;
             while ((gr_obj = next())) {
@@ -1309,7 +1305,8 @@ namespace PlotStyler {
                     }
                     strip_idx = std::max(min_strip, std::min(strip_idx, max_strip));
 
-                    int color_idx = TColor::GetColorPalette(((strip_idx - min_strip) * (n_colors - 1)) / strip_range);
+                    int bin = strip_idx - min_strip;
+                    int color_idx = TColor::GetColorPalette((bin * n_colors) / n_strips_active);
 
                     gr->SetMarkerColor(color_idx);
                     gr->SetMarkerStyle(70);
@@ -1319,13 +1316,12 @@ namespace PlotStyler {
                 }
             }
 
-            // Draw dummy Z-axis matching the active strip bounds
             TH2D* dummy_z = new TH2D(Form("dummy_z_%p", mg), "", 1, -2000, -1000, 1, -2000, -1000);
             dummy_z->SetDirectory(nullptr);
             dummy_z->SetBinContent(1, 1, 0.0);
             dummy_z->SetMinimum(min_strip);
             dummy_z->SetMaximum(max_strip + 1);
-            dummy_z->SetContour(256);
+            dummy_z->SetContour(n_strips_active);
 
             TAxis* zAxis = dummy_z->GetZaxis();
             zAxis->SetTitle("Strip Number");
