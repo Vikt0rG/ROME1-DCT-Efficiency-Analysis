@@ -805,7 +805,7 @@ namespace PlotStyler {
             plot_title,               // Title string
             12,                       // Alignment
             kWhite, 0.70,             // semi-transparent white background
-            kBlack, 1,                // Black 1px border line
+            kBlack, 0,                // No border line
             0.01                      // Inner padding
         );
 
@@ -813,7 +813,7 @@ namespace PlotStyler {
         canvas->Update();
 
         double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
-        drawATLASLegend(obj, legend_entries, 0.18, legend_y, 13);
+        drawATLASLegend(obj, legend_entries, ndc_x0 + 0.03, legend_y, 13);
 
         canvas->Modified();
         canvas->Update();
@@ -887,7 +887,7 @@ namespace PlotStyler {
             plot_title,               // Title string
             12,                       // Alignment
             kWhite, 0.70,             // semi-transparent white background
-            kBlack, 1,                // Black 1px border line
+            kBlack, 0,                // No border line
             0.01                      // Inner padding
         );
 
@@ -895,7 +895,7 @@ namespace PlotStyler {
         canvas->Update();
 
         double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
-        drawATLASLegend(obj, legend_entries, 0.18, legend_y, 13);
+        drawATLASLegend(obj, legend_entries, ndc_x0 + 0.03, legend_y, 13);
 
         canvas->Modified();
         canvas->Update();
@@ -1003,7 +1003,7 @@ namespace PlotStyler {
             plot_title,
             12,
             kWhite, 0.70,
-            kBlack, 1,
+            kBlack, 0,
             0.01
         );
 
@@ -1475,7 +1475,7 @@ namespace PlotStyler {
             plot_title,
             12,
             kWhite, 0.70,
-            kBlack, 1,
+            kBlack, 0,
             0.01
         );
 
@@ -1829,7 +1829,6 @@ namespace PlotStyler {
 
     void styleCSDistributionCombined(TObject* obj, TCanvas* canvas, TClass* cl) {
 
-        std::cout << "Styling THStack object: " << obj->GetName() << std::endl;
         auto stack = dynamic_cast<THStack*>(obj);
         if (!stack) return;
 
