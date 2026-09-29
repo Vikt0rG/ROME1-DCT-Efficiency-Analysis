@@ -205,30 +205,13 @@ namespace PlotStyler {
             title_parts.push_back("Heatmap");
         }
 
-        // B. Track Reconstruction Context
-        static const std::regex reco_re("^(track_)?(avg_tot|avg_multiplicity|eff)_");
-        if (std::regex_search(metric_name, match, reco_re)) {
-            title_parts.push_back(match[1].matched ? "After Track Reco" : "Before Track Reco");
-        }
-
-        // C. Layer / Layer Pair Context
-        static const std::regex layer_pair_re("layer_(\\d)_(\\d)");
+        // B. Layer Context
         static const std::regex single_layer_re("layer(\\d+)");
-
-        // 1. Look for the ToF layer pair (e.g., "layer_0_1")
-        if (std::regex_search(metric_name, match, layer_pair_re)) {
-            std::string new_title = Form("#it{t}_{Layer %s} #minus #it{t}_{Layer %s}",
-                                         match[1].str().c_str(),
-                                         match[2].str().c_str());
-            title_parts.push_back(new_title);
-        }
-
-        // 2. Look for a single layer (e.g., "layer0")
         if (std::regex_search(metric_name, match, single_layer_re)) {
             title_parts.push_back("Layer " + match[1].str());
         }
 
-        // D. Side Context
+        // C. Side Context
         static const std::regex side_re("eta1|eta2|_or_|_and_");
         if (std::regex_search(metric_name, match, side_re)) {
             std::string m = match.str(0);
@@ -238,7 +221,29 @@ namespace PlotStyler {
             else if (m == "_and_") title_parts.push_back("AND(#eta_{1}, #eta_{2})");
         }
 
-        // E. Trigger Context
+        // D. Layer Pair Context
+        static const std::regex layer_pair_re("layer_(\\d)_(\\d)");
+        if (std::regex_search(metric_name, match, layer_pair_re)) {
+            std::string new_title = Form("#it{t}_{Layer %s} #minus #it{t}_{Layer %s}",
+                                         match[1].str().c_str(),
+                                         match[2].str().c_str());
+            title_parts.push_back(new_title);
+        }
+
+        // E. Track Reconstruction & Beam Context
+        static const std::regex reco_re("^(beam_)?(track_)?(avg_tot|avg_multiplicity|eff)_");
+        if (std::regex_search(metric_name, match, reco_re)) {
+
+            // match[1] is the (beam_) group
+            if (match[1].matched) {
+                title_parts.push_back("Beam Spot Region");
+            }
+
+            // match[2] is the (track_) group
+            title_parts.push_back(match[2].matched ? "After Track Reco" : "Before Track Reco");
+        }
+
+        // F. Trigger Context
         static const std::regex trigger_re("external|rpc");
         if (std::regex_search(metric_name, match, trigger_re)) {
             std::string m = match.str(0);
@@ -246,7 +251,7 @@ namespace PlotStyler {
             else if (m == "rpc") title_parts.push_back("RPC Coincidence");
         }
 
-        // Assemble Title (e.g., "After Track Reco: Layers 0 & 1: Side #eta_{1}")
+        // Assemble Title (e.g., "Layers 0 & 1: Side #eta_{1}": After Track Reco)
         for (size_t i = 0; i < title_parts.size(); ++i) {
             out_title += title_parts[i];
             if (i < title_parts.size() - 1) out_title += ": ";
