@@ -637,6 +637,28 @@ namespace PlotStyler {
             kCyan - 4
         };
         if (mg && mg->GetListOfGraphs()) {
+
+            double global_min_x = 1e9;
+            double global_max_x = -1e9;
+            TIter next_bounds(mg->GetListOfGraphs());
+            TObject* gr_obj_bounds;
+            while ((gr_obj_bounds = next_bounds())) {
+                if (auto gr = dynamic_cast<TGraph*>(gr_obj_bounds)) {
+                    if (gr->GetN() > 0) {
+                        global_min_x = std::min(global_min_x, TMath::MinElement(gr->GetN(), gr->GetX()));
+                        global_max_x = std::max(global_max_x, TMath::MaxElement(gr->GetN(), gr->GetX()));
+                    }
+                }
+            }
+
+            if (global_min_x > global_max_x) {
+                global_min_x = 4500.0;
+                global_max_x = 6000.0;
+            }
+
+            double x_min_band = std::max(4500.0, global_min_x - 50.0);
+            double x_max_band = global_max_x + 50.0;
+
             TIter next(mg->GetListOfGraphs());
             TObject* gr_obj;
             int color_idx = 0;
@@ -658,6 +680,8 @@ namespace PlotStyler {
                     TF1* sigmoid = dynamic_cast<TF1*>(gr->GetListOfFunctions()->First());
                     if (!sigmoid) continue;
 
+                    sigmoid->SetRange(x_min_band, x_max_band);
+
                     // Sigmoid fit band calculation
                     double p0 = sigmoid->GetParameter(0);
                     double p1 = sigmoid->GetParameter(1);
@@ -668,8 +692,6 @@ namespace PlotStyler {
                     double ep2 = sigmoid->GetParError(2);
 
                     int n_band_points = 200;
-                    double x_min_band = gr->GetXaxis()->GetXmin();
-                    double x_max_band = gr->GetXaxis()->GetXmax();
                     double step = (x_max_band - x_min_band) / n_band_points;
 
                     TGraphErrors* fit_band = new TGraphErrors(n_band_points);
@@ -1156,6 +1178,19 @@ namespace PlotStyler {
         };
 
         if (mg->GetListOfGraphs()) {
+
+            double global_max_x = 0.0;
+            TIter next_max(mg->GetListOfGraphs());
+            TObject* gr_obj_max;
+            while ((gr_obj_max = next_max())) {
+                if (auto gr = dynamic_cast<TGraph*>(gr_obj_max)) {
+                    global_max_x = std::max(global_max_x, TMath::MaxElement(gr->GetN(), gr->GetX()));
+                }
+            }
+
+            double fit_x_min = 5000.0;
+            double end_x = std::min(fit_x_max, global_max_x) + 50.0;
+
             TIter next(mg->GetListOfGraphs());
             TObject* gr_obj;
             int color_idx = 0;
@@ -1172,10 +1207,6 @@ namespace PlotStyler {
 
                     gr->SetFillColorAlpha(color, 0.25);
                     gr->SetFillStyle(1001);
-
-                    double fit_x_min = 5000.0;
-                    double gr_max_x = TMath::MaxElement(gr->GetN(), gr->GetX());
-                    double end_x = std::min(fit_x_max, gr_max_x) + 50.0;
 
                     // Prevent ROOT's global function registry from deleting fits during batch runs
                     std::string fit_name = Form("fit_pol1_%p_%d", (void*)gr, color_idx);
