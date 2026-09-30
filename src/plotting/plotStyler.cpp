@@ -1687,7 +1687,7 @@ namespace PlotStyler {
 
         stack->Draw("nostack hist");
 
-        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), stack);
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), stack);
 
         TIter next(stack->GetHists());
         TH1* hist = nullptr;
