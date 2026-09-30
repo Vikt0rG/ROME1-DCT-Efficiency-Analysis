@@ -589,8 +589,8 @@ void plotToTVsStrip(TFile* input_file) {
         "tot1_after_reco", "tot2_after_reco"
     };
     const char* comments[nConfigs] = {
-        "Before Track Reco (#eta_{1})", "Before Track Reco (#eta_{2})",
-        "After Track Reco (#eta_{1})", "After Track Reco (#eta_{2})"
+        "Side #eta_{1}: Before Track Reco", "Side #eta_{2}: Before Track Reco",
+        "Side #eta_{1}: After Track Reco", "Side #eta_{2}: After Track Reco"
     };
 
     std::map<std::string, std::map<int, TH2*>> tot_strip_histograms;
@@ -671,9 +671,9 @@ void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest) {
         "tot_eta1_dt_strip_beam", "tot_eta2_dt_strip_beam"
     };
     const char* comments[nConfigs] = {
-        "Before Track Reco (#eta_{1})", "Before Track Reco (#eta_{2})",
-        "After Track Reco (#eta_{1})", "After Track Reco (#eta_{2})",
-        "Beam Spot Region (#eta_{1})", "Beam Spot Region (#eta_{2})"
+        "Side #eta_{1}: Before Track Reco", "Side #eta_{2}: Before Track Reco",
+        "Side #eta_{1}: After Track Reco", "Side #eta_{2}: After Track Reco",
+        "Side #eta_{1}: Beam Spot Region", "Side #eta_{2}: Beam Spot Region"
     };
 
     std::map<std::string, std::map<int, TProfile2D*>> profile_histograms;
@@ -775,8 +775,8 @@ void plotMultiplicity(TFile* input_file) {
         "mult_eta1_after_reco",  "mult_eta2_after_reco"
     };
     const char* comments[nConfigs] = {
-        "Before Track Reco: Side #eta_{1}", "Before Track Reco: Side #eta_{2}",
-        "After Track Reco: Side #eta_{1}", "After Track Reco: Side #eta_{2}"
+        "Side #eta_{1}: Before Track Reco", "Side #eta_{2}: Before Track Reco",
+        "Side #eta_{1}: After Track Reco", "Side #eta_{2}: After Track Reco"
     };
 
     // [category][layer] -> histogram
@@ -949,8 +949,8 @@ void plotDelay(TFile* input_file) {
         "delay_eta1_after_reco",  "delay_eta2_after_reco"
     };
     const char* comments[nConfigs] = {
-        "Before Track Reco: Side #eta_{1}", "Before Track Reco: Side #eta_{2}",
-        "After Track Reco: Side #eta_{1}", "After Track Reco: Side #eta_{2}"
+        "Side #eta_{1}: Before Track Reco", "Side #eta_{2}: Before Track Reco",
+        "Side #eta_{1}: After Track Reco", "Side #eta_{2}: After Track Reco"
     };
 
     std::map<std::string, std::map<int, TH2F*>> h2d_delay;        // 2D Heatmap: Strip vs Delay vs Entries
