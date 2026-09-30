@@ -166,6 +166,13 @@ namespace PlotStyler {
         return labels;
     }
 
+    std::string matchLabels(const std::string& name, const std::string& pattern) {
+        std::regex re(pattern);
+        std::smatch match;
+        if (std::regex_search(name, match, re)) return match[1].str();
+        return "";
+    }
+
     std::tuple<std::string, std::string, std::string, std::vector<std::string>> compilePlotLabels(
         const std::string& metric_name,
         TObject* obj)
@@ -266,13 +273,6 @@ namespace PlotStyler {
 
         // -------------------------------------------------------------------------
         /// Build legend entries if object is a container (TMultiGraph or THStack)
-        auto matchLabels = [](const std::string& name, const std::string& pattern) -> std::string {
-            std::regex re(pattern);
-            std::smatch match;
-            if (std::regex_search(name, match, re)) return match[1].str();
-            return "";
-        };
-
         std::vector<std::string> legend_entries;
         if (TMultiGraph* mg = dynamic_cast<TMultiGraph*>(obj)) {
             TIter next(mg->GetListOfGraphs());

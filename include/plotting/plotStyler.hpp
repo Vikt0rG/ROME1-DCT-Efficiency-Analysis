@@ -18,6 +18,8 @@ namespace PlotStyler {
     std::optional<std::vector<std::string>> getLabelsFromGroupNames(
         const std::vector<std::string>& group_names);
 
+    std::string matchLabels(const std::string& name, const std::string& pattern);
+
     std::tuple<std::string, std::string, std::string, std::vector<std::string>> compilePlotLabels(
         const std::string& metric_name, TObject* obj);
 
