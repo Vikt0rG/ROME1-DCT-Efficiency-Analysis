@@ -246,6 +246,12 @@ namespace PlotStyler {
             title_parts.push_back(new_title);
         }
 
+        // High Voltage Context
+        static const std::regex hv_re("_hv_(\\d+)");
+        if (std::regex_search(metric_name, match, hv_re)) {
+            title_parts.push_back("HV: " + match[1].str() + " V");
+        }
+
         // Track Reconstruction & Beam Context
         static const std::regex reco_re("^(beam_)?(track_)?(avg_tot|avg_multiplicity|eff)_");
         if (std::regex_search(metric_name, match, reco_re)) {
