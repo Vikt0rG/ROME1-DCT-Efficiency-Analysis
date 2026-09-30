@@ -107,7 +107,7 @@ namespace ATLASStyler {
     TPaveText* drawATLASHeaderBlock(
         double ndc_x, double ndc_y,
         const std::string& status,
-        const std::string& title,
+        const std::vector<std::string>& subtitle_parts,
         short alignment,
         Color_t fillColor, double fillAlpha,
         Color_t borderColor, int borderWidth,
@@ -136,11 +136,18 @@ namespace ATLASStyler {
             return static_cast<double>(w) / gPad->GetWw();
         };
 
-        double w1 = getWidthNDC(line1);
-        double w2 = getWidthNDC(title);
-        double max_text_width = std::max(w1, w2);
+        // Filter out empty lines and calculate the maximum width dynamically
+        std::vector<std::string> valid_titles;
+        double max_text_width = getWidthNDC(line1);
 
-        int num_lines = title.empty() ? 1 : 2;
+        for (const auto& t : subtitle_parts) {
+            if (!t.empty()) {
+                valid_titles.push_back(t);
+                max_text_width = std::max(max_text_width, getWidthNDC(t));
+            }
+        }
+
+        int num_lines = 1 + valid_titles.size();
         double line_height = 0.038;
 
         // Calculate total box dimensions including padding
@@ -180,13 +187,14 @@ namespace ATLASStyler {
         pave->SetTextFont(42);
         pave->SetTextSize(0.035);
 
-        // Add lines
+        // Add the top ATLAS label line
         TText* t1 = pave->AddText(line1.c_str());
         if (t1) t1->SetTextColor(kBlack);
 
-        if (!title.empty()) {
-            TText* t2 = pave->AddText(title.c_str());
-            if (t2) t2->SetTextColor(kBlack);
+        // Iterate and add all valid title lines sequentially
+        for (const auto& t : valid_titles) {
+            TText* tx = pave->AddText(t.c_str());
+            if (tx) tx->SetTextColor(kBlack);
         }
 
         pave->Draw();

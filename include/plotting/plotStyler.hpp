@@ -2,6 +2,7 @@
 
 #include <tuple>
 #include <string>
+#include <vector>
 
 #include "plotTypes.hpp"
 
@@ -20,7 +21,8 @@ namespace PlotStyler {
 
     std::string matchLabels(const std::string& name, const std::string& pattern);
 
-    std::tuple<std::string, std::string, std::string, std::vector<std::string>> compilePlotLabels(
+    std::tuple<std::vector<std::string>, std::string,
+    std::string, std::vector<std::string>> compilePlotLabels(
         const std::string& metric_name, TObject* obj);
 
     void setRange(TObject* obj, TAxis* axis, AxisType axis_type,

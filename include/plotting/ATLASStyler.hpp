@@ -22,10 +22,27 @@ namespace ATLASStyler {
 
     TPaveText* drawATLASHeaderBlock(
         double ndc_x, double ndc_y,
-        const std::string& status = "", const std::string& title = "", short alignment = 33,
+        const std::string& status = "", const std::vector<std::string>& subtitle_parts = {""}, short alignment = 33,
         Color_t fillColor = 0, double fillAlpha = 0.70,
         Color_t borderColor = 1, int borderWidth = 1,
         double innerPadding = 0.01);
+
+    inline TPaveText* drawATLASHeaderBlock(
+        double ndc_x, double ndc_y,
+        const std::string& status,
+        const std::string& title,
+        short alignment,
+        Color_t fillColor, double fillAlpha,
+        Color_t borderColor, int borderWidth,
+        double innerPadding)
+    {
+        return drawATLASHeaderBlock(
+            ndc_x, ndc_y, status, 
+            std::vector<std::string>{title}, 
+            alignment, fillColor, fillAlpha, 
+            borderColor, borderWidth, innerPadding
+        );
+    }
 
     TLegend* drawATLASLegend(TObject* obj, const std::vector<std::string>& legend_entries,
                              float ndc_x, float ndc_y, short alignment,
