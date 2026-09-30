@@ -2105,20 +2105,19 @@ namespace PlotStyler {
 
     void styleToTCombSidesDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
         auto stack = dynamic_cast<THStack*>(obj);
-        auto [title, x_label, y_label, compiled_legend_entries] = compilePlotLabels(obj->GetTitle(), stack);
+
+        auto [title_lines, x_label, y_label, compiled_legend_entries] = compilePlotLabels(obj->GetTitle(), stack);
 
         if (!stack) return;
 
         TList* hist_list = stack->GetHists();
-        if (!hist_list || hist_list->GetSize() < 2) return; // We need at least 2 histograms to compute a ratio
+        if (!hist_list || hist_list->GetSize() < 2) return;
 
         canvas->SetWindowSize(800, 840);
         canvas->SetCanvasSize(800, 840);
 
-        // Create the Top and Bottom Pads (Ratio Layout)
         canvas->cd();
         
-        // Top Pad: Occupies upper 70% of the canvas
         TPad* pad1 = new TPad("pad1", "pad1", 0.0, 0.30, 1.0, 1.0);
         pad1->SetLeftMargin(0.16);
         pad1->SetRightMargin(0.05);
@@ -2126,7 +2125,6 @@ namespace PlotStyler {
         pad1->SetBottomMargin(0.03);
         pad1->Draw();
 
-        // Bottom Pad: Occupies lower 30% of the canvas
         TPad* pad2 = new TPad("pad2", "pad2", 0.0, 0.0, 1.0, 0.30);
         pad2->SetLeftMargin(0.16);
         pad2->SetRightMargin(0.05);
@@ -2135,7 +2133,6 @@ namespace PlotStyler {
         pad2->SetTicks(1, 1);
         pad2->Draw();
 
-        // Style & Extract Histograms from Stack
         std::vector<std::pair<double, Color_t>> mean_line_data;
         TH1* h1 = nullptr;
         TH1* h2 = nullptr;
@@ -2145,15 +2142,17 @@ namespace PlotStyler {
         int index = 0;
 
         std::vector<TH1*> histograms;
+
+        double global_percentile = 0.0;
+        double percentile = 0.99;
+
         while ((hist = static_cast<TH1*>(next()))) {
             Color_t base_color = (index == 0) ? kAzure + 2 : kOrange + 10;
             mean_line_data.push_back({hist->GetMean(), base_color});
 
-            // Store references to the first two histograms for our ratio
             if (index == 0) h1 = hist;
             if (index == 1) h2 = hist;
 
-            // Apply standard styling
             hist->SetLineColor(base_color);
             hist->SetLineWidth(2);
             hist->SetLineStyle(1);
@@ -2162,17 +2161,26 @@ namespace PlotStyler {
             hist->SetFillColor(trans_color);
             hist->SetFillStyle(1001);
 
+            if (hist->GetEffectiveEntries() > 0) {
+                double q[1];
+                double prob[1] = {percentile};
+                hist->GetQuantiles(1, q, prob);
+                if (q[0] > global_percentile) {
+                    global_percentile = q[0];
+                }
+            }
+
             index++;
             histograms.push_back(hist);
         }
 
-        // Draw Top Pad (Main Stack Distributions)
         pad1->cd();
         applyATLASStyle(obj, pad1);
         stack->Draw("nostack hist");
 
-        // Remove X-axis labels/titles from the top plot to avoid overlaps
         if (stack->GetXaxis()) {
+            stack->GetXaxis()->SetRangeUser(0.0, global_percentile);
+
             stack->GetXaxis()->SetLabelSize(0);
             stack->GetXaxis()->SetTitleSize(0);
         }
@@ -2186,242 +2194,29 @@ namespace PlotStyler {
         pad1->Modified();
         pad1->Update();
 
+        // GetUxmax() automatically reflects the new dynamic limit
         double x_max = pad1->GetUxmax();
         double y_min = pad1->GetUymin();
         double y_max = pad1->GetUymax();
 
-        Objects::line(pad1, TOT_ROI_MAX, TOT_ROI_MAX, y_min, y_max, kBlack, 9, 1);
-        Objects::hatchedRegion(pad1, TOT_ROI_MAX, x_max, y_min, y_max, 3244);
+        if (x_max > TOT_ROI_MAX + 1.0) {
+            Objects::line(pad1, TOT_ROI_MAX, TOT_ROI_MAX, y_min, y_max, kBlack, 9, 1);
+            Objects::hatchedRegion(pad1, TOT_ROI_MAX, x_max, y_min, y_max, 3244);
 
-        double x_ndc = (TOT_ROI_MAX - pad1->GetX1()) / (pad1->GetX2() - pad1->GetX1());
-        x_ndc += 0.015;
-        double y_ndc = 0.35;
+            double x_ndc = (TOT_ROI_MAX - pad1->GetX1()) / (pad1->GetX2() - pad1->GetX1());
+            x_ndc += 0.015;
+            double y_ndc = 0.35;
 
-        TLatex* roi_text = new TLatex();
-        roi_text->SetNDC(true);
-        roi_text->SetTextAngle(90);
-        roi_text->SetTextAlign(23);
-        roi_text->SetTextFont(42);
-        roi_text->SetTextSize(0.035);
-        roi_text->SetTextColor(kBlack);
-        roi_text->DrawLatex(x_ndc, y_ndc, "Streamer/Afterpulse Region");
-
-        // Draw Vertical Mean Lines on Top Pad
-        for (const auto& data : mean_line_data) {
-            double mean_x = data.first;
-            Color_t color = data.second;
-
-            TLine* mean_line = new TLine(mean_x, y_min, mean_x, y_max);
-            mean_line->SetLineColor(color);
-            mean_line->SetLineWidth(2);
-            mean_line->SetLineStyle(11);
-            mean_line->Draw();
+            TLatex* roi_text = new TLatex();
+            roi_text->SetNDC(true);
+            roi_text->SetTextAngle(90);
+            roi_text->SetTextAlign(23);
+            roi_text->SetTextFont(42);
+            roi_text->SetTextSize(0.035);
+            roi_text->SetTextColor(kBlack);
+            roi_text->DrawLatex(x_ndc, y_ndc, "Streamer/Afterpulse Region");
         }
 
-        double ndc_x0 = 1.0 - pad1->GetRightMargin();
-        double ndc_y0 = 1.0 - pad1->GetTopMargin();
-
-        std::string plot_title = obj ? obj->GetTitle() : "";
-        TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 - 0.05,
-            ndc_y0 - 0.09,            // Coordinates for the header box
-            "Work in Progress",       // Status string
-            plot_title,               // Title string
-            32,                       // Alignment
-            kWhite, 0.70f,            // 85% semi-transparent white background
-            kWhite, 0,                // Black 1px border line
-            0.01                      // Inner padding
-        );
-
-        pad1->Modified();
-        pad1->Update();
-
-        // Draw legend
-        std::vector<std::string> legend_entries = {" Side #eta1", " Side #eta2"};
-        double legend_y = header ? header->GetY1NDC() - 0.05 : 0.70;
-        double leg_width = 0.32;
-        double leg_height = histograms.size() * 0.04;
-
-        TLegend* leg = new TLegend(ndc_x0 - 0.05 - leg_width, legend_y - leg_height, ndc_x0 - 0.05, legend_y);
-        leg->SetBorderSize(0);
-        leg->SetLineColor(kWhite);
-        leg->SetFillStyle(1001);
-        leg->SetFillColorAlpha(kWhite, 0.5);
-        leg->SetTextFont(42);
-        leg->SetTextSize(0.04);
-
-        for (size_t i = 0; i < histograms.size() && i < legend_entries.size(); ++i) {
-            TH1* h = histograms[i];
-            double mean_val = h->GetMean();
-            std::string label_with_mean = Form("%s (#mu = %.1f ns)", legend_entries[i].c_str(), mean_val);
-
-            leg->AddEntry(h, label_with_mean.c_str(), "f");
-        }
-        leg->Draw();
-
-        // Calculate & Draw Bottom Pad (Ratio Plot)
-        pad2->cd();
-
-        // Clone h1 to preserve properties, then divide by h2
-        TH1* h_ratio = static_cast<TH1*>(h1->Clone("h_ratio"));
-        h_ratio->SetDirectory(nullptr);
-        h_ratio->Reset();
-        h_ratio->Divide(h1, h2, 1.0, 1.0, "B"); // "B" uses binomial errors
-
-        // Stylize Ratio Histogram
-        h_ratio->SetLineColor(kBlack);
-        h_ratio->SetMarkerColor(kBlack);
-        h_ratio->SetLineWidth(2);
-        h_ratio->SetMarkerStyle(20);
-        h_ratio->SetMarkerSize(0.8);
-        h_ratio->SetFillStyle(0);
-
-        h_ratio->Draw("ep"); // Draw with error bars and points
-
-        TAxis* rx = h_ratio->GetXaxis();
-        TAxis* ry = h_ratio->GetYaxis();
-
-        if (rx) {
-            rx->SetTitle("ToT [ns]");
-            rx->SetTitleFont(42);
-            rx->SetTitleSize(0.14);  // Scaled up for small pad height
-            rx->SetTitleOffset(1.0);
-
-            rx->SetLabelFont(42);
-            rx->SetLabelSize(0.11);
-
-            rx->SetNdivisions(505);
-            rx->SetTickLength(0.06);
-        }
-
-        if (ry) {
-            ry->SetTitle("#eta1 / #eta2");
-            ry->SetTitleFont(42);
-            ry->SetLabelFont(42);
-            ry->SetTitleSize(0.14);
-            ry->SetLabelSize(0.11);
-            ry->SetTitleOffset(0.50);
-
-            ry->SetNdivisions(505);
-
-            h_ratio->SetMinimum(0.0); 
-            h_ratio->SetMaximum(2.0);
-        }
-
-        // Draw a dashed reference line at Y = 1.0
-        double x_min_pad2 = rx ? rx->GetXmin() : 0;
-        double x_max_pad2 = rx ? rx->GetXmax() : 100;
-        Objects::line(pad2, x_min_pad2, x_max_pad2, 1.0, 1.0, kGray+2, 2, 1);
-
-        double y_min_pad2 = 0.0;
-        double y_max_pad2 = 2.0;
-
-        Objects::line(pad2, TOT_ROI_MAX, TOT_ROI_MAX, y_min_pad2, y_max_pad2, kBlack, 9, 1);
-        Objects::hatchedRegion(pad2, TOT_ROI_MAX, x_max_pad2, y_min_pad2, y_max_pad2, 3244);
-
-        pad2->Modified();
-        pad2->Update();
-
-        canvas->cd();
-        canvas->Modified();
-        canvas->Update();
-    }
-
-    void styleToTCombLayersDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
-        auto stack = dynamic_cast<THStack*>(obj);
-        auto [title, x_label, y_label, compiled_legend_entries] = compilePlotLabels(obj->GetTitle(), stack);
-
-        if (!stack) return;
-
-        TList* hist_list = stack->GetHists();
-        if (!hist_list || hist_list->GetSize() < 3) return;
-
-        // Pad setup
-        canvas->SetWindowSize(800, 840);
-        canvas->SetCanvasSize(800, 840);
-
-        canvas->cd();
-
-        TPad* pad1 = new TPad("pad1", "pad1", 0.0, 0.30, 1.0, 1.0);
-        pad1->SetLeftMargin(0.16);
-        pad1->SetRightMargin(0.05);
-        pad1->SetTopMargin(0.07);
-        pad1->SetBottomMargin(0.03);
-        pad1->Draw();
-
-        TPad* pad2 = new TPad("pad2", "pad2", 0.0, 0.0, 1.0, 0.30);
-        pad2->SetLeftMargin(0.16);
-        pad2->SetRightMargin(0.05);
-        pad2->SetTopMargin(0.05);
-        pad2->SetBottomMargin(0.35);
-        pad2->SetTicks(1, 1);
-        pad2->Draw();
-
-        // Setup individual histograms
-        const std::vector<Color_t> palette = { kAzure + 2, kGreen + 2, kOrange + 10 };
-
-        std::vector<std::pair<double, Color_t>> mean_line_data;
-        std::vector<TH1*> histograms;
-
-        TIter next(hist_list);
-        TH1* hist = nullptr;
-        int index = 0;
-
-        while ((hist = static_cast<TH1*>(next()))) {
-            Color_t base_color = palette[index];
-
-            mean_line_data.push_back({hist->GetMean(), base_color});
-
-            hist->SetLineColor(base_color);
-            hist->SetLineWidth(2);
-            hist->SetLineStyle(1);
-            hist->SetFillStyle(0);
-
-            histograms.push_back(hist);
-            index++;
-        }
-
-        // Draw Top Pad
-        pad1->cd();
-        applyATLASStyle(obj, pad1);
-        stack->Draw("nostack hist");
-
-        // Remove X-axis labels/titles from the top plot
-        if (stack->GetXaxis()) {
-            stack->GetXaxis()->SetLabelSize(0);
-            stack->GetXaxis()->SetTitleSize(0);
-        }
-        if (stack->GetYaxis()) {
-            stack->GetYaxis()->SetTitle("Hits");
-            stack->GetYaxis()->SetTitleSize(0.06);
-            stack->GetYaxis()->SetLabelSize(0.05);
-            stack->GetYaxis()->SetTitleOffset(1.2);
-        }
-
-        pad1->Modified();
-        pad1->Update();
-
-        double x_max = pad1->GetUxmax();
-        double y_min = pad1->GetUymin();
-        double y_max = pad1->GetUymax();
-
-        Objects::line(pad1, TOT_ROI_MAX, TOT_ROI_MAX, y_min, y_max, kBlack, 9, 1);
-        Objects::hatchedRegion(pad1, TOT_ROI_MAX, x_max, y_min, y_max, 3244);
-
-        double x_ndc = (TOT_ROI_MAX - pad1->GetX1()) / (pad1->GetX2() - pad1->GetX1());
-        x_ndc += 0.015;
-        double y_ndc = 0.35;
-
-        TLatex* roi_text = new TLatex();
-        roi_text->SetNDC(true);
-        roi_text->SetTextAngle(90);
-        roi_text->SetTextAlign(23);
-        roi_text->SetTextFont(42);
-        roi_text->SetTextSize(0.035);
-        roi_text->SetTextColor(kBlack);
-        roi_text->DrawLatex(x_ndc, y_ndc, "Streamer/Afterpulse Region");
-
-        // Draw Vertical Mean Lines on Top Pad
         for (const auto& data : mean_line_data) {
             double mean_x = data.first;
             Color_t color = data.second;
@@ -2451,8 +2246,7 @@ namespace PlotStyler {
         pad1->Modified();
         pad1->Update();
 
-        // Draw legend
-        std::vector<std::string> legend_entries = {" Layer 0", " Layer 1", " Layer 2"};
+        std::vector<std::string> legend_entries = {" Side #eta_{1}", " Side #eta_{2}"};
         double legend_y = header ? header->GetY1NDC() - 0.05 : 0.70;
         double leg_width = 0.32;
         double leg_height = histograms.size() * 0.04;
@@ -2470,14 +2264,233 @@ namespace PlotStyler {
             double mean_val = h->GetMean();
             std::string label_with_mean = Form("%s (#mu = %.1f ns)", legend_entries[i].c_str(), mean_val);
 
+            leg->AddEntry(h, label_with_mean.c_str(), "f");
+        }
+        leg->Draw();
+
+        pad2->cd();
+
+        TH1* h_ratio = static_cast<TH1*>(h1->Clone("h_ratio"));
+        h_ratio->SetDirectory(nullptr);
+        h_ratio->Reset();
+        h_ratio->Divide(h1, h2, 1.0, 1.0, "B");
+
+        h_ratio->SetLineColor(kBlack);
+        h_ratio->SetMarkerColor(kBlack);
+        h_ratio->SetLineWidth(2);
+        h_ratio->SetMarkerStyle(20);
+        h_ratio->SetMarkerSize(0.8);
+        h_ratio->SetFillStyle(0);
+
+        h_ratio->Draw("ep"); 
+
+        TAxis* rx = h_ratio->GetXaxis();
+        TAxis* ry = h_ratio->GetYaxis();
+
+        if (rx) {
+            rx->SetRangeUser(0.0, global_percentile);
+            rx->SetTitle("ToT [ns]");
+            rx->SetTitleFont(42);
+            rx->SetTitleSize(0.14);  
+            rx->SetTitleOffset(1.0);
+            rx->SetLabelFont(42);
+            rx->SetLabelSize(0.11);
+            rx->SetNdivisions(505);
+            rx->SetTickLength(0.06);
+        }
+
+        if (ry) {
+            ry->SetTitle("#eta_{1} / #eta_{2}");
+            ry->SetTitleFont(42);
+            ry->SetLabelFont(42);
+            ry->SetTitleSize(0.14);
+            ry->SetLabelSize(0.11);
+            ry->SetTitleOffset(0.50);
+            ry->SetNdivisions(505);
+            h_ratio->SetMinimum(0.0); 
+            h_ratio->SetMaximum(2.0);
+        }
+
+        pad2->Modified();
+        pad2->Update();
+
+        double x_max_pad2 = pad2->GetUxmax();
+        double y_min_pad2 = pad2->GetUymin();
+        double y_max_pad2 = pad2->GetUymax();
+
+        Objects::line(pad2, 0.0, x_max_pad2, 1.0, 1.0, kGray+2, 2, 1);
+        if (x_max_pad2 > TOT_ROI_MAX + 1.0) {
+            Objects::line(pad2, TOT_ROI_MAX, TOT_ROI_MAX, y_min_pad2, y_max_pad2, kBlack, 9, 1);
+            Objects::hatchedRegion(pad2, TOT_ROI_MAX, x_max_pad2, y_min_pad2, y_max_pad2, 3244);
+        }
+
+        pad2->Modified();
+        pad2->Update();
+
+        canvas->cd();
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleToTCombLayersDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto stack = dynamic_cast<THStack*>(obj);
+
+        auto [title_lines, x_label, y_label, compiled_legend_entries] = compilePlotLabels(obj->GetTitle(), stack);
+
+        if (!stack) return;
+
+        TList* hist_list = stack->GetHists();
+        if (!hist_list || hist_list->GetSize() < 3) return;
+
+        canvas->SetWindowSize(800, 840);
+        canvas->SetCanvasSize(800, 840);
+        canvas->cd();
+
+        TPad* pad1 = new TPad("pad1", "pad1", 0.0, 0.30, 1.0, 1.0);
+        pad1->SetLeftMargin(0.16);
+        pad1->SetRightMargin(0.05);
+        pad1->SetTopMargin(0.07);
+        pad1->SetBottomMargin(0.03);
+        pad1->Draw();
+
+        TPad* pad2 = new TPad("pad2", "pad2", 0.0, 0.0, 1.0, 0.30);
+        pad2->SetLeftMargin(0.16);
+        pad2->SetRightMargin(0.05);
+        pad2->SetTopMargin(0.05);
+        pad2->SetBottomMargin(0.35);
+        pad2->SetTicks(1, 1);
+        pad2->Draw();
+
+        const std::vector<Color_t> palette = { kAzure + 2, kGreen + 2, kOrange + 10 };
+
+        std::vector<std::pair<double, Color_t>> mean_line_data;
+        std::vector<TH1*> histograms;
+
+        TIter next(hist_list);
+        TH1* hist = nullptr;
+        int index = 0;
+
+        double global_percentile = 0.0;
+        double percentile = 0.99;
+
+        while ((hist = static_cast<TH1*>(next()))) {
+            Color_t base_color = palette[index];
+
+            mean_line_data.push_back({hist->GetMean(), base_color});
+
+            hist->SetLineColor(base_color);
+            hist->SetLineWidth(2);
+            hist->SetLineStyle(1);
+            hist->SetFillStyle(0);
+
+            // Calculate percentile for this histogram
+            if (hist->GetEffectiveEntries() > 0) {
+                double q[1];
+                double prob[1] = {percentile};
+                hist->GetQuantiles(1, q, prob);
+                if (q[0] > global_percentile) {
+                    global_percentile = q[0];
+                }
+            }
+
+            histograms.push_back(hist);
+            index++;
+        }
+
+        pad1->cd();
+        applyATLASStyle(obj, pad1);
+        stack->Draw("nostack hist");
+
+        if (stack->GetXaxis()) {
+            stack->GetXaxis()->SetRangeUser(0.0, global_percentile);
+
+            stack->GetXaxis()->SetLabelSize(0);
+            stack->GetXaxis()->SetTitleSize(0);
+        }
+        if (stack->GetYaxis()) {
+            stack->GetYaxis()->SetTitle("Hits");
+            stack->GetYaxis()->SetTitleSize(0.06);
+            stack->GetYaxis()->SetLabelSize(0.05);
+            stack->GetYaxis()->SetTitleOffset(1.2);
+        }
+
+        pad1->Modified();
+        pad1->Update();
+
+        double x_max = pad1->GetUxmax();
+        double y_min = pad1->GetUymin();
+        double y_max = pad1->GetUymax();
+
+        if (x_max > TOT_ROI_MAX + 1.0) {
+            Objects::line(pad1, TOT_ROI_MAX, TOT_ROI_MAX, y_min, y_max, kBlack, 9, 1);
+            Objects::hatchedRegion(pad1, TOT_ROI_MAX, x_max, y_min, y_max, 3244);
+
+            double x_ndc = (TOT_ROI_MAX - pad1->GetX1()) / (pad1->GetX2() - pad1->GetX1());
+            x_ndc += 0.015;
+            double y_ndc = 0.35;
+
+            TLatex* roi_text = new TLatex();
+            roi_text->SetNDC(true);
+            roi_text->SetTextAngle(90);
+            roi_text->SetTextAlign(23);
+            roi_text->SetTextFont(42);
+            roi_text->SetTextSize(0.035);
+            roi_text->SetTextColor(kBlack);
+            roi_text->DrawLatex(x_ndc, y_ndc, "Streamer/Afterpulse Region");
+        }
+
+        for (const auto& data : mean_line_data) {
+            double mean_x = data.first;
+            Color_t color = data.second;
+
+            TLine* mean_line = new TLine(mean_x, y_min, mean_x, y_max);
+            mean_line->SetLineColor(color);
+            mean_line->SetLineWidth(2);
+            mean_line->SetLineStyle(11);
+            mean_line->Draw();
+        }
+
+        double ndc_x0 = 1.0 - pad1->GetRightMargin();
+        double ndc_y0 = 1.0 - pad1->GetTopMargin();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 - 0.05,
+            ndc_y0 - 0.09,
+            "Work in Progress",
+            plot_title,
+            32,
+            kWhite, 0.70f,
+            kWhite, 0,
+            0.01
+        );
+
+        pad1->Modified();
+        pad1->Update();
+
+        std::vector<std::string> legend_entries = {" Layer 0", " Layer 1", " Layer 2"};
+        double legend_y = header ? header->GetY1NDC() - 0.10 : 0.70;
+        double leg_width = 0.32;
+        double leg_height = histograms.size() * 0.04;
+
+        TLegend* leg = new TLegend(ndc_x0 - 0.05 - leg_width, legend_y - leg_height, ndc_x0 - 0.05, legend_y);
+        leg->SetBorderSize(0);
+        leg->SetLineColor(kWhite);
+        leg->SetFillStyle(1001);
+        leg->SetFillColorAlpha(kWhite, 0.5);
+        leg->SetTextFont(42);
+        leg->SetTextSize(0.04);
+
+        for (size_t i = 0; i < histograms.size() && i < legend_entries.size(); ++i) {
+            TH1* h = histograms[i];
+            double mean_val = h->GetMean();
+            std::string label_with_mean = Form("%s (#mu = %.1f ns)", legend_entries[i].c_str(), mean_val);
             leg->AddEntry(h, label_with_mean.c_str(), "l");
         }
         leg->Draw();
 
-        // Calculate & Draw Bottom Pad
         pad2->cd();
 
-        // Create a sum of all three layers for the ratio denominator
         TH1* h_sum = static_cast<TH1*>(histograms[0]->Clone("h_sum"));
         h_sum->SetDirectory(nullptr);
         h_sum->Add(histograms[1]);
@@ -2507,6 +2520,7 @@ namespace PlotStyler {
         TAxis* ry = ratios[0]->GetYaxis();
 
         if (rx) {
+            rx->SetRangeUser(0.0, global_percentile);
             rx->SetTitle("ToT [ns]");
             rx->SetTitleFont(42);
             rx->SetTitleSize(0.14);
@@ -2527,22 +2541,25 @@ namespace PlotStyler {
             ry->SetNdivisions(505);
 
             ratios[0]->SetMinimum(0.0);
-            ratios[0]->SetMaximum(0.7);
+            ratios[0]->SetMaximum(0.75);
         }
 
         ratios[1]->Draw("ep same");
         ratios[2]->Draw("ep same");
 
-        // Draw a dashed reference line
-        double x_min_pad2 = rx ? rx->GetXmin() : 0;
-        double x_max_pad2 = rx ? rx->GetXmax() : 100;
-        Objects::line(pad2, x_min_pad2, x_max_pad2, 1.0/3.0, 1.0/3.0, kGray+2, 2, 1);
+        pad2->Modified();
+        pad2->Update();
 
-        double y_min_pad2 = 0.0;
-        double y_max_pad2 = 0.7;
+        double x_max_pad2 = pad2->GetUxmax();
+        double y_min_pad2 = pad2->GetUymin();
+        double y_max_pad2 = pad2->GetUymax();
 
-        Objects::line(pad2, TOT_ROI_MAX, TOT_ROI_MAX, y_min_pad2, y_max_pad2, kBlack, 9, 1);
-        Objects::hatchedRegion(pad2, TOT_ROI_MAX, x_max_pad2, y_min_pad2, y_max_pad2, 3244);
+        Objects::line(pad2, 0.0, x_max_pad2, 1.0/3.0, 1.0/3.0, kGray+2, 2, 1);
+
+        if (x_max_pad2 > TOT_ROI_MAX + 1.0) {
+            Objects::line(pad2, TOT_ROI_MAX, TOT_ROI_MAX, y_min_pad2, y_max_pad2, kBlack, 9, 1);
+            Objects::hatchedRegion(pad2, TOT_ROI_MAX, x_max_pad2, y_min_pad2, y_max_pad2, 3244);
+        }
 
         pad2->Modified();
         pad2->Update();

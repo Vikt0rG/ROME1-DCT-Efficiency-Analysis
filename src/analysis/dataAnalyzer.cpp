@@ -427,9 +427,14 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
         "Beam Spot Region", "Beam Spot Region"
     };
 
-    const int nBins = 25;
-    const float xMin = 0.0;
-    const float xMax = 25.0;
+    // Allocate a large upper bound for the initial creation
+    int max_expected_ticks = 150;
+    const int nBins = max_expected_ticks;
+
+    // Shift bins by half a tick so discrete values align with the bin centers
+    const double xMin = -0.5 * TIME_TICK_NS;
+    const double xMax = (max_expected_ticks - 0.5) * TIME_TICK_NS;
+
     std::map<std::string, std::map<int, TH1*>> strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
@@ -468,6 +473,29 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
             // Beam spot region
             if ((*raw_time1)[i] != 0 && in_beam) strip_histograms["tot_eta1_beam"][layer]->Fill(tot1_ns);
             if ((*raw_time2)[i] != 0 && in_beam) strip_histograms["tot_eta2_beam"][layer]->Fill(tot2_ns);
+        }
+    }
+
+    double global_percentile = 0.0;
+    double percentile = 0.99;
+
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            TH1* h = strip_histograms[categories[c]][layer];
+            if (h->GetEffectiveEntries() > 0) {
+                double q[1];
+                double prob[1] = {percentile};
+                h->GetQuantiles(1, q, prob);
+                if (q[0] > global_percentile) {
+                    global_percentile = q[0];
+                }
+            }
+        }
+    }
+
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            strip_histograms[categories[c]][layer]->GetXaxis()->SetRangeUser(0.0, global_percentile);
         }
     }
 
