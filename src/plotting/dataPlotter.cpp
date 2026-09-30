@@ -390,6 +390,7 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
         double oth_hv = *other_hv;
 
         auto& current_scan = result[grp_name];
+        current_scan.scanned_layer = scan_lyr;
 
         // Extract Scalar Metrics (0D)
         for (size_t i{0}; i < scalar_metrics.size(); ++i) {
@@ -505,9 +506,19 @@ void DataPlotter::plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& sca
     if (!tof_dir) return;
     tof_dir->cd();
 
+    int scanned_layer = scan_data.scanned_layer;
+
     // Build 1D Graphs (Avg ToF & Time Resolution)
     for (const auto& [metric_name, series] : scan_data.global_metrics) {
         if (series.x.empty()) continue;
+
+        bool is_scanned_layer = true;
+        if (scanned_layer >= 0 && scanned_layer < LAYER_COUNT) {
+            if (metric_name.find("_0_1_") != std::string::npos && scanned_layer == 2) is_scanned_layer = false;
+            if (metric_name.find("_0_2_") != std::string::npos && scanned_layer == 1) is_scanned_layer = false;
+            if (metric_name.find("_1_2_") != std::string::npos && scanned_layer == 0) is_scanned_layer = false;
+        }
+        if (!is_scanned_layer) continue;
 
         TGraphAsymmErrors* graph = new TGraphAsymmErrors(
             series.x.size(), series.x.data(), series.y.data(),
@@ -525,14 +536,27 @@ void DataPlotter::plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& sca
     }
 
     // Build 2D Heatmaps (Raw ToF vs HV)
-    for (const auto& [eta_side, hv_data_map] : scan_data.raw_tof_data) {
+    for (const auto& [metric_name, hv_data_map] : scan_data.raw_tof_data) {
         if (hv_data_map.empty()) continue;
 
-        std::string hist_name = "h2d_" + eta_side;
-        std::string hist_title = eta_side + ";High Voltage [V];Time of Flight [Ticks];Entries";
+        bool is_scanned_layer = true;
+        if (scanned_layer >= 0 && scanned_layer < LAYER_COUNT) {
+            if (metric_name.find("_0_1_") != std::string::npos && scanned_layer == 2) is_scanned_layer = false;
+            if (metric_name.find("_0_2_") != std::string::npos && scanned_layer == 1) is_scanned_layer = false;
+            if (metric_name.find("_1_2_") != std::string::npos && scanned_layer == 0) is_scanned_layer = false;
+        }
+        if (!is_scanned_layer) continue;
+
+        std::string hist_name = "h2d_" + metric_name;
+        std::string hist_title = metric_name + ";High Voltage [V];Time of Flight [Ticks];Entries";
+
+        double x_max = hv_data_map.rbegin()->first;
+        double x_min = 4500.0;
+        int n_bins_x = std::max(1, static_cast<int>(std::ceil((x_max - x_min) / 100.0)));
+        x_max = x_min + (n_bins_x * 100.0);
 
         TH2D* heatmap = new TH2D(hist_name.c_str(), hist_title.c_str(), 
-                                 15, 4500, 6000,
+                                 n_bins_x, x_min, x_max,
                                  14, -7, 7);
 
         for (const auto& [hv, tof_vector] : hv_data_map) {
@@ -598,8 +622,11 @@ void fitEfficiency(TGraphAsymmErrors* graph, const std::string& graph_name, TDir
 }
 
 void DataPlotter::plotLayerMetrics(
-    TDirectory* scan_dir, const std::map<std::string, LayerSeries>& layer_metrics) {
+    TDirectory* scan_dir, const MetricsData& scan_data) {
     if (!scan_dir) return;
+
+    const auto& layer_metrics = scan_data.layer_metrics;
+    int scanned_layer = scan_data.scanned_layer;
 
     // Grab the pre-created subdirectories
     TDirectory* eff_dir  = scan_dir->GetDirectory("efficiency_analysis");
@@ -609,7 +636,6 @@ void DataPlotter::plotLayerMetrics(
 
     for (const auto& [metric_name, series] : layer_metrics) {
 
-        // Route to the correct directory based on the metric name
         TDirectory* metric_dir = scan_dir; // default fallback
         bool is_eff_metric = false;
 
@@ -631,7 +657,9 @@ void DataPlotter::plotLayerMetrics(
         for (int layer = 0; layer < LAYER_COUNT; ++layer) {
             if (series.x[layer].empty()) continue;
 
-            bool is_scanned_layer = true;
+            // Bulletproof authoritative check for the scanned layer
+            bool is_scanned_layer = (scanned_layer == layer || scanned_layer >= LAYER_COUNT || scanned_layer < 0);
+            if (!is_scanned_layer) continue;
 
             // Local vector copies to safely inject the zero-efficiency point
             std::vector<double> x_vals = series.x[layer];
@@ -640,7 +668,6 @@ void DataPlotter::plotLayerMetrics(
             std::vector<double> y_err_high = series.y_errors_high[layer];
 
             if (is_eff_metric) {
-                // Filter out all points strictly below 4600V
                 for (size_t i = 0; i < x_vals.size(); ) {
                     if (x_vals[i] < 4600.0) {
                         x_vals.erase(x_vals.begin() + i);
@@ -654,13 +681,8 @@ void DataPlotter::plotLayerMetrics(
 
                 if (x_vals.empty()) continue;
 
-                // Determine if it is a scanned layer based on the filtered real data
-                if (x_vals.front() == x_vals.back()) {
-                    is_scanned_layer = false;
-                }
-
                 // Inject dummy zero-efficiency point at 4600V if missing
-                if (is_scanned_layer && x_vals.front() > 4600.0) {
+                if (x_vals.front() > 4600.0) {
                     x_vals.insert(x_vals.begin(), 4600.0);
                     y_vals.insert(y_vals.begin(), 0.0);
                     y_err_low.insert(y_err_low.begin(), 0.0);
@@ -673,7 +695,6 @@ void DataPlotter::plotLayerMetrics(
                 nullptr, nullptr, y_err_low.data(), y_err_high.data()
             );
 
-            // Here set a beautiful identifier for the graph to be used as a label in the legend
             std::string graph_name = Form("%s_layer%d", metric_name.c_str(), layer);
             layer_graph->SetName(graph_name.c_str());
             layer_graph->SetTitle(Form("Layer %d", layer));
@@ -682,27 +703,26 @@ void DataPlotter::plotLayerMetrics(
             layer_graph->SetLineColor(1 + layer);
             multi_graph->Add(layer_graph, "P");
 
-            // Save individual layer graphs in subfolders
             std::string layer_folder = "layer" + std::to_string(layer);
             if (TDirectory* l_dir = PathUtils::ensureDirectory(metric_dir, layer_folder.c_str())) {
                 l_dir->cd();
-                if (is_eff_metric && is_scanned_layer) fitEfficiency(layer_graph, graph_name, l_dir);
+                if (is_eff_metric) fitEfficiency(layer_graph, graph_name, l_dir);
                 layer_graph->Write("", TObject::kOverwrite);
             }
         }
 
-        // Save the combined multigraph
         metric_dir->cd();
         multi_graph->Write("", TObject::kOverwrite);
         delete multi_graph;
     }
 }
 
-void DataPlotter::plotStripMetrics(
-    TDirectory* scan_dir, const std::map<std::string, std::map<int,
-    std::map<int, StripSeries>>>& strip_metrics) {
+void DataPlotter::plotStripMetrics(TDirectory* scan_dir, const MetricsData& scan_data) {
 
     if (!scan_dir) return;
+
+    int scanned_layer = scan_data.scanned_layer;
+    const auto& strip_metrics = scan_data.strip_metrics;
 
     TDirectory* nois_dir = scan_dir->GetDirectory("rate_strips_analysis");
     TDirectory* tot_dir = scan_dir->GetDirectory("tot_strips_analysis");
@@ -712,17 +732,36 @@ void DataPlotter::plotStripMetrics(
     for (const auto& [metric_name, layer_map] : strip_metrics) {
 
         TDirectory* metric_dir = scan_dir;
+        bool is_tof_metric = false;
+
         if (metric_name.find("rate_strips_eta") != std::string::npos) metric_dir = nois_dir;
         else if (metric_name.find("tot") != std::string::npos) metric_dir = tot_dir;
         else if (metric_name.find("multiplicity") != std::string::npos) metric_dir = mult_dir;
-        else if (metric_name.find("time_resolution") != std::string::npos) metric_dir = tof_dir;
+        else if (metric_name.find("time_resolution") != std::string::npos) {
+            metric_dir = tof_dir;
+            is_tof_metric = true;
+        }
 
         if (!metric_dir) continue;
 
         for (const auto& [layer_idx, strip_map] : layer_map) {
 
+            // Filter out non-scanned layers/pairs entirely
+            bool is_scanned = (scanned_layer >= LAYER_COUNT || scanned_layer < 0);
+            if (!is_scanned) {
+                if (!is_tof_metric) {
+                    is_scanned = (scanned_layer == layer_idx);
+                } else {
+                    if (scanned_layer == 0 && (layer_idx == 0 || layer_idx == 1)) is_scanned = true;
+                    if (scanned_layer == 1 && (layer_idx == 0 || layer_idx == 2)) is_scanned = true;
+                    if (scanned_layer == 2 && (layer_idx == 1 || layer_idx == 2)) is_scanned = true;
+                }
+            }
+
+            if (!is_scanned) continue;
+
             std::string layer_folder = "layer" + std::to_string(layer_idx);
-            if (metric_name.find("time_resolution") != std::string::npos) {
+            if (is_tof_metric) {
                 if (layer_idx == 0) layer_folder = "layer_0_1";
                 else if (layer_idx == 1) layer_folder = "layer_0_2";
                 else if (layer_idx == 2) layer_folder = "layer_1_2";
@@ -853,8 +892,8 @@ void DataPlotter::cumulativeAnalysisRootFile() {
             TDirectory* scan_dir = setupScanDirectories(config_dir, group_name);
 
             plotGlobalMetrics(scan_dir, scan_data);
-            plotLayerMetrics(scan_dir, scan_data.layer_metrics);
-            plotStripMetrics(scan_dir, scan_data.strip_metrics);
+            plotLayerMetrics(scan_dir, scan_data);
+            plotStripMetrics(scan_dir, scan_data);
         }
 
         // Extract and plot cross-group fits for efficiency metrics

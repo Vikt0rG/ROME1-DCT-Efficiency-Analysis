@@ -360,6 +360,8 @@ struct StripSeries {
 };
 
 struct MetricsData {
+    int scanned_layer = -1;
+
     std::map<std::string, GlobalSeries> global_metrics;
     std::map<std::string, LayerSeries> layer_metrics;
     std::map<std::string, std::map<int, std::map<int, StripSeries>>> strip_metrics;

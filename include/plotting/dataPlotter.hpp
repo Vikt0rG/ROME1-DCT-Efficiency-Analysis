@@ -54,8 +54,8 @@ public:
     std::map<std::string, std::vector<FitResult>> extractCrossGroupFits(TDirectory* base_dir);
 
     void plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& scan_data);
-    void plotLayerMetrics(TDirectory* scan_dir, const std::map<std::string, LayerSeries>& layer_metrics);
-    void plotStripMetrics(TDirectory* scan_dir, const std::map<std::string, std::map<int, std::map<int, StripSeries>>>& strip_metrics);
+    void plotLayerMetrics(TDirectory* scan_dir, const MetricsData& scan_data);
+    void plotStripMetrics(TDirectory* scan_dir, const MetricsData& scan_data);
     void plotCrossGroupFits(TDirectory* config_dir, const std::map<std::string, std::vector<FitResult>>& all_fits);
 
     void cumulativeAnalysisRootFile();
