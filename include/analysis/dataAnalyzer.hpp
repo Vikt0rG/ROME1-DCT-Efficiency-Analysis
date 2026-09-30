@@ -18,25 +18,31 @@ class TH2;
 /// for each measurement entry
 namespace perFileHelpers {
 
-    /// @brief Helper function to remap raw strip numbers to a continuous range for plotting
-    /// @param rawStrip The raw strip number to remap
-    /// @return The remapped strip number
-    int remapStrip(int rawStrip);
-
-    /// @struct ColumnsShift
-    /// @brief Struct to define the start and end of a column and the shift to apply
-    /// for remapping raw strip numbers to a continuous range for plotting
     struct ColumnsShift {
         int start;
         int end;
         int shift;
     };
 
-    /// @brief Constant array defining the column shifts for remapping raw strip numbers
-    /// to a continuous range for plotting
     constexpr std::array<ColumnsShift, 1> columnShifts = {{
         {16, 31, -8} // Shifting strips 16-31 down by 8 to create a continuous range of 0-23
     }};
+
+    inline int remapStrip(int rawStrip) {
+        for (const auto& col : columnShifts)
+            if (rawStrip >= col.start && rawStrip <= col.end)
+                return rawStrip + col.shift;
+        return rawStrip;
+    }
+
+    inline int extractPrimaryHV(const std::string& filepath) {
+        std::regex hv_re("HV_?(\\d+)");
+        std::smatch match;
+        if (std::regex_search(filepath, match, hv_re)) {
+            return std::stoi(match[1].str());
+        }
+        return -1;
+    }
 
     void plotStrip(TFile* input_file);
     void extractBeamSpotRoI(TH2* agg_hist, RoI& roi,

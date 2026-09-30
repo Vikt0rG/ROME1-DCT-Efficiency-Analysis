@@ -41,13 +41,6 @@
 // ==========================================================================================
 namespace perFileHelpers {
 
-int remapStrip(int rawStrip) {
-    for (const auto& col : columnShifts)
-        if (rawStrip >= col.start && rawStrip <= col.end)
-            return rawStrip + col.shift;
-    return rawStrip;
-}
-
 void plotStrip(TFile* input_file) {
     TDirectory* analysis_dir = input_file->GetDirectory("analysis");
     TDirectory* strip_dir = analysis_dir->GetDirectory("strip");
@@ -304,7 +297,10 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
 void plotCS(TFile* input_file) {
     TDirectory* analysis_dir = input_file->GetDirectory("analysis");
     TDirectory* cs_dir = analysis_dir->GetDirectory("cluster_size");
-    if (!analysis_dir || !cs_dir) std::cerr << "Error: Missing analysis or cluster size directory in input file." << std::endl;
+    if (!analysis_dir || !cs_dir) {
+        std::cerr << "Error: Missing analysis or cluster size directory in input file." << std::endl;
+        return;
+    }
     cs_dir->cd();
 
     TTree* cluster_tree = dynamic_cast<TTree*>(input_file->Get("Clusterization"));
@@ -312,6 +308,8 @@ void plotCS(TFile* input_file) {
         std::cerr << "Error: Invalid clusterization tree for analysis." << std::endl;
         return;
     }
+
+    int primary_hv = extractPrimaryHV(input_file->GetName());
 
     // Read processed data into vectors
     TTreeReader readerClusterData(cluster_tree);
@@ -324,13 +322,16 @@ void plotCS(TFile* input_file) {
 
     const int nConfigs = 2;
     const char* categories[nConfigs] = {"cs_eta1", "cs_eta2"};
+    const char* comments[nConfigs] = {"Side #eta_{1}", "Side #eta_{2}"};
 
     std::map<std::string, std::map<int, TH1*>> strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
-            auto* hist = new TH1F(Form("h1d_%s_layer%d", categories[c], layer),
-                                  Form("Cluster Size Layer %d;Cluster Size [Strips];Counts", layer),
-                                  6, 0.5, 6.5);
+            std::string hist_name = Form("h1d_%s_layer%d_hv_%d", categories[c], layer, primary_hv);
+            std::string hist_title = Form("Layer %d: %s (HV: %d V);Cluster Size [Strips];Counts",
+                                          layer, comments[c], primary_hv);
+
+            auto* hist = new TH1F(hist_name.c_str(), hist_title.c_str(), 6, 0.5, 6.5);
 
             strip_histograms[categories[c]][layer] = hist;
         }
