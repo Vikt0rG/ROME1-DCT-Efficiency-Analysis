@@ -133,7 +133,7 @@ namespace PlotStyler {
             static const std::regex single_layer_re("layer[ _]?(\\d+)");
             static const std::regex lv_re("lv[ _]?(\\d+)");
             static const std::regex source_re("(?:source|filter)[ _]?(\\d+[._]\\d+|OFF)");
-            static const std::regex mixture_re("mix(?:ture)?[ _]?(\\w+)");
+            static const std::regex mixture_re("mix(?:ture)?[ _]?([a-zA-Z0-9]+)");
 
             // A. Layer prefixes (e.g., "layer0" or "layer1")
             if (std::regex_search(clean_group, match, single_layer_re)) {
@@ -200,18 +200,25 @@ namespace PlotStyler {
 
         std::smatch match;
 
-        // A. Heatmap Prefix
+        // Heatmap Prefix
         if (metric_name.find("h2d_") == 0) {
             title_parts.push_back("Heatmap");
         }
 
-        // B. Layer Context
+        // Mixture Context
+        static const std::regex mixture_re("mix(?:ture)?[ _]?([a-zA-Z0-9]+)");
+        if (std::regex_search(metric_name, match, mixture_re)) {
+            std::string mixture = match[1].str();
+            title_parts.push_back(mixture + " Mixture");
+        }
+
+        // Layer Context
         static const std::regex single_layer_re("layer(\\d+)");
         if (std::regex_search(metric_name, match, single_layer_re)) {
             title_parts.push_back("Layer " + match[1].str());
         }
 
-        // C. Side Context
+        // Side Context
         static const std::regex side_re("eta1|eta2|_or_|_and_");
         if (std::regex_search(metric_name, match, side_re)) {
             std::string m = match.str(0);
@@ -221,7 +228,7 @@ namespace PlotStyler {
             else if (m == "_and_") title_parts.push_back("AND(#eta_{1}, #eta_{2})");
         }
 
-        // D. Layer Pair Context
+        // Layer Pair Context
         static const std::regex layer_pair_re("layer_(\\d)_(\\d)");
         if (std::regex_search(metric_name, match, layer_pair_re)) {
             std::string new_title = Form("#it{t}_{Layer %s} #minus #it{t}_{Layer %s}",
@@ -230,7 +237,7 @@ namespace PlotStyler {
             title_parts.push_back(new_title);
         }
 
-        // E. Track Reconstruction & Beam Context
+        // Track Reconstruction & Beam Context
         static const std::regex reco_re("^(beam_)?(track_)?(avg_tot|avg_multiplicity|eff)_");
         if (std::regex_search(metric_name, match, reco_re)) {
 
@@ -243,7 +250,7 @@ namespace PlotStyler {
             title_parts.push_back(match[2].matched ? "After Track Reco" : "Before Track Reco");
         }
 
-        // F. Trigger Context
+        // Trigger Context
         static const std::regex trigger_re("external|rpc");
         if (std::regex_search(metric_name, match, trigger_re)) {
             std::string m = match.str(0);
@@ -275,12 +282,16 @@ namespace PlotStyler {
 
                 if (auto gr = dynamic_cast<TGraph*>(obj)) {
                     std::string gr_name = gr->GetTitle();
-                    std::string layer = "", strip = "";
+                    std::string layer = "", strip = "", mixture = "";
 
+                    mixture = matchLabels(gr_name, "mix(?:ture)?[ _]?(\\w+)");
                     layer = matchLabels(gr_name, "layer(\\d+)");
                     strip = matchLabels(gr_name, "strip(\\d+)");
                     std::string legend_entry;
 
+                    if (!mixture.empty()) {
+                        legend_entry = mixture + " Mixture";
+                    }
                     if (!layer.empty()) {
                         legend_entry = "Layer " + layer;
                     }
