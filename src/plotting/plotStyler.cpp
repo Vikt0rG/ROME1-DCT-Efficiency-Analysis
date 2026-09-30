@@ -619,6 +619,41 @@ namespace PlotStyler {
         auto mg = dynamic_cast<TMultiGraph*>(obj);
         auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
 
+        // Extract side context for y-axis & remove it from the header block
+        std::string side_suffix = "";
+        std::vector<std::pair<std::string, std::string>> side_map = {
+            {"Side #eta_{1}", "#eta_{1}"},
+            {"Side #eta_{2}", "#eta_{2}"},
+            {"OR(#eta_{1}, #eta_{2})", "OR(#eta_{1}, #eta_{2})"},
+            {"AND(#eta_{1}, #eta_{2})", "AND(#eta_{1}, #eta_{2})"}
+        };
+
+        for (auto& line : title_lines) {
+            for (const auto& [search_str, suffix] : side_map) {
+                size_t pos = line.find(search_str);
+                if (pos != std::string::npos) {
+                    side_suffix = suffix;
+
+                    // Remove the substring from the title line
+                    line.erase(pos, search_str.length());
+
+                    // Clean up any dangling delimiters (": ") left over from the erasure
+                    while (line.find(":  :") != std::string::npos) line.replace(line.find(":  :"), 4, ": ");
+                    while (line.find(": :") != std::string::npos) line.replace(line.find(": :"), 3, ":");
+                    if (line.find(": ") == 0) line.erase(0, 2);
+                    if (line.length() >= 2 && line.substr(line.length() - 2) == ": ") line.erase(line.length() - 2);
+                    break;
+                }
+            }
+        }
+
+        title_lines.erase(std::remove(title_lines.begin(), title_lines.end(), ""), title_lines.end());
+
+        // Override the Y-axis label with the extracted context
+        if (!side_suffix.empty()) {
+            y_label = "Efficiency " + side_suffix;
+        }
+
         obj->Draw("APE0");
 
         // Set axis ranges and labels
