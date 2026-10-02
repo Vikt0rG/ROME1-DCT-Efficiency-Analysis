@@ -195,9 +195,9 @@ namespace PlotStyler {
         } else if (metric_name.find("multiplicity") != std::string::npos) {
             out_yaxis = "#LTMultiplicity#GT [Hits]";
         } else if (metric_name.find("time_resolution") != std::string::npos) {
-            out_yaxis = "Time Resolution [Ticks]";
+            out_yaxis = "Time Resolution [ns]";
         } else if (metric_name.find("time_of_flight") != std::string::npos) {
-            out_yaxis = metric_name.find("avg_") != std::string::npos ? "#LTToF#GT [Ticks]" : "Time of Flight [Ticks]";
+            out_yaxis = metric_name.find("avg_") != std::string::npos ? "#LTToF#GT [ns]" : "Time of Flight [ns]";
         } else if (metric_name.find("strip") != std::string::npos) {
             out_xaxis = "Strip Number"; out_yaxis = "Hits";
         } else {
@@ -1938,7 +1938,7 @@ namespace PlotStyler {
         double x_max = h1->GetXaxis()->GetXmax();
         double y_max = h1->GetMaximum() * 1.07;
 
-        TH1F* frame = canvas->DrawFrame(-11.0, 0.0, x_max, y_max);
+        TH1F* frame = canvas->DrawFrame(-9.0, 0.0, x_max, y_max);
         frame->SetTitle(h1->GetTitle());
         frame->GetXaxis()->SetTitle(h1->GetXaxis()->GetTitle());
         frame->GetYaxis()->SetTitle(h1->GetYaxis()->GetTitle());
@@ -2035,8 +2035,8 @@ namespace PlotStyler {
         fit_legend->SetTextSize(0.035);
 
         fit_legend->AddEntry(fit_band, "Gaussian Fit #pm 3#sigma Conf.", "fl");
-        fit_legend->AddEntry((TObject*)nullptr, Form("#mu = %.2f #pm %.2f", p1, ep1), "");
-        fit_legend->AddEntry((TObject*)nullptr, Form("#sigma = %.2f #pm %.2f", p2, ep2), "");
+        fit_legend->AddEntry((TObject*)nullptr, Form("#mu = %.3f #pm %.3f", p1, ep1), "");
+        fit_legend->AddEntry((TObject*)nullptr, Form("#sigma = %.3f #pm %.3f", p2, ep2), "");
 
         fit_legend->Draw();
 

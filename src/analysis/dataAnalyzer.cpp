@@ -1137,6 +1137,10 @@ void plotToFs(TFile* input_file) {
     std::array<TH1F*, LAYER_PAIR_COUNT> h_tof1;
     std::array<TH1F*, LAYER_PAIR_COUNT> h_tof2;
 
+    int n_bins = 13;
+    double x_min = -6.5 * TIME_TICK_NS;
+    double x_max =  6.5 * TIME_TICK_NS;
+
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
         std::string branch1 = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1";
         std::string branch2 = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta2";
@@ -1145,18 +1149,18 @@ void plotToFs(TFile* input_file) {
         tof2_readers[i] = std::make_unique<TTreeReaderValue<std::vector<int>>>(readerTrackData, branch2.c_str());
 
         h_tof1[i] = new TH1F(Form("h1d_tof_layer_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()),
-                             Form("Side #eta1: %s;ToF [Ticks];Entries", pair_labels[i].c_str()), 17, -8.5, 8.5);
+                             Form("Side #eta1: %s;ToF [ns];Entries", pair_labels[i].c_str()), n_bins, x_min, x_max);
         h_tof2[i] = new TH1F(Form("h1d_tof_layer_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()),
-                             Form("Side #eta2: %s;ToF [Ticks];Entries", pair_labels[i].c_str()), 17, -8.5, 8.5);
+                             Form("Side #eta2: %s;ToF [ns];Entries", pair_labels[i].c_str()), n_bins, x_min, x_max);
     }
 
     while (readerTrackData.Next()) {
         for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
             if (tof1_readers[i]->GetSetupStatus() == 0) {
-                for (int t : **tof1_readers[i]) h_tof1[i]->Fill(t);
+                for (int t : **tof1_readers[i]) h_tof1[i]->Fill(TimeUtils::ticksToTime(t));
             }
             if (tof2_readers[i]->GetSetupStatus() == 0) {
-                for (int t : **tof2_readers[i]) h_tof2[i]->Fill(t);
+                for (int t : **tof2_readers[i]) h_tof2[i]->Fill(TimeUtils::ticksToTime(t));
             }
         }
     }
@@ -1179,7 +1183,7 @@ void plotToFs(TFile* input_file) {
             double p_sigma = r1->Parameter(2);
 
             if (p_sigma > 0.0) {
-                double fit_width = std::max(1.5 * p_sigma, 2.0);
+                double fit_width = std::max(1.5 * p_sigma, 2.0 * TIME_TICK_NS);
 
                 TFitResultPtr r2 = hist->Fit("gaus", "QS", "", p_mean - fit_width, p_mean + fit_width);
 
@@ -1953,6 +1957,10 @@ void processToF(TFile* input_file, ToFResults& tof_results,
     std::array<std::array<TH1D*, STRIPS_PER_LAYER>, LAYER_PAIR_COUNT> h_tof_strip_eta1 = {};
     std::array<std::array<TH1D*, STRIPS_PER_LAYER>, LAYER_PAIR_COUNT> h_tof_strip_eta2 = {};
 
+    int n_bins = 13;
+    double x_min = -6.5 * TIME_TICK_NS;
+    double x_max =  6.5 * TIME_TICK_NS;
+
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
         std::string base = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i];
 
@@ -1966,14 +1974,14 @@ void processToF(TFile* input_file, ToFResults& tof_results,
         stripF2_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, (base + "_stripFirst_eta2").c_str()));
         stripS2_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, (base + "_stripSecond_eta2").c_str()));
 
-        // Initialize Global Histograms
-        h_tof1[i] = new TH1D(Form("h_tof1_%s", LAYER_PAIR_SUFFIXES[i].c_str()), Form("ToF Eta1 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), 13, -6.5, 6.5);
-        h_tof2[i] = new TH1D(Form("h_tof2_%s", LAYER_PAIR_SUFFIXES[i].c_str()), Form("ToF Eta2 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), 13, -6.5, 6.5);
+        // Initialize Global Histograms (Scaled to ns)
+        h_tof1[i] = new TH1D(Form("h_tof1_%s", LAYER_PAIR_SUFFIXES[i].c_str()), Form("ToF Eta1 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), n_bins, x_min, x_max);
+        h_tof2[i] = new TH1D(Form("h_tof2_%s", LAYER_PAIR_SUFFIXES[i].c_str()), Form("ToF Eta2 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), n_bins, x_min, x_max);
 
-        // Initialize Per-Strip Histograms
+        // Initialize Per-Strip Histograms (Scaled to ns)
         for (int s = 0; s < STRIPS_PER_LAYER; ++s) {
-            h_tof_strip_eta1[i][s] = new TH1D(Form("h_tof1_%s_s%d", LAYER_PAIR_SUFFIXES[i].c_str(), s), "ToF", 13, -6.5, 6.5);
-            h_tof_strip_eta2[i][s] = new TH1D(Form("h_tof2_%s_s%d", LAYER_PAIR_SUFFIXES[i].c_str(), s), "ToF", 13, -6.5, 6.5);
+            h_tof_strip_eta1[i][s] = new TH1D(Form("h_tof1_%s_s%d", LAYER_PAIR_SUFFIXES[i].c_str(), s), "ToF", n_bins, x_min, x_max);
+            h_tof_strip_eta2[i][s] = new TH1D(Form("h_tof2_%s_s%d", LAYER_PAIR_SUFFIXES[i].c_str(), s), "ToF", n_bins, x_min, x_max);
         }
     }
 
@@ -1990,16 +1998,16 @@ void processToF(TFile* input_file, ToFResults& tof_results,
                 const auto& sS = **stripS1_readers[i];
 
                 for (size_t k = 0; k < tofs.size(); ++k) {
-                    int t = tofs[k];
-                    h_tof1[i]->Fill(t); // Always fill global
-                    tof_results.time_of_flight_eta1[i].push_back(t);
+                    double t_ns = TimeUtils::ticksToTime(tofs[k]);
+
+                    h_tof1[i]->Fill(t_ns);
+                    tof_results.time_of_flight_eta1[i].push_back(t_ns);
 
                     int mapped_sF = perFileHelpers::remapStrip(sF[k]);
                     int mapped_sS = perFileHelpers::remapStrip(sS[k]);
 
-                    // Only fill strip histogram if the hit was perfectly orthogonal (strips match)
                     if (mapped_sF == mapped_sS && mapped_sF >= 0 && mapped_sF < STRIPS_PER_LAYER) {
-                        h_tof_strip_eta1[i][mapped_sF]->Fill(t);
+                        h_tof_strip_eta1[i][mapped_sF]->Fill(t_ns);
                     }
                 }
             }
@@ -2014,15 +2022,16 @@ void processToF(TFile* input_file, ToFResults& tof_results,
                 const auto& sS = **stripS2_readers[i];
 
                 for (size_t k = 0; k < tofs.size(); ++k) {
-                    int t = tofs[k];
-                    h_tof2[i]->Fill(t);
-                    tof_results.time_of_flight_eta2[i].push_back(t);
+                    double t_ns = TimeUtils::ticksToTime(tofs[k]);
+
+                    h_tof2[i]->Fill(t_ns);
+                    tof_results.time_of_flight_eta2[i].push_back(t_ns);
 
                     int mapped_sF = perFileHelpers::remapStrip(sF[k]);
                     int mapped_sS = perFileHelpers::remapStrip(sS[k]);
 
                     if (mapped_sF == mapped_sS && mapped_sF >= 0 && mapped_sF < STRIPS_PER_LAYER) {
-                        h_tof_strip_eta2[i][mapped_sF]->Fill(t);
+                        h_tof_strip_eta2[i][mapped_sF]->Fill(t_ns);
                     }
                 }
             }
@@ -2031,7 +2040,7 @@ void processToF(TFile* input_file, ToFResults& tof_results,
 
     // Reusable Lambda to perform the Two-Pass Gaussian Fit
     auto fitAndExtract = [](TH1D* hist, double& mean_out, ErrorRange& mean_err_out,
-                            double& res_out, ErrorRange& res_err_out) {
+                                   double& res_out, ErrorRange& res_err_out) {
 
         mean_out = std::numeric_limits<double>::quiet_NaN();
         mean_err_out = ErrorRange{std::numeric_limits<double>::quiet_NaN()};
@@ -2051,7 +2060,7 @@ void processToF(TFile* input_file, ToFResults& tof_results,
             if (p_sigma <= 0.0) return;
 
             // Pass 2: Core fit restricted to ignore tails
-            double fit_width = std::max(1.5 * p_sigma, 2.0);
+            double fit_width = std::max(1.5 * p_sigma, 2.0 * TIME_TICK_NS);
             TFitResultPtr r2 = hist->Fit("gaus", "Q0S", "", p_mean - fit_width, p_mean + fit_width);
 
             if (r2.Get() != nullptr && r2->IsValid() && static_cast<int>(r2) == 0) {
@@ -2064,9 +2073,7 @@ void processToF(TFile* input_file, ToFResults& tof_results,
                 mean_err_out = ErrorRange{r1->Error(1)};
             }
 
-            // Quantization (Sheppard's) Correction
-            const double TDC_TICK = 1.0;
-            const double TDC_VARIANCE = (TDC_TICK * TDC_TICK) / 12.0;
+            const double TDC_VARIANCE = (TIME_TICK_NS * TIME_TICK_NS) / 12.0;
 
             double raw_res_sq = (p_sigma * p_sigma) / 2.0;
             double intrinsic_res_sq = raw_res_sq - TDC_VARIANCE;
