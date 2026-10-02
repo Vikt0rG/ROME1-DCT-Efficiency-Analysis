@@ -548,16 +548,20 @@ void DataPlotter::plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& sca
         if (!is_scanned_layer) continue;
 
         std::string hist_name = "h2d_" + metric_name;
-        std::string hist_title = metric_name + ";High Voltage [V];Time of Flight [Ticks];Entries";
+        std::string hist_title = metric_name + ";High Voltage [V];Time of Flight [ns];Entries";
 
-        double x_max = hv_data_map.rbegin()->first;
         double x_min = 4500.0;
+        double x_max = hv_data_map.rbegin()->first;
         int n_bins_x = std::max(1, static_cast<int>(std::ceil((x_max - x_min) / 100.0)));
         x_max = x_min + (n_bins_x * 100.0);
 
+        double y_min = -6.5 * TIME_TICK_NS;
+        double y_max =  6.5 * TIME_TICK_NS;
+        int n_bins_y = 13;
+
         TH2D* heatmap = new TH2D(hist_name.c_str(), hist_title.c_str(), 
                                  n_bins_x, x_min, x_max,
-                                 14, -7, 7);
+                                 n_bins_y, y_min, y_max);
 
         for (const auto& [hv, tof_vector] : hv_data_map) {
             for (int tof : tof_vector) {
