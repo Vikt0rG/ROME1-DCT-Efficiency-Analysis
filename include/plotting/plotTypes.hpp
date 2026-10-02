@@ -34,7 +34,7 @@ namespace PlotterHelpers {
         AvgDelayStrip,
         AvgMultStrip,
         FracMultStrip,
-        Distribution1D,
+        DelayDistribution,
         Default = -1
     };
 

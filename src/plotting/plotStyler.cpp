@@ -61,10 +61,10 @@ namespace PlotStyler {
         {"avg_tot_layer_eta",       TMultiGraph::Class(),          PlotCategory::AvgToTLayerVsHV},
         {"avg_tot_strip_eta",       TMultiGraph::Class(),          PlotCategory::AvgToTStripVsHV},
         {"avg_multiplicity",        TMultiGraph::Class(),          PlotCategory::AvgMultVsHV},
-        {"h1d_mult",                TH1::Class(),                  PlotCategory::Distribution1D},
+        {"stack_delay",             THStack::Class(),              PlotCategory::DelayDistribution},
         {"stack_avg_mult",          THStack::Class(),              PlotCategory::AvgMultStrip},
         {"stack_frac_mult",         THStack::Class(),              PlotCategory::FracMultStrip},
-        {"h1d_delay",               TH1::Class(),                  PlotCategory::Distribution1D},
+        {"h1d_delay",               TH1::Class(),                  PlotCategory::DelayDistribution},
         {"stack_avg_delay",         THStack::Class(),              PlotCategory::AvgDelayStrip},
         {"summary_v50_eff",         TGraphErrors::Class(),         PlotCategory::Efficiency},
         {"summary_v50_track_eff",   TGraphErrors::Class(),         PlotCategory::Efficiency},
@@ -96,7 +96,7 @@ namespace PlotStyler {
         {PlotCategory::AvgMultStrip,                &styleAvgMultStrip},
         {PlotCategory::FracMultStrip,               &styleFracMultStrip},
         {PlotCategory::AvgDelayStrip,               &styleAvgDelayStrip},
-        {PlotCategory::Distribution1D,              &styleDistribution1D},
+        {PlotCategory::DelayDistribution,           &styleDelayDistribution},
         {PlotCategory::Default,                     &styleDefaultPlot}
     };
 
@@ -2575,38 +2575,95 @@ namespace PlotStyler {
         canvas->Update();
     }
 
-    void styleDistribution1D(TObject* obj, TCanvas* canvas, TClass* cl) {
-        auto h1 = dynamic_cast<TH1*>(obj);
-        if (!h1) return;
+    void styleDelayDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto stack = dynamic_cast<THStack*>(obj);
+        if (!stack) return;
 
-        std::string title = obj->GetTitle();
-        auto [plot_title, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), h1);
+        auto [title_lines, x_label, y_label, ignored_legend] = compilePlotLabels(obj->GetName(), stack);
 
-        h1->SetLineColor(kAzure + 2);
-        h1->SetLineWidth(2);
-        h1->SetFillColorAlpha(kAzure + 2, 0.3);
+        int idx = 0;
+        TIter next(stack->GetHists());
+        std::vector<TH1*> histograms;
+        std::vector<std::string> custom_legend;
+        TH1* hist = nullptr;
 
-        // Draw as a histogram
-        h1->Draw("HIST");
+        double percentile = 0.99;
+        double global_percentile = 0.0;
 
-        if (auto named_obj = dynamic_cast<TNamed*>(obj)) {
-            named_obj->SetTitle(title.c_str());
+        std::vector<Color_t> pastel_colors = {kAzure + 1, kOrange - 2, kRed + 2};
+
+        while ((hist = static_cast<TH1*>(next()))) {
+            Color_t color = pastel_colors[idx % pastel_colors.size()];
+
+            hist->SetLineColor(kBlack);
+            hist->SetLineWidth(2);
+            hist->SetLineStyle(1);
+
+            hist->SetFillColor(color);
+            hist->SetFillStyle(1001);
+
+            if (hist->GetEffectiveEntries() > 0) {
+                double q[1];
+                double prob[1] = {percentile};
+                hist->GetQuantiles(1, q, prob);
+                if (q[0] > global_percentile) {
+                    global_percentile = q[0];
+                }
+            }
+
+            custom_legend.push_back(hist->GetTitle());
+            idx++;
+            histograms.push_back(hist);
+        }
+
+        stack->Draw("HIST");
+
+        if (stack->GetXaxis()) {
+            double absolute_max = stack->GetXaxis()->GetXmax();
+            double dynamic_xMax = std::min(global_percentile + 2.0, absolute_max);
+
+            stack->GetXaxis()->SetRangeUser(0.0, dynamic_xMax);
+            stack->GetXaxis()->SetTitle(x_label.c_str());
+        }
+        if (stack->GetYaxis()) {
+            stack->GetYaxis()->SetTitle(y_label.c_str());
         }
 
         applyATLASStyle(obj, canvas);
-        enforceIntegerMinorTicks(h1->GetXaxis());
+        enforceIntegerMinorTicks(stack->GetXaxis());
         canvas->Modified();
         canvas->Update();
 
         double ndc_x0 = 1.0 - canvas->GetRightMargin();
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
-        drawATLASHeaderBlock(
+        TPaveText* header = drawATLASHeaderBlock(
             ndc_x0 - 0.03, ndc_y0 - 0.09,
-            "Work in Progress", title, 32,
+            "Work in Progress", title_lines, 32,
             kWhite, 0.00,
             kBlack, 0, 0.01
         );
+
+        canvas->Modified();
+        canvas->Update();
+
+        // Draw custom legend
+        double legend_y = header ? header->GetY1NDC() - 0.02 : 0.70;
+        double leg_width = 0.15;
+        double leg_height = custom_legend.size() * 0.04;
+
+        TLegend* leg = new TLegend(ndc_x0 - 0.03 - leg_width, legend_y - leg_height, ndc_x0 - 0.03, legend_y);
+        leg->SetBorderSize(0);
+        leg->SetLineColor(kWhite);
+        leg->SetFillStyle(1001);
+        leg->SetFillColorAlpha(kWhite, 0.5);
+        leg->SetTextFont(42);
+        leg->SetTextSize(0.04);
+
+        for (size_t i = 0; i < histograms.size() && i < custom_legend.size(); ++i) {
+            leg->AddEntry(histograms[i], custom_legend[i].c_str(), "f");
+        }
+        leg->Draw();
 
         canvas->RedrawAxis();
         canvas->Modified();

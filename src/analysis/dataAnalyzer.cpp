@@ -953,31 +953,35 @@ void plotDelay(TFile* input_file) {
         "Side #eta_{1}: After Track Reco", "Side #eta_{2}: After Track Reco"
     };
 
-    std::map<std::string, std::map<int, TH2F*>> h2d_delay;        // 2D Heatmap: Strip vs Delay vs Entries
-    std::map<std::string, std::map<int, TH1F*>> h1d_delay;        // 1D Distribution: Delay vs Entries
-    std::map<std::string, std::map<int, TProfile*>> prof_delay;   // 1D Profile: Strip vs Avg Delay
+    std::map<std::string, std::map<int, TH2F*>> h2d_delay;
+    std::map<std::string, std::map<int, std::vector<TH1F*>>> h1d_delay;
+    std::map<std::string, std::map<int, TProfile*>> prof_delay;
 
-    const int max_delay_ticks = 100;
+    const int max_delay_bins = 100;
+    double x_min = -0.5 * TIME_TICK_NS;
+    double x_max = (max_delay_bins - 0.5) * TIME_TICK_NS;
 
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
-            // 2D Heatmap
             h2d_delay[categories[c]][layer] = new TH2F(
                 Form("h2d_%s_layer%d", categories[c], layer),
-                Form("Layer %d: %s;Strip;Delay from First Hit [Ticks];Entries", layer, comments[c]),
-                24, 0, 24, max_delay_ticks, 0, max_delay_ticks);
+                Form("Layer %d: %s;Strip;Delay from First Hit [ns];Entries", layer, comments[c]),
+                24, 0, 24, max_delay_bins, x_min, x_max);
 
-            // Global 1D Distribution
-            h1d_delay[categories[c]][layer] = new TH1F(
-                Form("h1d_%s_layer%d", categories[c], layer),
-                Form("Layer %d: %s;Delay from First Hit [Ticks];Entries", layer, comments[c]),
-                max_delay_ticks, 0, max_delay_ticks);
-
-            // 1D Profile (Spatial Average)
             prof_delay[categories[c]][layer] = new TProfile(
                 Form("prof_avg_%s_layer%d", categories[c], layer),
                 Form("Layer %d: %s;Strip;#LTAverage Delay#GT [ns]", layer, comments[c]),
                 24, 0, 24);
+
+            // Create a 3-element vector of 1D Histograms for 2nd, 3rd, and 4th+ hits
+            for (int hit = 0; hit < 3; ++hit) {
+                std::string hit_label = (hit == 0) ? "2nd Hit" : (hit == 1) ? "3rd Hit" : "4th+ Hit";
+
+                h1d_delay[categories[c]][layer].push_back(new TH1F(
+                    Form("h1d_%s_layer%d_hit%d", categories[c], layer, hit + 2),
+                    hit_label.c_str(),
+                    max_delay_bins, x_min, x_max));
+            }
         }
     }
 
@@ -987,7 +991,7 @@ void plotDelay(TFile* input_file) {
         const size_t n_hits = std::min({strips->size(), layers->size(), rise->size(), time1->size(), time2->size()});
 
         for (size_t i = 0; i < n_hits; ++i) {
-            if ((*rise)[i] == 0) continue; // Skip falling edge hits
+            if ((*rise)[i] == 0) continue;
 
             int layer = (*layers)[i];
             if (layer < 0 || layer > 2) continue;
@@ -1005,27 +1009,63 @@ void plotDelay(TFile* input_file) {
             }
         }
 
-        // Calculate differences and fill histograms
         for (int c = 0; c < nConfigs; ++c) {
             for (int layer : {0, 1, 2}) {
-                for (const auto& [strip, delay_vec] : event_delays[c][layer]) {
+                for (const auto& [strip, delay_vec_raw] : event_delays[c][layer]) {
 
-                    if (delay_vec.size() > 1) {
-                        auto min_delay_it = std::min_element(delay_vec.begin(), delay_vec.end());
-                        int min_delay = *min_delay_it;
-                        size_t min_index = std::distance(delay_vec.begin(), min_delay_it);
+                    if (delay_vec_raw.size() > 1) {
+                        std::vector<int> sorted_delays = delay_vec_raw;
+                        std::sort(sorted_delays.begin(), sorted_delays.end());
 
-                        for (size_t i = 0; i < delay_vec.size(); ++i) {
-                            if (i == min_index) continue; // Skip the primary (first) hit
+                        int min_delay = sorted_delays[0];
 
-                            int dt = delay_vec[i] - min_delay;
+                        for (size_t i = 1; i < sorted_delays.size(); ++i) {
+                            double dt = TimeUtils::ticksToTime(sorted_delays[i] - min_delay);
 
                             h2d_delay[categories[c]][layer]->Fill(strip, dt);
-                            h1d_delay[categories[c]][layer]->Fill(dt);
                             prof_delay[categories[c]][layer]->Fill(strip, dt);
+
+                            int hit_idx = std::min(static_cast<int>(i) - 1, 2);
+                            h1d_delay[categories[c]][layer][hit_idx]->Fill(dt);
                         }
                     }
                 }
+            }
+        }
+    }
+
+    double percentile = 0.99;
+    double global_percentile = 0.0;
+
+    // Find the 99th percentile across all populated 1D histograms
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            for (int hit = 0; hit < 3; ++hit) {
+                TH1F* h = h1d_delay[categories[c]][layer][hit];
+                if (h->GetEffectiveEntries() > 0) {
+                    double q[1];
+                    double prob[1] = {percentile};
+                    h->GetQuantiles(1, q, prob);
+                    if (q[0] > global_percentile) {
+                        global_percentile = q[0];
+                    }
+                }
+            }
+        }
+    }
+
+    // Add visual buffer (2 ticks worth of ns) and clamp to absolute axis max
+    double dynamic_max = std::min(global_percentile + (2.0 * TIME_TICK_NS), x_max);
+
+    // Apply the limit to the raw plots before writing
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            // Apply to 2D Heatmap (Y-Axis)
+            h2d_delay[categories[c]][layer]->GetYaxis()->SetRangeUser(0.0, dynamic_max);
+
+            // Apply to 1D Distributions (X-Axis)
+            for (int hit = 0; hit < 3; ++hit) {
+                h1d_delay[categories[c]][layer][hit]->GetXaxis()->SetRangeUser(0.0, dynamic_max);
             }
         }
     }
@@ -1036,15 +1076,23 @@ void plotDelay(TFile* input_file) {
     int markers[3] = {20, 21, 22};
 
     for (int c = 0; c < nConfigs; ++c) {
-        // Create the THStack
-        THStack* stack_avg = new THStack(Form("stack_avg_%s", categories[c]), Form("%s;Strip;Average Delay [Ticks]", comments[c]));
+        THStack* stack_avg = new THStack(Form("stack_avg_%s", categories[c]), Form("%s;Strip;Average Delay [ns]", comments[c]));
 
         for (int layer : {0, 1, 2}) {
-            // Write individually
             h2d_delay[categories[c]][layer]->Write("", TObject::kOverwrite);
-            h1d_delay[categories[c]][layer]->Write("", TObject::kOverwrite);
 
-            // Style and add to stack
+            // Package the 1D Distributions into a THStack
+            THStack* stack_dist = new THStack(
+                Form("stack_%s_layer%d", categories[c], layer),
+                Form("Layer %d: %s;Delay from First Hit [ns];Entries", layer, comments[c])
+            );
+
+            for (int hit = 0; hit < 3; ++hit) {
+                stack_dist->Add(h1d_delay[categories[c]][layer][hit]);
+            }
+            stack_dist->Write("", TObject::kOverwrite);
+            delete stack_dist;
+
             prof_delay[categories[c]][layer]->SetLineColor(colors[layer]);
             prof_delay[categories[c]][layer]->SetMarkerColor(colors[layer]);
             prof_delay[categories[c]][layer]->SetMarkerStyle(markers[layer]);
@@ -1054,11 +1102,12 @@ void plotDelay(TFile* input_file) {
 
         stack_avg->Write("", TObject::kOverwrite);
 
-        // Cleanup
         delete stack_avg;
         for (int layer : {0, 1, 2}) {
             delete h2d_delay[categories[c]][layer];
-            delete h1d_delay[categories[c]][layer];
+            for (int hit = 0; hit < 3; ++hit) {
+                delete h1d_delay[categories[c]][layer][hit];
+            }
             delete prof_delay[categories[c]][layer];
         }
     }

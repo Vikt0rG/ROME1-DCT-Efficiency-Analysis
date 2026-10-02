@@ -54,7 +54,7 @@ namespace PlotStyler {
     void styleToTDistribution(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleToTCombSidesDistribution(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleToTCombLayersDistribution(TObject* obj, TCanvas* canvas, TClass* cl);
-    void styleDistribution1D(TObject* obj, TCanvas* canvas, TClass* cl);
+    void styleDelayDistribution(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleAvgMultStrip(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleFracMultStrip(TObject* obj, TCanvas* canvas, TClass* cl);
     void styleAvgDelayStrip(TObject* obj, TCanvas* canvas, TClass* cl);
