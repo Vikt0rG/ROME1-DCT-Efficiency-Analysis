@@ -506,46 +506,37 @@ void DataPlotter::plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& sca
     if (!tof_dir) return;
     tof_dir->cd();
 
-    int scanned_layer = scan_data.scanned_layer;
-
     // Build 1D Graphs (Avg ToF & Time Resolution)
     for (const auto& [metric_name, series] : scan_data.global_metrics) {
         if (series.x.empty()) continue;
 
-        bool is_scanned_layer = true;
-        if (scanned_layer >= 0 && scanned_layer < LAYER_COUNT) {
-            if (metric_name.find("_0_1_") != std::string::npos && scanned_layer == 2) is_scanned_layer = false;
-            if (metric_name.find("_0_2_") != std::string::npos && scanned_layer == 1) is_scanned_layer = false;
-            if (metric_name.find("_1_2_") != std::string::npos && scanned_layer == 0) is_scanned_layer = false;
-        }
-        if (!is_scanned_layer) continue;
-
-        TGraphAsymmErrors* graph = new TGraphAsymmErrors(
-            series.x.size(), series.x.data(), series.y.data(),
-            nullptr, nullptr, series.y_errors_low.data(), series.y_errors_high.data()
-        );
-
+        TGraphAsymmErrors* graph = new TGraphAsymmErrors();
         graph->SetName(metric_name.c_str());
         graph->SetTitle((metric_name + ";HV [V];Value").c_str());
         graph->SetMarkerStyle(20);
         graph->SetMarkerColor(kAzure + 2);
         graph->SetLineColor(kAzure + 2);
 
-        graph->Write("", TObject::kOverwrite);
+        // Filter out NaN values
+        int point_idx = 0;
+        for (size_t i = 0; i < series.x.size(); ++i) {
+            if (!std::isnan(series.y[i])) {
+                graph->SetPoint(point_idx, series.x[i], series.y[i]);
+                graph->SetPointError(point_idx, 0.0, 0.0,
+                                     series.y_errors_low[i], series.y_errors_high[i]);
+                point_idx++;
+            }
+        }
+
+        if (graph->GetN() > 0) {
+            graph->Write("", TObject::kOverwrite);
+        }
         delete graph;
     }
 
     // Build 2D Heatmaps (Raw ToF vs HV)
     for (const auto& [metric_name, hv_data_map] : scan_data.raw_tof_data) {
         if (hv_data_map.empty()) continue;
-
-        bool is_scanned_layer = true;
-        if (scanned_layer >= 0 && scanned_layer < LAYER_COUNT) {
-            if (metric_name.find("_0_1_") != std::string::npos && scanned_layer == 2) is_scanned_layer = false;
-            if (metric_name.find("_0_2_") != std::string::npos && scanned_layer == 1) is_scanned_layer = false;
-            if (metric_name.find("_1_2_") != std::string::npos && scanned_layer == 0) is_scanned_layer = false;
-        }
-        if (!is_scanned_layer) continue;
 
         std::string hist_name = "h2d_" + metric_name;
         std::string hist_title = metric_name + ";High Voltage [V];Time of Flight [ns];Entries";
