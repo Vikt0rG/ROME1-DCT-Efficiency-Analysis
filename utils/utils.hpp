@@ -29,7 +29,7 @@ inline int convertRawTimeToPhysical(int raw_time, int bcid) {
 /// @brief Convert time ticks to physical time in nanoseconds
 /// @param time_ticks The time in ticks to be converted
 /// @return The physical time in nanoseconds
-inline double ticksToTime(int& time_ticks) {
+inline double ticksToTime(int time_ticks) {
     return time_ticks * TIME_TICK_NS;
 }
 }
