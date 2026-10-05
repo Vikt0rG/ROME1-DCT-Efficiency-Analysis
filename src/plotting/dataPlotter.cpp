@@ -546,9 +546,9 @@ void DataPlotter::plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& sca
         int n_bins_x = std::max(1, static_cast<int>(std::ceil((x_max - x_min) / 100.0)));
         x_max = x_min + (n_bins_x * 100.0);
 
+        int n_bins_y = 13;
         double y_min = -6.5 * TIME_TICK_NS;
         double y_max =  6.5 * TIME_TICK_NS;
-        int n_bins_y = 13;
 
         TH2D* heatmap = new TH2D(hist_name.c_str(), hist_title.c_str(), 
                                  n_bins_x, x_min, x_max,
@@ -556,7 +556,7 @@ void DataPlotter::plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& sca
 
         for (const auto& [hv, tof_vector] : hv_data_map) {
             for (int tof : tof_vector) {
-                heatmap->Fill(hv, tof);
+                heatmap->Fill(hv, TimeUtils::ticksToTime(tof));
             }
         }
 

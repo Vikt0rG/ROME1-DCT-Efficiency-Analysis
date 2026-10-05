@@ -2001,7 +2001,7 @@ void processToF(TFile* input_file, ToFResults& tof_results,
                     double t_ns = TimeUtils::ticksToTime(tofs[k]);
 
                     h_tof1[i]->Fill(t_ns);
-                    tof_results.time_of_flight_eta1[i].push_back(t_ns);
+                    tof_results.time_of_flight_eta1[i].push_back(tofs[k]);
 
                     int mapped_sF = perFileHelpers::remapStrip(sF[k]);
                     int mapped_sS = perFileHelpers::remapStrip(sS[k]);
@@ -2025,7 +2025,7 @@ void processToF(TFile* input_file, ToFResults& tof_results,
                     double t_ns = TimeUtils::ticksToTime(tofs[k]);
 
                     h_tof2[i]->Fill(t_ns);
-                    tof_results.time_of_flight_eta2[i].push_back(t_ns);
+                    tof_results.time_of_flight_eta2[i].push_back(tofs[k]);
 
                     int mapped_sF = perFileHelpers::remapStrip(sF[k]);
                     int mapped_sS = perFileHelpers::remapStrip(sS[k]);
