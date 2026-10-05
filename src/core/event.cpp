@@ -560,6 +560,8 @@ void Event::updateEfficiencyFlags(const int dt_max, const int dt_min) {
             }
             if (within_time_window) {
                 _efficiency_flags.eta2_layer[hit.getLayer()] = true;
+            } else {
+                continue;
             }
 
             int track_id = hit.getTrackIDEta2();
