@@ -78,16 +78,16 @@ namespace PlotStyler {
     static const std::vector<std::pair<PlotCategory, StylerFnPtr>> styler_map = {
         {PlotCategory::Efficiency,                  &styleEfficiency},
         {PlotCategory::EfficiencyVsHV,              &styleEfficiencyVsHV},
-        {PlotCategory::MeanClusterSizeVsHV,         &styleAvgClusterSizeVsHV},
-        {PlotCategory::RateVsHV,                    &styleRateVsHV},
+        {PlotCategory::MeanClusterSizeVsHV,         &styleAvgClusterSizeVsEff},
+        {PlotCategory::RateVsHV,                    &styleRateVsEff},
         {PlotCategory::RateStripVsHV,               &styleRateStripVsHV},
         {PlotCategory::CSDistribution,              &styleCSDistribution},
         {PlotCategory::ToFDistribution,             &styleToFDistribution},
         {PlotCategory::ToFHeatmap,                  &styleToFHeatmap},
         {PlotCategory::AvgToFVsHV,                  &styleAvgToFVsHV},
-        {PlotCategory::TimeResolutionVsHV,          &styleAvgTRVsHV},
+        {PlotCategory::TimeResolutionVsHV,          &styleAvgTRVsEff},
         {PlotCategory::TimeResolutionStripVsHV,     &styleTRStripVsHV},
-        {PlotCategory::AvgToTLayerVsHV,             &styleAvgClusterSizeVsHV},
+        {PlotCategory::AvgToTLayerVsHV,             &styleAvgClusterSizeVsEff},
         {PlotCategory::AvgToTStripVsHV,             &styleAvgToTVsHV},
         {PlotCategory::AvgMultVsHV,                 &styleAvgMulVsHV},
         {PlotCategory::StripDistribution,           &styleStripDistribution},
@@ -1113,6 +1113,82 @@ namespace PlotStyler {
         canvas->Update();
     }
 
+    void styleAvgClusterSizeVsEff(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto mg = dynamic_cast<TMultiGraph*>(obj);
+        if (!mg) return;
+
+        convertMultiGraphToEfficiencyScale(mg);
+
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+
+        canvas->cd();
+        mg->Draw("AP0Z");
+
+        if (mg->GetHistogram()) {
+            if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
+                xAxis->SetLimits(50.0, 100.0);
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 50.0, .x_max = 100.0});
+                xAxis->SetTitle("Efficiency OR(#eta_{1}, #eta_{2}) [%]");
+            }
+            if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 50.0, .x_max = 100.0});
+                yAxis->SetTitle(y_label.c_str());
+            }
+        }
+
+        const std::vector<Color_t> palette = {
+            kAzure + 2, kGreen + 2, kOrange + 10, kMagenta + 2, kYellow - 3, kCyan - 4
+        };
+        if (mg->GetListOfGraphs()) {
+            TIter next(mg->GetListOfGraphs());
+            TObject* gr_obj;
+            int color_idx = 0;
+            while ((gr_obj = next())) {
+                if (auto gr = dynamic_cast<TGraph*>(gr_obj)) {
+                    Color_t color = palette[color_idx % palette.size()];
+
+                    gr->SetMarkerStyle(52);
+                    gr->SetMarkerSize(1.8);
+                    gr->SetMarkerColor(color);
+                    gr->SetLineColor(color);
+                    gr->SetLineWidth(1);
+
+                    color_idx++;
+                }
+            }
+        }
+
+        applyATLASStyle(obj, canvas);
+        canvas->SetTickx(1);
+        canvas->SetTicky(1);
+
+        canvas->Modified();
+        canvas->Update();
+
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 + 0.03,
+            ndc_y0 - 0.09,
+            "Work in Progress",
+            title_lines,
+            12,
+            kWhite, 0.70,
+            kBlack, 0,
+            0.01
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
+        drawATLASLegend(obj, legend_entries, ndc_x0 + 0.03, legend_y, 13);
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
     void styleRateVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
 
         // Extract title and axis labels from the object's title string
@@ -1141,6 +1217,80 @@ namespace PlotStyler {
             kMagenta + 2,
             kYellow - 3,
             kCyan - 4
+        };
+        if (mg && mg->GetListOfGraphs()) {
+            TIter next(mg->GetListOfGraphs());
+            TObject* gr_obj;
+            int color_idx = 0;
+            while ((gr_obj = next())) {
+                if (auto gr = dynamic_cast<TGraph*>(gr_obj)) {
+                    Color_t color = palette[color_idx % palette.size()];
+
+                    gr->SetMarkerStyle(52);
+                    gr->SetMarkerSize(1.8);
+                    gr->SetMarkerColor(color);
+                    gr->SetLineColor(color);
+                    gr->SetLineWidth(1);
+
+                    color_idx++;
+                }
+            }
+        }
+
+        applyATLASStyle(obj, canvas);
+
+        canvas->Modified();
+        canvas->Update();
+
+        double ndc_x0 = canvas->GetLeftMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 + 0.03,
+            ndc_y0 - 0.09,            // Coordinates for the header box
+            "Work in Progress",       // Status string
+            title_lines,              // Title string
+            12,                       // Alignment
+            kWhite, 0.70,             // semi-transparent white background
+            kBlack, 0,                // No border line
+            0.01                      // Inner padding
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
+        drawATLASLegend(obj, legend_entries, ndc_x0 + 0.03, legend_y, 13);
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleRateVsEff(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto mg = dynamic_cast<TMultiGraph*>(obj);
+        if (!mg) return;
+
+        convertMultiGraphToEfficiencyScale(mg);
+
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+
+        obj->Draw("AP0Z");
+
+        // Set axis ranges and labels
+        if (mg->GetHistogram()) {
+            if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 0.0, .x_max = 100.0});
+                xAxis->SetTitle(x_label.c_str());
+            }
+            if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 0.0, .x_max = 100.0});
+                yAxis->SetTitle(y_label.c_str());
+            }
+        }
+
+        // Set color and marker style for the graphs in the multigraph
+        const std::vector<Color_t> palette = {
+            kAzure + 2, kGreen + 2, kOrange + 10, kMagenta + 2, kYellow - 3, kCyan - 4
         };
         if (mg && mg->GetListOfGraphs()) {
             TIter next(mg->GetListOfGraphs());
@@ -1489,6 +1639,141 @@ namespace PlotStyler {
                             double var = (ep0 * ep0) + (x * x * ep1 * ep1) + (2.0 * x * cov01);
 
                             // Apply the 1-Sigma multiplier and the scatter scale
+                            double err = scatter_scale * std::sqrt(std::max(0.0, var));
+
+                            band->SetPoint(i, x, y);
+                            band->SetPointError(i, 0, err);
+                        }
+
+                        band->SetFillColorAlpha(color, 0.25);
+                        band->SetLineColor(color);
+                        band->SetLineWidth(1);
+                        band->Draw("E3");
+
+                        fit->SetLineColor(color);
+                        fit->SetLineStyle(2);
+                        fit->SetLineWidth(2);
+                        fit->Draw("SAME");
+                    }
+
+                    color_idx++;
+                }
+            }
+            mg->Draw("P0Z");
+        }
+
+        canvas->RedrawAxis();
+        canvas->Modified();
+        canvas->Update();
+
+        double ndc_x0 = 1.0 - canvas->GetRightMargin();
+        double ndc_y0 = 1.0 - canvas->GetTopMargin();
+
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 - 0.03,
+            ndc_y0 - 0.09,
+            "Work in Progress",
+            title_lines,
+            32,
+            kWhite, 0.70,
+            kBlack, 0,
+            0.01
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        double legend_y = header->GetY1NDC() - 0.02;
+        int alignment = 33;
+        drawATLASLegend(obj, legend_entries, ndc_x0, legend_y, alignment, "pef");
+
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleAvgTRVsEff(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto mg = dynamic_cast<TMultiGraph*>(obj);
+        if (!mg) return;
+
+        convertMultiGraphToEfficiencyScale(mg);
+
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+
+        canvas->cd();
+        mg->Draw("AP0Z");
+        canvas->Update();
+
+        double x_max_limit = 100.0; // The rightmost extrapolation boundary
+
+        if (TH1* frame = mg->GetHistogram()) {
+            if (TAxis* xAxis = frame->GetXaxis()) {
+                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 10.0, .x_max = 100.0});
+                xAxis->SetTitle("Efficiency OR(#eta_{1}, #eta_{2}) [%]");
+                x_max_limit = xAxis->GetXmax();
+            }
+            if (TAxis* yAxis = frame->GetYaxis()) {
+                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 10.0, .x_max = 100.0});
+                yAxis->SetTitle(y_label.c_str());
+            }
+        }
+
+        applyATLASStyle(obj, canvas);
+        canvas->SetTickx(1);
+        canvas->SetTicky(1);
+        canvas->cd();
+
+        const std::vector<Color_t> palette = {
+            kAzure + 2, kGreen + 2, kOrange + 10, kMagenta + 2, kYellow - 3, kCyan - 4
+        };
+
+        if (mg->GetListOfGraphs()) {
+            double fit_x_min = 10.0;
+
+            TIter next(mg->GetListOfGraphs());
+            TObject* gr_obj;
+            int color_idx = 0;
+
+            while ((gr_obj = next())) {
+                if (auto gr = dynamic_cast<TGraph*>(gr_obj)) {
+                    Color_t color = palette[color_idx % palette.size()];
+
+                    gr->SetMarkerStyle(52);
+                    gr->SetMarkerSize(1.8);
+                    gr->SetMarkerColor(color);
+                    gr->SetLineColor(color);
+                    gr->SetLineWidth(1);
+
+                    gr->SetFillColorAlpha(color, 0.25);
+                    gr->SetFillStyle(1001);
+
+                    double graph_max_x = TMath::MaxElement(gr->GetN(), gr->GetX());
+                    double fit_x_max = std::min(x_max_limit, graph_max_x);
+
+                    std::string fit_name = Form("fit_pol1_eff_%p_%d", (void*)gr, color_idx);
+                    TF1* fit = new TF1(fit_name.c_str(), "pol1", fit_x_min, x_max_limit);
+
+                    TFitResultPtr r = gr->Fit(fit, "Q0SR", "", fit_x_min, fit_x_max);
+
+                    if (static_cast<int>(r) == 0) {
+                        double p0 = r->Parameter(0);
+                        double p1 = r->Parameter(1);
+                        double ep0 = r->Error(0);
+                        double ep1 = r->Error(1);
+                        double cov01 = r->CovMatrix(0, 1);
+
+                        double chi2 = r->Chi2();
+                        double ndf = r->Ndf();
+                        double scatter_scale = (ndf > 0 && (chi2 / ndf) > 1.0) ? std::sqrt(chi2 / ndf) : 1.0;
+
+                        int n_points = 200;
+                        double step = (x_max_limit - fit_x_min) / n_points;
+                        TGraphErrors* band = new TGraphErrors(n_points);
+
+                        for (int i = 0; i < n_points; ++i) {
+                            double x = fit_x_min + i * step;
+                            double y = p0 + p1 * x;
+
+                            double var = (ep0 * ep0) + (x * x * ep1 * ep1) + (2.0 * x * cov01);
                             double err = scatter_scale * std::sqrt(std::max(0.0, var));
 
                             band->SetPoint(i, x, y);
