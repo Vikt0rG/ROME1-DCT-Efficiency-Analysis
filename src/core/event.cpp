@@ -427,85 +427,96 @@ void Event::calculateTOTCluster() {
 }
 
 // Track reconstruction from clusters
-void Event::reconstructTracks() {
-    // Side η1 track reconstruction logic
-    int track_id_counter_eta1 = 0;
+void Event::reconstructTracks(const int dt_max, const int dt_min) {
 
-    // Loop over η1 cluster centers and form tracks based on time and strip alignment across layers
-    for (Cluster& cluster : _clusters_eta1) {
+    // Helper lambda to check if a cluster center hit is within time/readout bounds
+    auto is_valid_time = [this, dt_min, dt_max](const Cluster& cluster) {
+        Hit* hit = cluster.getCenterHit();
+        if (!hit) return false;
+        if (hit->getChannel() == _trigger_channel) return false;
 
-        // Initialize a new track object if the cluster center is not already in a track
-        // NOTE: No checks for rising edge, non-trigger channel, valid time information as these are already ensured for cluster centers at the clusterization level
-        if (cluster.getCenterHit()->inTrackEta1()) continue;    // Skip if the cluster center is already in a track on eta1 side
-        // std::cout << "------------------------------------------------------------------" << std::endl;
-        // std::cout << "Processing track reconstruction for side η1: " << std::endl;
-        Track track(cluster.getCenterHit(), Track::ETA1);
-        track.setTrackID(track_id_counter_eta1);
-        cluster.getCenterHit()->setTrackIDEta1(track_id_counter_eta1);
-
-        // Loop over the remaining cluster centers to find track partners for the current cluster center
-        for (Cluster& potential_partner_cluster : _clusters_eta1) {
-            // Skip the same cluster
-            if (&potential_partner_cluster == &cluster) continue;
-
-            // Skip cluster centers from the same layer as the first cluster center
-            if (potential_partner_cluster.getCenterHit()->getLayer() == cluster.getCenterHit()->getLayer()) continue;
-
-            // Skip cluster centers that are already in a track
-            if (potential_partner_cluster.getCenterHit()->inTrackEta1()) continue;
-
-            // Check logic for track membership (strip window and time alignment)
-            if (track.addHit(potential_partner_cluster.getCenterHit())) potential_partner_cluster.getCenterHit()->setTrackIDEta1(track_id_counter_eta1);
+        int hit_time = -1;
+        if (cluster.getSide() == Cluster::ETA1 && hit->hasEta1Time()) {
+            hit_time = hit->getTimeEta1();
+        } else if (cluster.getSide() == Cluster::ETA2 && hit->hasEta2Time()) {
+            hit_time = hit->getTimeEta2();
         }
 
-        // If no more track partners are found for the current cluster center, store track information and increment track ID counter for the next track
+        if (hit_time == -1) return false;
+
+        if (_use_external_trigger) {
+            if (_trigger_time == -1) return false;
+            int dt = hit_time - _trigger_time;
+            return (dt > dt_min && dt < dt_max);
+        } else {
+            return (hit_time >= dt_min && hit_time <= dt_max);
+        }
+    };
+
+    // Filter valid η1 clusters
+    std::vector<Cluster*> valid_clusters_eta1;
+    for (Cluster& cluster : _clusters_eta1) {
+        if (is_valid_time(cluster)) valid_clusters_eta1.push_back(&cluster);
+    }
+
+    // Reconstruction loop for η1 using valid_clusters_eta1
+    int track_id_counter_eta1 = 0;
+    for (Cluster* cluster_ptr : valid_clusters_eta1) {
+        Hit* center_hit = cluster_ptr->getCenterHit();
+        if (center_hit->inTrackEta1()) continue;
+
+        Track track(center_hit, Track::ETA1);
+        track.setTrackID(track_id_counter_eta1);
+        center_hit->setTrackIDEta1(track_id_counter_eta1);
+
+        for (Cluster* partner_ptr : valid_clusters_eta1) {
+            if (partner_ptr == cluster_ptr) continue;
+
+            Hit* partner_hit = partner_ptr->getCenterHit();
+            if (partner_hit->getLayer() == center_hit->getLayer()) continue;
+            if (partner_hit->inTrackEta1()) continue;
+
+            if (track.addHit(partner_hit)) {
+                partner_hit->setTrackIDEta1(track_id_counter_eta1);
+            }
+        }
+
         _tracks.push_back(track);
         _tracks_eta1.push_back(track);
         track_id_counter_eta1++;
-
-        /*
-        // DEBUG: Print out parameters of the hits belonging to the track for the current cluster center
-        std::cout << "******************************************************************" << std::endl;
-        std::cout << "Resulting track: " << std::endl;
-        for (Hit* track_hit : track.getHits()) {
-            std::cout << track_hit->getIdx() << ": layer = " << track_hit->getLayer() << ", strip = " << track_hit->getStrip() << ", time = " << track_hit->getTimeEta1() << std::endl;
-            if (track.getLayerCount(0) == 0) std::exit(1); // Sanity check to ensure layer count is correctly calculated for eta1 tracks
-        }
-        std::cout << "\n";
-        */
     }
 
-    // Side η2 track reconstruction logic (same logic as for η1)
-    int track_id_counter_eta2 = 0;
+    // Filter valid η2 clusters
+    std::vector<Cluster*> valid_clusters_eta2;
     for (Cluster& cluster : _clusters_eta2) {
-        if (cluster.getCenterHit()->inTrackEta2()) continue;
-        // std::cout << "------------------------------------------------------------------" << std::endl;
-        // std::cout << "Processing track reconstruction for side η2: " << std::endl;
-        Track track(cluster.getCenterHit(), Track::ETA2);
+        if (is_valid_time(cluster)) valid_clusters_eta2.push_back(&cluster);
+    }
+
+    // Reconstruction loop for η2 using valid_clusters_eta2
+    int track_id_counter_eta2 = 0;
+    for (Cluster* cluster_ptr : valid_clusters_eta2) {
+        Hit* center_hit = cluster_ptr->getCenterHit();
+        if (center_hit->inTrackEta2()) continue;
+
+        Track track(center_hit, Track::ETA2);
         track.setTrackID(track_id_counter_eta2);
-        cluster.getCenterHit()->setTrackIDEta2(track_id_counter_eta2);
+        center_hit->setTrackIDEta2(track_id_counter_eta2);
 
-        for (Cluster& potential_partner_cluster : _clusters_eta2) {
-            if (&potential_partner_cluster == &cluster) continue;
+        for (Cluster* partner_ptr : valid_clusters_eta2) {
+            if (partner_ptr == cluster_ptr) continue;
 
-            if (potential_partner_cluster.getCenterHit()->getLayer() == cluster.getCenterHit()->getLayer()) continue;
+            Hit* partner_hit = partner_ptr->getCenterHit();
+            if (partner_hit->getLayer() == center_hit->getLayer()) continue;
+            if (partner_hit->inTrackEta2()) continue;
 
-            if (potential_partner_cluster.getCenterHit()->inTrackEta2()) continue;
-
-            if (track.addHit(potential_partner_cluster.getCenterHit())) potential_partner_cluster.getCenterHit()->setTrackIDEta2(track_id_counter_eta2);
+            if (track.addHit(partner_hit)) {
+                partner_hit->setTrackIDEta2(track_id_counter_eta2);
+            }
         }
+
         _tracks.push_back(track);
         _tracks_eta2.push_back(track);
         track_id_counter_eta2++;
-
-        /*
-        std::cout << "******************************************************************" << std::endl;
-        std::cout << "Resulting track: " << std::endl;
-        for (Hit* track_hit : track.getHits()) {
-            std::cout << track_hit->getIdx() << ": layer = " << track_hit->getLayer() << ", strip = " << track_hit->getStrip() << ", time = " << track_hit->getTimeEta2() << std::endl;
-        }
-        std::cout << "\n";
-        */
     }
 }
 

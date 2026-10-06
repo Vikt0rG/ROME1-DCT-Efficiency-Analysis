@@ -51,7 +51,9 @@ public:
     void calculateTOT();                  // Calculate Time-over-Threshold for hits
     void clusterize();                    // Form clusters from hits
     void calculateTOTCluster();           // Calculate Time-over-Threshold for clusters
-    void reconstructTracks();             // Form tracks from clusters/hits
+    void reconstructTracks(
+        const int dt_max,
+        const int dt_min);                // Form tracks from clusters/hits
     void updateEfficiencyFlags(
         const int dt_max,
         const int dt_min);                // Update efficiency flags based on time window

@@ -863,7 +863,7 @@ void DataProcesser::processEvent(
     }
 
     // Track reconstruction
-    event.reconstructTracks();
+    event.reconstructTracks(_dt_max, _dt_min);
 
     // Update track IDs after track reconstruction
     updateTrackIDs(event);
