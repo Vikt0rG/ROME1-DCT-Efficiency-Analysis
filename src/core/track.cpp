@@ -91,12 +91,15 @@ bool Track::isWithinStripWindow(Hit* hit) const {
 // Simple linear extrapolation to project expected strip position at a given layer
 double Track::projectStripPosition(int layer) const {
     if (_track_hits.size() < 2) return _track_hits[0]->getStrip();
-    
+
     int layer0 = _track_hits[0]->getLayer();
     int strip0 = _track_hits[0]->getStrip();
     int layer1 = _track_hits[1]->getLayer();
     int strip1 = _track_hits[1]->getStrip();
-    
+
+    // Avoid division by zero if both hits are in the same layer
+    if (layer1 == layer0) return strip0;
+
     double slope = (strip1 - strip0) / (double)(layer1 - layer0);
     return strip0 + slope * (layer - layer0);
 }
