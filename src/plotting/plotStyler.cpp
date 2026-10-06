@@ -900,12 +900,7 @@ namespace PlotStyler {
 
         // Set color and marker style for the graphs in the multigraph
         const std::vector<Color_t> palette = {
-            kAzure + 2,
-            kGreen + 2,
-            kOrange + 10,
-            kMagenta + 2,
-            kYellow - 3,
-            kCyan - 4
+            kAzure + 2, kGreen + 2, kOrange + 10, kMagenta + 2, kYellow - 3, kCyan - 4
         };
         if (mg && mg->GetListOfGraphs()) {
 
@@ -966,7 +961,7 @@ namespace PlotStyler {
                     double step = (x_max_band - x_min_band) / n_band_points;
 
                     TGraphErrors* fit_band = new TGraphErrors(n_band_points);
-                    double sigma_multiplier = 3.0;
+                    double sigma_multiplier = 1.0;
 
                     for (int i = 0; i < n_band_points; ++i) {
                         double x = x_min_band + i * step;
