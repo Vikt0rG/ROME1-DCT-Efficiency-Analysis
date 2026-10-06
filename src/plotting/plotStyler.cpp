@@ -557,39 +557,56 @@ namespace PlotStyler {
         if (!file) return nullptr;
 
         std::string obj_name = obj->GetName();
+        std::string obj_title = "";
+        if (auto named = dynamic_cast<TNamed*>(obj)) {
+            obj_title = named->GetTitle();
+        }
+        std::string full_id = obj_name + " " + obj_title;
 
-        // Recursively find object's TDirectory
-        std::function<TDirectory*(TDirectory*)> findDirWithObject = [&](TDirectory* dir) -> TDirectory* {
-            if (!dir) return nullptr;
+        // Extract group token cleanly (e.g., "group_mixECO1" from "rate_strips_eta2_group_mixECO1_layer2")
+        std::string target_group = "";
+        std::smatch match;
 
-            if (dir->Get(obj_name.c_str())) return dir;
+        if (std::regex_search(full_id, match, std::regex("(group_[A-Za-z0-9_]+?)(?=_layer|$)"))) {
+            target_group = match[1].str();
+        } else {
+            return nullptr;
+        }
 
-            TIter next(dir->GetListOfKeys());
-            TKey* key = nullptr;
-            while ((key = static_cast<TKey*>(next()))) {
-                TObject* sub_obj = key->ReadObj();
-                if (sub_obj && sub_obj->InheritsFrom(TDirectory::Class())) {
-                    TDirectory* subdir = dynamic_cast<TDirectory*>(sub_obj);
-                    TDirectory* found = findDirWithObject(subdir);
-                    if (found) return found;
+        auto getEffFromDir = [](TDirectory* group_dir) -> TGraph* {
+            if (!group_dir) return nullptr;
+            TDirectory* eff_dir = group_dir->GetDirectory("efficiency_analysis");
+            if (!eff_dir) return nullptr;
+
+            TObject* eff_obj = eff_dir->Get("eff_or_rpc");
+            if (!eff_obj) return nullptr;
+
+            if (auto g = dynamic_cast<TGraph*>(eff_obj)) return g;
+            if (auto mg = dynamic_cast<TMultiGraph*>(eff_obj)) {
+                if (mg->GetListOfGraphs() && mg->GetListOfGraphs()->GetSize() > 0) {
+                    return dynamic_cast<TGraph*>(mg->GetListOfGraphs()->At(0));
                 }
             }
             return nullptr;
         };
 
-        TDirectory* obj_dir = findDirWithObject(file);
-        if (!obj_dir) return nullptr;
+        TIter next_top(file->GetListOfKeys());
+        TKey* top_key = nullptr;
+        while ((top_key = static_cast<TKey*>(next_top()))) {
+            TClass* cl = TClass::GetClass(top_key->GetClassName());
+            if (!cl || !cl->InheritsFrom(TDirectory::Class())) continue;
 
-        // Walk upward from obj_dir to find the parent group folder that contains 'efficiency_analysis'
-        TDirectory* current_dir = obj_dir;
-        TDirectory* group_dir = nullptr;
+            TDirectory* config_dir = dynamic_cast<TDirectory*>(top_key->ReadObj());
+            if (!config_dir) continue;
 
-        while (current_dir) {
-            // Check if current_dir itself contains 'efficiency_analysis'
-            if (current_dir->GetDirectory("efficiency_analysis")) {
-                group_dir = current_dir;
-                break;
+            TDirectory* group_dir = config_dir->GetDirectory(target_group.c_str());
+            if (group_dir) {
+                TGraph* g = getEffFromDir(group_dir);
+                if (g) return g;
             }
+        }
+        return nullptr;
+    }
 
             // Check if its parent contains 'efficiency_analysis' (since current_dir might be a leaf like layerX or an analysis folder)
             TDirectory* parent = dynamic_cast<TDirectory*>(current_dir->GetMotherDir());

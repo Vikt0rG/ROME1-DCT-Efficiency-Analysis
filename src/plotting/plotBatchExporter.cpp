@@ -193,14 +193,9 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                                 base_metric = g_name.substr(0, strip_pos);
                             }
 
-                            std::string dynamic_suffix = "_" + clean_group;
-                            if (clean_group != layer_folder) {
-                                dynamic_suffix += "_" + layer_folder;
-                            }
-
                             if (mg_map.find(base_metric) == mg_map.end()) {
                                 TMultiGraph* strip_mg = new TMultiGraph();
-                                std::string mg_name = base_metric + dynamic_suffix;
+                                std::string mg_name = base_metric + "_group_" + clean_group + "_" + layer_folder;
                                 strip_mg->SetName(mg_name.c_str());
                                 strip_mg->SetTitle((mg_name + ";High Voltage [V];Value").c_str());
                                 mg_map[base_metric] = strip_mg;
@@ -316,10 +311,8 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
 
                                     std::string g_name = g->GetName();
                                     TGraph* clone = static_cast<TGraph*>(g->Clone());
-                                    clone->SetName((metric_name + "_" + clean_group + "_" + g_name).c_str());
-
-                                    if (clean_group.find("layer") == 0) clone->SetTitle(g->GetTitle());
-                                    else clone->SetTitle((clean_group + " - " + g->GetTitle()).c_str()); 
+                                    clone->SetName((metric_name + "_" + g_name + "_group_" + clean_group).c_str());
+                                    clone->SetTitle(("group_" + clean_group + " - " + g->GetTitle()).c_str());
 
                                     global_mg->Add(clone, "P");
                                     graph_added = true;
@@ -327,8 +320,8 @@ void buildGlobalMultiGraphs(TDirectory* config_dir, const std::filesystem::path&
                             }
                         } else if (auto g = dynamic_cast<TGraph*>(scan_obj)) {
                             TGraph* clone = static_cast<TGraph*>(g->Clone());
-                            clone->SetName((metric_name + "_" + clean_group).c_str());
-                            clone->SetTitle(clean_group.c_str());
+                            clone->SetName((metric_name + "_group_" + clean_group).c_str());
+                            clone->SetTitle(("group_" + clean_group).c_str());
                             global_mg->Add(clone, "P");
                             graph_added = true;
                         }
