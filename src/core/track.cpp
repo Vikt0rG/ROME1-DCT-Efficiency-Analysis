@@ -51,7 +51,7 @@ bool Track::addHit(Hit* hit) {
     // Find the closest layer already in the track
     Hit* closest_hit = nullptr;
     int min_layer_diff = INT_MAX;
-    
+
     for (Hit* track_hit : _track_hits) {
         int layer_diff = std::abs(hit_layer - track_hit->getLayer());
         if (layer_diff < min_layer_diff) {
@@ -82,7 +82,7 @@ bool Track::isWithinStripWindow(Hit* hit) const {
         // Not enough hits to define a trajectory - just check against first hit
         return std::abs(hit->getStrip() - _track_hits[0]->getStrip()) <= MAX_STRIP_WINDOW;
     }
-    
+
     // Project expected strip position based on existing track hits
     double expected_strip = projectStripPosition(hit->getLayer());
     return std::abs(hit->getStrip() - expected_strip) <= MAX_STRIP_WINDOW;
@@ -151,21 +151,21 @@ int Track::getNHits() const {
 int Track::getWidth() const {
     int min_strip = INT_MAX;
     int max_strip = INT_MIN;
-    
+
     for (const Hit* hit : _track_hits) {
         // Only consider hits with valid times
         if ((_eta_side == ETA1 && !hit->hasEta1Time()) || (_eta_side == ETA2 && !hit->hasEta2Time())) {
             continue;
         }
-        
+
         int strip = hit->getStrip();
         if (strip < min_strip) min_strip = strip;
         if (strip > max_strip) max_strip = strip;
     }
-    
+
     // Return 0 if no valid hits found for this side
     if (min_strip == INT_MAX || max_strip == INT_MIN) return 0;
-    
+
     return max_strip - min_strip + 1;
 }
 
@@ -219,7 +219,7 @@ std::array<std::tuple<bool, std::pair<int, int>, int, int, int>, LAYER_COUNT> Tr
                 int dt = layer_best_hits[layer].first - layer_best_hits[other_layer].first;
                 int stripFirst = layer_best_hits[layer].second;
                 int stripSecond = layer_best_hits[other_layer].second;
-                
+
                 result_tuples[tuple_idx] = {true, {layer, other_layer}, dt, stripFirst, stripSecond};
             } else {
                 // If any layer misses a hit, keep track of layers and flag has_hits as false
