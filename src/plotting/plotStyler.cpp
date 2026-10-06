@@ -608,104 +608,88 @@ namespace PlotStyler {
         return nullptr;
     }
 
-            // Check if its parent contains 'efficiency_analysis' (since current_dir might be a leaf like layerX or an analysis folder)
-            TDirectory* parent = dynamic_cast<TDirectory*>(current_dir->GetMotherDir());
-            if (!parent || parent == current_dir) break;
+    void convertMultiGraphToEfficiencyScale(TMultiGraph* mg) {
+        if (!mg || !mg->GetListOfGraphs()) return;
 
-            if (parent->GetDirectory("efficiency_analysis")) {
-                group_dir = parent;
-                break;
-            }
-
-            current_dir = parent;
-        }
-
-        // Fallback search if the parent chain check missed it
-        if (!group_dir) {
-            current_dir = obj_dir;
-            while (current_dir) {
-                if (current_dir->GetDirectory("efficiency_analysis")) {
-                    group_dir = current_dir;
-                    break;
-                }
-                current_dir = dynamic_cast<TDirectory*>(current_dir->GetMotherDir());
-                if (!current_dir) break;
-            }
-        }
-
-        if (!group_dir) return nullptr;
-
-        // Access 'efficiency_analysis' and fetch 'eff_or_rpc'
-        TDirectory* eff_dir = group_dir->GetDirectory("efficiency_analysis");
-        if (!eff_dir) return nullptr;
-
-        TObject* eff_obj = eff_dir->Get("eff_or_rpc");
-        if (!eff_obj) return nullptr;
-
-        if (auto eff_g = dynamic_cast<TGraph*>(eff_obj)) {
-            return eff_g;
-        } else if (auto eff_mg = dynamic_cast<TMultiGraph*>(eff_obj)) {
-            if (eff_mg->GetListOfGraphs() && eff_mg->GetListOfGraphs()->GetSize() > 0) {
-                if (auto eff_g = dynamic_cast<TGraph*>(eff_mg->GetListOfGraphs()->At(0))) {
-                    return eff_g;
-                }
-            }
-        }
-        return nullptr;
-    }
-
-    TGraph* findEfficiencyGraphForCustomName(TObject* obj) {
-        if (!obj) return nullptr;
         TFile* file = gDirectory ? gDirectory->GetFile() : nullptr;
-        if (!file) return nullptr;
+        if (!file) return;
 
-        std::string obj_name = obj->GetName();
-        std::string group_token = "";
+        auto getEffFromDir = [](TDirectory* group_dir) -> TGraph* {
+            if (!group_dir) return nullptr;
+            TDirectory* eff_dir = group_dir->GetDirectory("efficiency_analysis");
+            if (!eff_dir) return nullptr;
 
-        // Regular expression to extract the group name located between time_resolution_strip_etaX and _layer_X_Y
-        // Example: matches "mixSTD" in "time_resolution_strip_eta1_mixSTD_layer_1_2"
-        std::regex name_pattern("time_resolution_strip_eta\\d+_(.+?)_layer_\\d+_\\d+");
-        std::smatch match;
-        if (std::regex_search(obj_name, match, name_pattern)) {
-            std::string extracted_group = match[1].str();
-            group_token = "group_" + extracted_group;
-        }
+            TObject* eff_obj = eff_dir->Get("eff_or_rpc");
+            if (!eff_obj) return nullptr;
 
-        if (group_token.empty()) {
-            // Fallback to general finder if the pattern doesn't match
-            return findEfficiencyGraphForObject(obj);
-        }
-
-        // Traverse the file to find this exact group directory name
-        TIter next_top(file->GetListOfKeys());
-        TKey* top_key = nullptr;
-        while ((top_key = static_cast<TKey*>(next_top()))) {
-            TClass* cl = TClass::GetClass(top_key->GetClassName());
-            if (!cl || !cl->InheritsFrom(TDirectory::Class())) continue;
-
-            TDirectory* config_dir = dynamic_cast<TDirectory*>(top_key->ReadObj());
-            if (!config_dir) continue;
-
-            TDirectory* group_dir = config_dir->GetDirectory(group_token.c_str());
-            if (group_dir) {
-                TDirectory* eff_dir = group_dir->GetDirectory("efficiency_analysis");
-                if (eff_dir) {
-                    TObject* eff_obj = eff_dir->Get("eff_or_rpc");
-                    if (eff_obj) {
-                        if (auto eff_g = dynamic_cast<TGraph*>(eff_obj)) {
-                            return eff_g;
-                        } else if (auto eff_mg = dynamic_cast<TMultiGraph*>(eff_obj)) {
-                            if (eff_mg->GetListOfGraphs() && eff_mg->GetListOfGraphs()->GetSize() > 0) {
-                                return dynamic_cast<TGraph*>(eff_mg->GetListOfGraphs()->At(0));
-                            }
-                        }
-                    }
+            if (auto g = dynamic_cast<TGraph*>(eff_obj)) return g;
+            if (auto eff_mg = dynamic_cast<TMultiGraph*>(eff_obj)) {
+                if (eff_mg->GetListOfGraphs() && eff_mg->GetListOfGraphs()->GetSize() > 0) {
+                    return dynamic_cast<TGraph*>(eff_mg->GetListOfGraphs()->At(0));
                 }
             }
-        }
+            return nullptr;
+        };
 
-        // Final fallback
-        return findEfficiencyGraphForObject(obj);
+        TIter next_gr(mg->GetListOfGraphs());
+        TObject* gr_obj = nullptr;
+
+        while ((gr_obj = next_gr())) {
+            auto gr = dynamic_cast<TGraph*>(gr_obj);
+            if (!gr) continue;
+
+            std::string gr_name = gr->GetName();
+
+            // Extract "group_<token>" at the very end of gr_name
+            std::string target_group = "";
+            std::smatch match;
+            if (std::regex_search(gr_name, match, std::regex("(group_[A-Za-z0-9_]+)$"))) {
+                target_group = match[1].str();
+            }
+
+            if (target_group.empty()) {
+                std::cout << "[WARNING convertMultiGraph] Could not extract group token from end of name: " << gr_name << std::endl;
+                continue;
+            }
+
+            TGraph* eff_graph = nullptr;
+            TIter next_top(file->GetListOfKeys());
+            TKey* top_key = nullptr;
+
+            while ((top_key = static_cast<TKey*>(next_top()))) {
+                TClass* cl = TClass::GetClass(top_key->GetClassName());
+                if (!cl || !cl->InheritsFrom(TDirectory::Class())) continue;
+
+                TDirectory* config_dir = dynamic_cast<TDirectory*>(top_key->ReadObj());
+                if (!config_dir) continue;
+
+                TDirectory* group_dir = config_dir->GetDirectory(target_group.c_str());
+                if (group_dir) {
+                    eff_graph = getEffFromDir(group_dir);
+                    if (eff_graph) break;
+                }
+            }
+
+            if (!eff_graph) {
+                std::cout << "[WARNING convertMultiGraph] Could not find efficiency graph for group: " << target_group << std::endl;
+                continue;
+            }
+
+            TF1* fit_func = nullptr;
+            if (eff_graph->GetListOfFunctions() && !eff_graph->GetListOfFunctions()->IsEmpty()) {
+                fit_func = dynamic_cast<TF1*>(eff_graph->GetListOfFunctions()->Last());
+            }
+
+            int n_points = gr->GetN();
+            double* x_vals = gr->GetX();
+            double* y_vals = gr->GetY();
+
+            for (int i = 0; i < n_points; ++i) {
+                double hv = x_vals[i];
+                double eff = fit_func ? fit_func->Eval(hv) : eff_graph->Eval(hv);
+                gr->SetPoint(i, eff * 100.0, y_vals[i]);
+            }
+        }
     }
 
     void addEfficiencyTopAxis(TGraph* eff_graph, TPad* pad, TMultiGraph* mg = nullptr) {
@@ -1681,7 +1665,7 @@ namespace PlotStyler {
         canvas->Update();
 
         if (is_strip_plot) {
-            TGraph* eff_graph = findEfficiencyGraphForCustomName(obj);
+            TGraph* eff_graph = findEfficiencyGraphForObject(obj);
             if (eff_graph) {
                 addEfficiencyTopAxis(eff_graph, canvas, mg);
                 canvas->Update();
