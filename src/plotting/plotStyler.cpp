@@ -5,6 +5,9 @@
 #include <iostream>
 #include <regex>
 
+#include <TFile.h>
+#include <TDirectory.h>
+#include <TKey.h>
 #include <TObject.h>
 #include <TCanvas.h>
 #include <TClass.h>
@@ -548,6 +551,222 @@ namespace PlotStyler {
         }
     };
 
+    TGraph* findEfficiencyGraphForObject(TObject* obj) {
+        if (!obj) return nullptr;
+        TFile* file = gDirectory ? gDirectory->GetFile() : nullptr;
+        if (!file) return nullptr;
+
+        std::string obj_name = obj->GetName();
+
+        // Recursively find object's TDirectory
+        std::function<TDirectory*(TDirectory*)> findDirWithObject = [&](TDirectory* dir) -> TDirectory* {
+            if (!dir) return nullptr;
+
+            if (dir->Get(obj_name.c_str())) return dir;
+
+            TIter next(dir->GetListOfKeys());
+            TKey* key = nullptr;
+            while ((key = static_cast<TKey*>(next()))) {
+                TObject* sub_obj = key->ReadObj();
+                if (sub_obj && sub_obj->InheritsFrom(TDirectory::Class())) {
+                    TDirectory* subdir = dynamic_cast<TDirectory*>(sub_obj);
+                    TDirectory* found = findDirWithObject(subdir);
+                    if (found) return found;
+                }
+            }
+            return nullptr;
+        };
+
+        TDirectory* obj_dir = findDirWithObject(file);
+        if (!obj_dir) return nullptr;
+
+        // Walk upward from obj_dir to find the parent group folder that contains 'efficiency_analysis'
+        TDirectory* current_dir = obj_dir;
+        TDirectory* group_dir = nullptr;
+
+        while (current_dir) {
+            // Check if current_dir itself contains 'efficiency_analysis'
+            if (current_dir->GetDirectory("efficiency_analysis")) {
+                group_dir = current_dir;
+                break;
+            }
+
+            // Check if its parent contains 'efficiency_analysis' (since current_dir might be a leaf like layerX or an analysis folder)
+            TDirectory* parent = dynamic_cast<TDirectory*>(current_dir->GetMotherDir());
+            if (!parent || parent == current_dir) break;
+
+            if (parent->GetDirectory("efficiency_analysis")) {
+                group_dir = parent;
+                break;
+            }
+
+            current_dir = parent;
+        }
+
+        // Fallback search if the parent chain check missed it
+        if (!group_dir) {
+            current_dir = obj_dir;
+            while (current_dir) {
+                if (current_dir->GetDirectory("efficiency_analysis")) {
+                    group_dir = current_dir;
+                    break;
+                }
+                current_dir = dynamic_cast<TDirectory*>(current_dir->GetMotherDir());
+                if (!current_dir) break;
+            }
+        }
+
+        if (!group_dir) return nullptr;
+
+        // Access 'efficiency_analysis' and fetch 'eff_or_rpc'
+        TDirectory* eff_dir = group_dir->GetDirectory("efficiency_analysis");
+        if (!eff_dir) return nullptr;
+
+        TObject* eff_obj = eff_dir->Get("eff_or_rpc");
+        if (!eff_obj) return nullptr;
+
+        if (auto eff_g = dynamic_cast<TGraph*>(eff_obj)) {
+            return eff_g;
+        } else if (auto eff_mg = dynamic_cast<TMultiGraph*>(eff_obj)) {
+            if (eff_mg->GetListOfGraphs() && eff_mg->GetListOfGraphs()->GetSize() > 0) {
+                if (auto eff_g = dynamic_cast<TGraph*>(eff_mg->GetListOfGraphs()->At(0))) {
+                    return eff_g;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    TGraph* findEfficiencyGraphForCustomName(TObject* obj) {
+        if (!obj) return nullptr;
+        TFile* file = gDirectory ? gDirectory->GetFile() : nullptr;
+        if (!file) return nullptr;
+
+        std::string obj_name = obj->GetName();
+        std::string group_token = "";
+
+        // Regular expression to extract the group name located between time_resolution_strip_etaX and _layer_X_Y
+        // Example: matches "mixSTD" in "time_resolution_strip_eta1_mixSTD_layer_1_2"
+        std::regex name_pattern("time_resolution_strip_eta\\d+_(.+?)_layer_\\d+_\\d+");
+        std::smatch match;
+        if (std::regex_search(obj_name, match, name_pattern)) {
+            std::string extracted_group = match[1].str();
+            group_token = "group_" + extracted_group;
+        }
+
+        if (group_token.empty()) {
+            // Fallback to general finder if the pattern doesn't match
+            return findEfficiencyGraphForObject(obj);
+        }
+
+        // Traverse the file to find this exact group directory name
+        TIter next_top(file->GetListOfKeys());
+        TKey* top_key = nullptr;
+        while ((top_key = static_cast<TKey*>(next_top()))) {
+            TClass* cl = TClass::GetClass(top_key->GetClassName());
+            if (!cl || !cl->InheritsFrom(TDirectory::Class())) continue;
+
+            TDirectory* config_dir = dynamic_cast<TDirectory*>(top_key->ReadObj());
+            if (!config_dir) continue;
+
+            TDirectory* group_dir = config_dir->GetDirectory(group_token.c_str());
+            if (group_dir) {
+                TDirectory* eff_dir = group_dir->GetDirectory("efficiency_analysis");
+                if (eff_dir) {
+                    TObject* eff_obj = eff_dir->Get("eff_or_rpc");
+                    if (eff_obj) {
+                        if (auto eff_g = dynamic_cast<TGraph*>(eff_obj)) {
+                            return eff_g;
+                        } else if (auto eff_mg = dynamic_cast<TMultiGraph*>(eff_obj)) {
+                            if (eff_mg->GetListOfGraphs() && eff_mg->GetListOfGraphs()->GetSize() > 0) {
+                                return dynamic_cast<TGraph*>(eff_mg->GetListOfGraphs()->At(0));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Final fallback
+        return findEfficiencyGraphForObject(obj);
+    }
+
+    void addEfficiencyTopAxis(TGraph* eff_graph, TPad* pad, TMultiGraph* mg = nullptr) {
+        if (!eff_graph || !pad) return;
+
+        pad->cd();
+        pad->Update();
+
+        double x_min = pad->GetUxmin();
+        double x_max = pad->GetUxmax();
+        double y_max = pad->GetUymax();
+        double y_min = pad->GetUymin();
+
+        // Dynamically detect subdivisions from the main axis
+        int n_subdivisions = 5;
+        if (mg && mg->GetHistogram()) {
+            TAxis* xAxis = mg->GetHistogram()->GetXaxis();
+            if (xAxis) {
+                int ndiv = xAxis->GetNdivisions();
+                int n3 = ndiv / 10000;
+                if (n3 > 0) n_subdivisions = n3;
+            }
+        }
+
+        double* hv_vals = eff_graph->GetX();
+        double* eff_vals = eff_graph->GetY();
+        int n_points = eff_graph->GetN();
+
+        TF1* fit_func = nullptr;
+        if (eff_graph->GetListOfFunctions() && !eff_graph->GetListOfFunctions()->IsEmpty()) {
+            fit_func = dynamic_cast<TF1*>(eff_graph->GetListOfFunctions()->Last());
+        }
+
+        TLatex* tex = new TLatex();
+        tex->SetTextFont(42);
+
+        double major_tick_len = (y_max - y_min) * 0.03;
+        double minor_tick_len = (y_max - y_min) * 0.015;
+
+        // Title at Top Right
+        tex->SetTextAlign(31);
+        tex->SetTextSize(0.035);
+        tex->DrawLatex(x_max, y_max + major_tick_len * 2.5, "Efficiency OR(#eta_{1}, #eta_{2}) [%]");
+
+        // Numbers (Centered above major ticks)
+        tex->SetTextAlign(21);
+        tex->SetTextSize(0.025);
+
+        for (int i = 0; i < n_points; ++i) {
+            double hv = hv_vals[i];
+            double eff = fit_func ? fit_func->Eval(hv) : eff_vals[i];
+
+            if (hv >= x_min && hv <= x_max) {
+                TLine* tick = new TLine(hv, y_max, hv, y_max - major_tick_len);
+                tick->SetLineColor(kBlack);
+                tick->SetLineWidth(1);
+                tick->Draw();
+
+                std::string eff_str = Form("%.1f", eff * 100);
+                double label_y = y_max + major_tick_len * 0.4;
+                tex->DrawLatex(hv, label_y, eff_str.c_str());
+            }
+
+            if (i < n_points - 1) {
+                double hv_next = hv_vals[i + 1];
+                for (int sub = 1; sub < n_subdivisions; ++sub) {
+                    double hv_sub = hv + (hv_next - hv) * (static_cast<double>(sub) / n_subdivisions);
+                    if (hv_sub >= x_min && hv_sub <= x_max) {
+                        TLine* minor_tick = new TLine(hv_sub, y_max, hv_sub, y_max - minor_tick_len);
+                        minor_tick->SetLineColor(kBlack);
+                        minor_tick->SetLineWidth(1);
+                        minor_tick->Draw();
+                    }
+                }
+            }
+        }
+    }
+
     void styleEfficiency(TObject* obj, TCanvas* canvas, TClass* cl) {
 
         constexpr double y_max_padding = 0.30;
@@ -993,6 +1212,7 @@ namespace PlotStyler {
         }
 
         applyATLASStyle(obj, canvas);
+        canvas->SetTopMargin(0.12);
 
         if (is_strip_plot && n_graphs > 0) {
             canvas->SetRightMargin(0.16);
@@ -1084,8 +1304,17 @@ namespace PlotStyler {
             }
         }
 
+        canvas->SetTickx(0);
+
+        canvas->RedrawAxis();
         canvas->Modified();
         canvas->Update();
+
+        TGraph* eff_graph = findEfficiencyGraphForObject(obj);
+        if (eff_graph) {
+            addEfficiencyTopAxis(eff_graph, canvas, mg);
+            canvas->Update();
+        }
     }
 
     void styleAvgToFVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
@@ -1336,6 +1565,7 @@ namespace PlotStyler {
         applyATLASStyle(obj, canvas);
 
         if (is_strip_plot && n_graphs > 0) {
+            canvas->SetTopMargin(0.12);
             canvas->SetRightMargin(0.16);
 
             // Find min and max strip indices present in this specific multigraph
@@ -1425,8 +1655,21 @@ namespace PlotStyler {
             }
         }
 
+        if (is_strip_plot) {
+            canvas->SetTickx(0);
+            canvas->RedrawAxis();
+        }
+
         canvas->Modified();
         canvas->Update();
+
+        if (is_strip_plot) {
+            TGraph* eff_graph = findEfficiencyGraphForCustomName(obj);
+            if (eff_graph) {
+                addEfficiencyTopAxis(eff_graph, canvas, mg);
+                canvas->Update();
+            }
+        }
     }
 
     void styleAvgToTVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
@@ -1454,6 +1697,7 @@ namespace PlotStyler {
         applyATLASStyle(obj, canvas);
 
         if (is_strip_plot && n_graphs > 0) {
+            canvas->SetTopMargin(0.12);
             canvas->SetRightMargin(0.16);
 
             // Find min and max strip indices present in this specific multigraph
@@ -1546,8 +1790,21 @@ namespace PlotStyler {
             }
         }
 
+        if (is_strip_plot) {
+            canvas->SetTickx(0);
+            canvas->RedrawAxis();
+        }
+
         canvas->Modified();
         canvas->Update();
+
+        if (is_strip_plot) {
+            TGraph* eff_graph = findEfficiencyGraphForObject(obj);
+            if (eff_graph) {
+                addEfficiencyTopAxis(eff_graph, canvas, mg);
+                canvas->Update();
+            }
+        }
     }
 
     void styleAvgMulVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
@@ -1577,6 +1834,7 @@ namespace PlotStyler {
 
         // Add a strip colorbar
         if (is_strip_plot) {
+            canvas->SetTopMargin(0.12);
             canvas->SetRightMargin(0.16);
 
             int n_colors = TColor::GetNumberOfColors();
@@ -1655,8 +1913,21 @@ namespace PlotStyler {
             }
         }
 
+        if (is_strip_plot) {
+            canvas->SetTickx(0);
+            canvas->RedrawAxis();
+        }
+
         canvas->Modified();
         canvas->Update();
+
+        if (is_strip_plot) {
+            TGraph* eff_graph = findEfficiencyGraphForObject(obj);
+            if (eff_graph) {
+                addEfficiencyTopAxis(eff_graph, canvas, mg);
+                canvas->Update();
+            }
+        }
     }
 
     void styleStripDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
