@@ -2345,66 +2345,23 @@ namespace PlotStyler {
             return;
         }
 
-        double p0 = fit->GetParameter(0);
         double p1 = fit->GetParameter(1);
-
-        double ep0 = fit->GetParError(0);
         double ep1 = fit->GetParError(1);
-
-        int n_points = 200;
-        double x_min = h1->GetXaxis()->GetXmin();
-        double step = (x_max - x_min) / n_points;
-
-        TGraphErrors* fit_band = new TGraphErrors(n_points);
-
-        double sigma_multiplier = 3.0;
-        for (int i = 0; i < n_points; ++i) {
-            double x = x_min + i * step;
-            double y = fit->Eval(x);
-
-            double df_dp0 = (p0 != 0) ? y / p0 : 0;
-            double df_dp1 = 0;
-            if (p1 > 0 && y > 0) {
-                df_dp1 = y * (((x - 1.0) / p1) - 1.0);
-            }
-
-            double dy = sigma_multiplier * std::sqrt(std::pow(df_dp0 * ep0, 2) +
-                                                     std::pow(df_dp1 * ep1, 2));
-
-            fit_band->SetPoint(i, x, y);
-            fit_band->SetPointError(i, 0, dy);
-        }
-
-        fit_band->SetFillColorAlpha(kAzure - 2, 0.4);
-        fit_band->SetLineColor(kBlue + 3);
-        fit_band->SetLineWidth(2);
-        fit_band->SetLineStyle(1);
-
-        fit_band->Draw("E3 SAME");
-
-        fit->SetLineColor(kBlue + 3);
-        fit->SetLineWidth(2);
-        fit->SetLineStyle(1);
-        fit->Draw("SAME");
-
-        fit_band->SetBit(kCanDelete);
 
         canvas->RedrawAxis();
 
         double ndc_x0 = 1.0 - canvas->GetRightMargin();
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
-        TLegend* fit_legend = new TLegend(ndc_x0 - 0.35, ndc_y0 - 0.25, ndc_x0 - 0.03, ndc_y0 - 0.15);
+        TLegend* fit_legend = new TLegend(ndc_x0 - 0.40, ndc_y0 - 0.3, ndc_x0 - 0.03, ndc_y0 - 0.13);
         fit_legend->SetTextAlign(12);
         fit_legend->SetBorderSize(0);
         fit_legend->SetFillStyle(0);
         fit_legend->SetTextFont(42);
         fit_legend->SetTextSize(0.035);
 
-        fit_legend->AddEntry(fit_band, "Poisson Fit #pm 3#sigma", "fl");
-
         double mean_cs = p1 + 1.0;
-        fit_legend->AddEntry((TObject*)nullptr, Form("Mean CS = %.2f #pm %.2f", mean_cs, ep1), "");
+        fit_legend->AddEntry((TObject*)nullptr, Form("Mean CS = %.3f #pm %.3f", mean_cs, ep1), "");
 
         fit_legend->Draw();
 
