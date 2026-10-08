@@ -576,12 +576,11 @@ void DataProcesser::processInputData() {
 
     std::cout << "Processing file: " << _input_path << std::endl;
     if (_format == InputFormat::DecodedWords) {
-        // For now do nothing since all the files are in the new filedump format
+        processDataStripFormat(_input_path);
+        processDataInputTree(_output_file);
     } else {
-        // Firts pass to fill InputData tree with raw hit information
+        // Standard filedump pass
         processDataFiledump(_input_path);
-
-        // Second pass after InputData tree is filled and background rejection is applied
         processDataInputTree(_output_file);
     }
 }
@@ -771,10 +770,8 @@ void DataProcesser::processDataInputTree(TFile* root_file) {
     createEfficiencyGraphs();
 }
 
-/*
-/// OLD:
-/// Process a single file by reading decoded words: "clk word raw_bcout" format
-void DataProcesser::processFileDecoded(const std::string& file_path) {
+// Function to handle raw hit extraction from legacy .strip files
+void DataProcesser::processDataStripFormat(const std::string& file_path) {
     std::ifstream infile(file_path);
     if (!infile.is_open()) {
         std::cerr << "ERROR: Cannot open file: " << file_path << std::endl;
@@ -782,36 +779,60 @@ void DataProcesser::processFileDecoded(const std::string& file_path) {
     }
 
     int clk = 0;
-    int word = 0;
-    int raw_bcout = 0;
+    unsigned int word = 0;
+    std::string bc_out_str;
 
-    // Initialize efficiency counters and struct once before processing all words in this file
-    // Use member variables so they persist after processing
-    efficiency_counters = {};
-    efficiency_counters_tracks = {};
+    int prev_clk = -1;
+    bool in_event = false;
 
-    // Read words from file: "clk word raw_bcout" format
-    while (infile >> std::dec >> clk >> std::hex >> word >> raw_bcout) {
-        processSingleWord(clk, word, efficiency_counters, efficiency_counters_tracks);
+    std::vector<int> event_clks;
+    std::vector<int> event_words;
+
+    // Read lines in "clk word bc_out" format
+    while (infile >> std::dec >> clk >> std::hex >> word >> bc_out_str) {
+
+        // Detect event boundary: Clock wraps around back to 0 (or drops significantly)
+        if (clk < prev_clk && in_event) {
+
+            // PASS 2: Decode all accumulated words for the completed event & fill the InputData tree
+            if (!event_words.empty()) {
+                for (size_t i = 0; i < event_words.size(); ++i) {
+                    processSingleWord(event_clks[i], event_words[i]);
+                }
+                if (!event_words.empty()) {
+                    _input_data_tree->Fill();
+                }
+            }
+
+            // Prepare for the next event
+            event_clks.clear();
+            event_words.clear();
+            clearRawDataVectors();
+        }
+
+        in_event = true;
+        prev_clk = clk;
+
+        // Skip idle/empty words (e.g. 0x05555555 or 0x5555555)
+        if ((word & 0x0FFFFFFF) == 0x05555555) continue;
+
+        // Accumulate valid words for the current event
+        event_clks.push_back(clk);
+        event_words.push_back(static_cast<int>(word));
     }
 
-    // Process any remaining event at the end of file
-    if (current_event_hits.size() > 0) {
-        processEvent(efficiency_counters, efficiency_counters_tracks);
-        current_event_number++;
-        current_event_hits.clear();
-        clearEventVectors();
+    // Process the final event remaining at the end of the file
+    if (in_event && !event_words.empty()) {
+        for (size_t i = 0; i < event_words.size(); ++i) {
+            processSingleWord(event_clks[i], event_words[i]);
+        }
+        if (!event_words.empty()) {
+            _input_data_tree->Fill();
+        }
     }
-
-    // Update efficiencies from counters before writing histograms
-    updateEfficiencies();
-
-    // Create and write efficiency histograms to output file
-    createHistograms();
 
     infile.close();
 }
-*/
 
 // Process a complete event that has been accumulated
 void DataProcesser::processEvent(
@@ -819,9 +840,6 @@ void DataProcesser::processEvent(
     EfficiencyCounters& counters_tracks
 ) {
     n_hits = current_event_hits.size();
-    // std::cout << "\n" << std::endl;
-    // std::cout << "╔═════════════════════════════════════════════════════════════════╗" << std::endl;
-    // std::cout << "║ Processing event No. " << current_event_number << " with " << n_hits << " hits" << std::endl;
 
     // Create an Event object and transfer hits using move semantics, passing the counters reference
     Event event(current_event_number, std::move(current_event_hits), counters, counters_tracks, _use_external_trigger);
@@ -887,7 +905,6 @@ void DataProcesser::processEvent(
         _track_reconstruction_tree->Fill();
     }
 }
-
 
 // Utility function to update hit cluster IDs after clusterization
 // and push back the results into the corresponding vectors for tree filling

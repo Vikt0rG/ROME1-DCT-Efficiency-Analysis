@@ -92,6 +92,9 @@ public:
     /// @brief Process a single data file and InputData ROOT tree
     /// @param file_path Path to the input txt data file
     void processDataFiledump(const std::string& file_path);
+    /// @brief Process a single data file in legacy .strip format and InputData ROOT tree
+    /// @param file_path Path to the input .strip data file
+    void processDataStripFormat(const std::string& file_path);
     /// @brief Process raw signal hit data
     void processDataInputTree(TFile* root_file);
 
