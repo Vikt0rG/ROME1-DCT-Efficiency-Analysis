@@ -48,6 +48,18 @@ def find_raw_txt(raw_files, name):
     return None
 
 
+# Check if there is an uncompressed strip file (for legacy support)
+def find_strip_file(raw_files, name):
+    strip_name = f"{name}.strip"
+    for file in raw_files:
+        if os.path.basename(file) == strip_name:
+            return file
+    for file in raw_files:
+        if file.endswith(".strip"):
+            return file
+    return None
+
+
 # Check if a path exists, or if it can be found in the fallback directory
 def resolve_path(path, fallback_dir):
     if not path:
@@ -164,102 +176,100 @@ def main():
             if not name or not raw_files:
                 continue
 
-            # If a finalized txt already exists, skip re-processing unless
-            # forced
+            is_strip_data = False
+
+            # If a finalized txt already exists, skip re-processing unless forced
             expected_txt = os.path.join(target_txt_dir, f"{name}.txt")
             if os.path.exists(expected_txt) and not args.force:
-                vprint(
-                    f"Skipping raw processing; txt already exists: {expected_txt}"
-                )
+                vprint(f"Skipping raw processing; txt already exists: {expected_txt}")
                 txt_paths = [expected_txt]
             else:
-                # Step 5: Determine the txt source
-                # (raw txt -> text tar -> bin tar)
+                # Step 5: Determine source (strip -> raw txt -> text tar -> bin tar)
+                raw_strip_path = find_strip_file(raw_files, name)
                 raw_txt_path = find_raw_txt(raw_files, name)
                 text_tar_path = find_text_tar(raw_files)
                 bin_tar_path = find_bin_tar(raw_files)
 
                 txt_paths = []
+                txt_found = False
 
-                # Check if the source raw txt file exists or can be found in
-                # the fallback directory
-                if raw_txt_path:
-                    source_txt = resolve_path(raw_txt_path, target_txt_dir)
-                    if not source_txt:
-                        print(f"Missing raw txt for {name}: {raw_txt_path}")
-                        continue
-
-                    # Step 6a: Use raw txt directly
-                    target_txt = os.path.join(target_txt_dir, f"{name}.txt")
-                    if os.path.abspath(source_txt) != os.path.abspath(target_txt):
-
-                        # If the target already exists and --force is not set,
-                        # skip moving
-                        if os.path.exists(target_txt) and not args.force:
-                            pass
-                        else:
-                            # Remove existing target for --force if it exists
-                            # to avoid issues with shutil.copy2
-                            if os.path.exists(target_txt):
-                                os.remove(target_txt)
-                            shutil.copy2(source_txt, target_txt)
-                            vprint(f"Copied raw txt to {target_txt}")
-                    else:
-                        vprint(f"Using existing raw txt {target_txt}")
-
-                    txt_paths = [target_txt]
-
-                    # Cleanup any tar files that might have been used in this
-                    # process to avoid confusion later
-                    for cleanup_path in (text_tar_path, bin_tar_path):
-                        resolved = resolve_path(cleanup_path, target_bin_dir)
-                        if resolved and os.path.abspath(resolved).startswith(root_dir):
-                            os.remove(resolved)
-
-                # If no raw txt file, check for a text tarball and extract it
-                elif text_tar_path:
-                    # Step 6b: Extract text tar into txt dir
-                    source_tar = resolve_path(text_tar_path, target_bin_dir)
-                    if not source_tar:
-                        print(f"Missing text tar for {name}: {text_tar_path}")
-                        continue
-
-                    with tarfile.open(source_tar, "r:gz") as tar:
-                        safe_extract(tar, target_txt_dir)
-                        members = [m.name for m in tar.getmembers() if m.name.endswith(".txt")]
-                    vprint(f"Extracted text tar {source_tar}")
-                    filedump_txt = os.path.join(target_txt_dir, "filedump_0.txt")
-                    if os.path.exists(filedump_txt):
+                # 1. Check for legacy .strip file
+                if raw_strip_path:
+                    source_strip = resolve_path(raw_strip_path, target_txt_dir)
+                    if source_strip:
                         target_txt = os.path.join(target_txt_dir, f"{name}.txt")
-                        if os.path.exists(target_txt) and not args.force:
-                            pass
-                        else:
-                            if os.path.exists(target_txt):
-                                os.remove(target_txt)
-                            shutil.move(filedump_txt, target_txt)
-                            vprint(f"Renamed filedump_0.txt to {target_txt}")
+                        if os.path.abspath(source_strip) != os.path.abspath(target_txt):
+                            if not (os.path.exists(target_txt) and not args.force):
+                                if os.path.exists(target_txt):
+                                    os.remove(target_txt)
+                                shutil.copy2(source_strip, target_txt)
+                                vprint(f"Copied legacy .strip file to {target_txt}")
+
                         txt_paths = [target_txt]
-                    else:
-                        txt_paths = [os.path.join(target_txt_dir, os.path.basename(m)) for m in members]
-                        if len(txt_paths) == 1:
+                        txt_found = True
+                        is_strip_data = True
+
+                # 2. Check for raw .txt file
+                if not txt_found and raw_txt_path:
+                    source_txt = resolve_path(raw_txt_path, target_txt_dir)
+                    if source_txt:
+                        target_txt = os.path.join(target_txt_dir, f"{name}.txt")
+                        if os.path.abspath(source_txt) != os.path.abspath(target_txt):
+                            if not (os.path.exists(target_txt) and not args.force):
+                                if os.path.exists(target_txt):
+                                    os.remove(target_txt)
+                                shutil.copy2(source_txt, target_txt)
+                                vprint(f"Copied raw txt to {target_txt}")
+                        else:
+                            vprint(f"Using existing raw txt {target_txt}")
+
+                        txt_paths = [target_txt]
+                        txt_found = True
+
+                        for cleanup_path in (text_tar_path, bin_tar_path):
+                            resolved = resolve_path(cleanup_path, target_bin_dir)
+                            if resolved and os.path.abspath(resolved).startswith(root_dir):
+                                os.remove(resolved)
+
+                # 3. Check for text tarball
+                if not txt_found and text_tar_path:
+                    source_tar = resolve_path(text_tar_path, target_bin_dir)
+                    if source_tar:
+                        with tarfile.open(source_tar, "r:gz") as tar:
+                            safe_extract(tar, target_txt_dir)
+                            members = [m.name for m in tar.getmembers() if m.name.endswith(".txt")]
+                        vprint(f"Extracted text tar {source_tar}")
+
+                        filedump_txt = os.path.join(target_txt_dir, "filedump_0.txt")
+                        if os.path.exists(filedump_txt):
                             target_txt = os.path.join(target_txt_dir, f"{name}.txt")
-                            if os.path.basename(txt_paths[0]) != f"{name}.txt":
-                                if os.path.exists(target_txt) and not args.force:
-                                    pass
-                                else:
-                                    if os.path.exists(target_txt):
-                                        os.remove(target_txt)
-                                    shutil.move(txt_paths[0], target_txt)
-                                    vprint(f"Renamed {txt_paths[0]} to {target_txt}")
-                                txt_paths = [target_txt]
+                            if not (os.path.exists(target_txt) and not args.force):
+                                if os.path.exists(target_txt):
+                                    os.remove(target_txt)
+                                shutil.move(filedump_txt, target_txt)
+                                vprint(f"Renamed filedump_0.txt to {target_txt}")
+                            txt_paths = [target_txt]
+                        else:
+                            txt_paths = [os.path.join(target_txt_dir, os.path.basename(m)) for m in members]
+                            if len(txt_paths) == 1:
+                                target_txt = os.path.join(target_txt_dir, f"{name}.txt")
+                                if os.path.basename(txt_paths[0]) != f"{name}.txt":
+                                    if not (os.path.exists(target_txt) and not args.force):
+                                        if os.path.exists(target_txt):
+                                            os.remove(target_txt)
+                                        shutil.move(txt_paths[0], target_txt)
+                                        vprint(f"Renamed {txt_paths[0]} to {target_txt}")
+                                    txt_paths = [target_txt]
 
-                    if os.path.exists(source_tar):
-                        os.remove(source_tar)
+                        if os.path.exists(source_tar):
+                            os.remove(source_tar)
 
-                else:
-                    # Step 6c: Extract bin tar and convert pcap to txt
+                        txt_found = True
+
+                # 4. Check for binary tarball
+                if not txt_found:
                     if not bin_tar_path:
-                        print(f"No bin_data_files.tar.gz for {name}")
+                        print(f"No valid .strip, .txt, text tar, or binary tar found for {name}")
                         continue
 
                     source_tar = resolve_path(bin_tar_path, target_bin_dir)
@@ -269,9 +279,7 @@ def main():
 
                     target_tar = os.path.join(target_bin_dir, f"{name}.tar.gz")
                     if os.path.abspath(source_tar) != os.path.abspath(target_tar):
-                        if os.path.exists(target_tar) and not args.force:
-                            pass
-                        else:
+                        if not (os.path.exists(target_tar) and not args.force):
                             shutil.copy2(source_tar, target_tar)
 
                     if not os.path.exists(target_tar):
@@ -305,9 +313,7 @@ def main():
                     if len(txt_paths) == 1 and os.path.exists(txt_paths[0]):
                         if os.path.basename(txt_paths[0]) != f"{name}.txt":
                             target_txt = os.path.join(target_txt_dir, f"{name}.txt")
-                            if os.path.exists(target_txt) and not args.force:
-                                pass
-                            else:
+                            if not (os.path.exists(target_txt) and not args.force):
                                 if os.path.exists(target_txt):
                                     os.remove(target_txt)
                                 shutil.move(txt_paths[0], target_txt)
@@ -331,15 +337,23 @@ def main():
             existing_txt = [p for p in txt_paths if os.path.exists(p)]
             if len(existing_txt) != 1:
                 raise ValueError(
-                    f"Expected 1 txt for {name}, found {len(existing_txt)}.",
-                    "Skipping analysis."
+                    f"Expected 1 txt for {name}, found {len(existing_txt)}. Skipping analysis."
                 )
 
-                continue
-
             command = "process"
-            processing_cmd = [processing_bin, command, existing_txt[0], str(args.dt_max), str(args.dt_min), args.error_type]
-            if args.no_external: processing_cmd.append("--no-external")
+            processing_cmd = [
+                processing_bin,
+                command,
+                existing_txt[0],
+                str(args.dt_max),
+                str(args.dt_min),
+                args.error_type
+            ]
+            if args.no_external:
+                processing_cmd.append("--no-external")
+            if is_strip_data:
+                processing_cmd.append("--use-old-data")
+                vprint(f"Using legacy data mode (--use-old-data) for {name}")
 
             subprocess.run(processing_cmd, check=True, cwd=root_dir)
 
