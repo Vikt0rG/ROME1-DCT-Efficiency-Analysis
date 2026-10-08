@@ -2500,7 +2500,7 @@ namespace PlotStyler {
 
         TGraphErrors* fit_band = new TGraphErrors(n_points);
 
-        double sigma_multiplier = 3.0;
+        double sigma_multiplier = 1.0;
         for (int i = 0; i < n_points; ++i) {
             double x = x_min + i * step;
             double y = fit->Eval(x);
@@ -2543,7 +2543,7 @@ namespace PlotStyler {
         fit_legend->SetTextFont(42);
         fit_legend->SetTextSize(0.035);
 
-        fit_legend->AddEntry(fit_band, "Gaussian Fit #pm 3#sigma Conf.", "fl");
+        fit_legend->AddEntry(fit_band, "Gaussian Fit #pm 1#sigma Conf.", "fl");
         fit_legend->AddEntry((TObject*)nullptr, Form("#mu = %.3f #pm %.3f", p1, ep1), "");
         fit_legend->AddEntry((TObject*)nullptr, Form("#sigma = %.3f #pm %.3f", p2, ep2), "");
 
