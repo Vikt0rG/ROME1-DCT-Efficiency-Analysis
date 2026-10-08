@@ -2443,11 +2443,16 @@ namespace PlotStyler {
         auto h1 = dynamic_cast<TH1*>(obj);
         if (!h1) return;
 
-        // Force a larger x and y range to accommodate the legend and confidence band
-        double x_max = h1->GetXaxis()->GetXmax();
+        // Fetch dynamic percentile ranges set on the histogram
+        double x_min_data = h1->GetXaxis()->GetXmin();
+        double x_max_data = h1->GetXaxis()->GetXmax();
+        double dx = x_max_data - x_min_data;
+
+        double frame_x_min = x_min_data - 0.25 * dx;
+        double frame_x_max = x_max_data;
         double y_max = h1->GetMaximum() * 1.07;
 
-        TH1F* frame = canvas->DrawFrame(-9.0, 0.0, x_max, y_max);
+        TH1F* frame = canvas->DrawFrame(frame_x_min, 0.0, frame_x_max, y_max);
         frame->SetTitle(h1->GetTitle());
         frame->GetXaxis()->SetTitle(h1->GetXaxis()->GetTitle());
         frame->GetYaxis()->SetTitle(h1->GetYaxis()->GetTitle());
@@ -2464,7 +2469,6 @@ namespace PlotStyler {
 
         for (int i = 1; i < h1->GetNbinsX(); ++i) {
             double x = h1->GetXaxis()->GetBinUpEdge(i);
-
             double y_left = h1->GetBinContent(i);
             double y_right = h1->GetBinContent(i + 1);
 
@@ -2495,14 +2499,13 @@ namespace PlotStyler {
         double ep2 = fit->GetParError(2);
 
         int n_points = 200;
-        double x_min = h1->GetXaxis()->GetXmin();
-        double step = (x_max - x_min) / n_points;
+        double step = (x_max_data - x_min_data) / n_points;
 
         TGraphErrors* fit_band = new TGraphErrors(n_points);
 
         double sigma_multiplier = 1.0;
         for (int i = 0; i < n_points; ++i) {
-            double x = x_min + i * step;
+            double x = x_min_data + i * step;
             double y = fit->Eval(x);
 
             double df_dp0 = (p0 != 0) ? y / p0 : 0;
@@ -2510,8 +2513,8 @@ namespace PlotStyler {
             double df_dp2 = (p2 != 0) ? y * ((x - p1) * (x - p1)) / (p2 * p2 * p2) : 0;
 
             double dy = sigma_multiplier * std::sqrt(std::pow(df_dp0 * ep0, 2) +
-                                        std::pow(df_dp1 * ep1, 2) +
-                                        std::pow(df_dp2 * ep2, 2));
+                                                     std::pow(df_dp1 * ep1, 2) +
+                                                     std::pow(df_dp2 * ep2, 2));
 
             fit_band->SetPoint(i, x, y);
             fit_band->SetPointError(i, 0, dy);
@@ -2536,21 +2539,8 @@ namespace PlotStyler {
         double ndc_x0 = canvas->GetLeftMargin();
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
-        TLegend* fit_legend = new TLegend(ndc_x0 + 0.03, ndc_y0 - 0.30, ndc_x0 + 0.35, ndc_y0 - 0.15);
-        fit_legend->SetTextAlign(12);
-        fit_legend->SetBorderSize(0);
-        fit_legend->SetFillStyle(0);
-        fit_legend->SetTextFont(42);
-        fit_legend->SetTextSize(0.035);
-
-        fit_legend->AddEntry(fit_band, "Gaussian Fit #pm 1#sigma Conf.", "fl");
-        fit_legend->AddEntry((TObject*)nullptr, Form("#mu = %.3f #pm %.3f", p1, ep1), "");
-        fit_legend->AddEntry((TObject*)nullptr, Form("#sigma = %.3f #pm %.3f", p2, ep2), "");
-
-        fit_legend->Draw();
-
         std::string plot_title = obj ? obj->GetTitle() : "";
-        drawATLASHeaderBlock(
+        TPaveText* header = drawATLASHeaderBlock(
             ndc_x0 + 0.03, ndc_y0 - 0.09,
             "Work in Progress",
             plot_title,
@@ -2559,6 +2549,24 @@ namespace PlotStyler {
             kBlack, 0,
             0.01
         );
+
+        canvas->Modified();
+        canvas->Update();
+
+        double legend_y_top = header ? header->GetY1NDC() - 0.02 : ndc_y0 - 0.15;
+
+        TLegend* fit_legend = new TLegend(ndc_x0 + 0.03, legend_y_top - 0.18, ndc_x0 + 0.35, legend_y_top);
+        fit_legend->SetTextAlign(12);
+        fit_legend->SetBorderSize(0);
+        fit_legend->SetFillStyle(0);
+        fit_legend->SetTextFont(42);
+        fit_legend->SetTextSize(0.032);
+
+        fit_legend->AddEntry(fit_band, "Gaussian Fit #pm 1#sigma Conf.", "fl");
+        fit_legend->AddEntry((TObject*)nullptr, Form("#mu = %.3f #pm %.3f ns", p1, ep1), "");
+        fit_legend->AddEntry((TObject*)nullptr, Form("#sigma = %.3f #pm %.3f ns", p2, ep2), "");
+
+        fit_legend->Draw();
     }
 
     void styleToFHeatmap(TObject* obj, TCanvas* canvas, TClass* cl) {
