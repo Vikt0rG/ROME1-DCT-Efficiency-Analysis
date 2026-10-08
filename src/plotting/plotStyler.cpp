@@ -1275,7 +1275,7 @@ namespace PlotStyler {
         if (mg->GetHistogram()) {
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
                 setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 0.0, .x_max = 100.0});
-                xAxis->SetTitle(x_label.c_str());
+                xAxis->SetTitle("Efficiency OR(#eta_{1}, #eta_{2}) [%]");
             }
             if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
                 setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 0.0, .x_max = 100.0});
