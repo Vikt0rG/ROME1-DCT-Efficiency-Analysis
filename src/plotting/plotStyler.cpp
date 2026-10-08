@@ -85,7 +85,7 @@ namespace PlotStyler {
         {PlotCategory::ToFDistribution,             &styleToFDistribution},
         {PlotCategory::ToFHeatmap,                  &styleToFHeatmap},
         {PlotCategory::AvgToFVsHV,                  &styleAvgToFVsHV},
-        {PlotCategory::TimeResolutionVsHV,          &styleAvgTRVsEff},
+        {PlotCategory::TimeResolutionVsHV,          &styleAvgTRVsHV},
         {PlotCategory::TimeResolutionStripVsHV,     &styleTRStripVsHV},
         {PlotCategory::AvgToTLayerVsHV,             &styleAvgClusterSizeVsEff},
         {PlotCategory::AvgToTStripVsHV,             &styleAvgToTVsHV},
