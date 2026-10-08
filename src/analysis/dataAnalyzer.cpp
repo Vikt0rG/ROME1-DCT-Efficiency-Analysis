@@ -86,7 +86,7 @@ void plotStrip(TFile* input_file) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH1F(Form("h1d_%s_layer%d", categories[c], layer),
                             Form("Layer %d;Strip;Hits", layer),
-                            24, 0, 24);
+                            STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER);
             strip_histograms[categories[c]][layer] = hist;
         }
     }
@@ -228,7 +228,7 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
                             Form("Layer %d: %s;Strip;#Delta#it{t} [Ticks]; Entries", layer, comments[c]),
-                            24, 0, 24, 24, -12, 12);
+                            STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, 24, -12, 12);
             dt_strip_histograms[suffixes[c]][layer] = hist;
         }
     }
@@ -259,7 +259,7 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     // 3-tier RoI Map (1 = No Beam, 2 = Halo, 3 = Beam Core)
     TH2F* h_roi_map = new TH2F("h2d_roi_map",
                                "Beam Spot Region of Interest;Strip;#Delta#it{t} [Ticks]",
-                               24, 0, 24, 24, -12, 12);
+                               STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, 24, -12, 12);
 
     for (int bx = 1; bx <= h_roi_map->GetNbinsX(); ++bx) {
         for (int by = 1; by <= h_roi_map->GetNbinsY(); ++by) {
@@ -598,7 +598,7 @@ void plotToTVsStrip(TFile* input_file) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
                             Form("Layer %d: %s;Strip;ToT [ns];Entries", layer, comments[c]),
-                            24, 0, 24, 25, 0, 25);
+                            STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, 25, 0, 25);
             tot_strip_histograms[suffixes[c]][layer] = hist;
         }
     }
@@ -681,7 +681,7 @@ void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TProfile2D(Form("h2d_%s_layer%d", categories[c], layer),
                             Form("Layer %d: %s;Strip;#Delta#it{t} [ns];<ToT> [ns]", layer, comments[c]),
-                            24, 0, 24, 20, -10, 10);
+                            STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, 20, -10, 10);
             profile_histograms[categories[c]][layer] = hist;
         }
     }
@@ -791,7 +791,7 @@ void plotMultiplicity(TFile* input_file) {
             h2d_mult[categories[c]][layer] = new TH2F(
                 Form("h2d_%s_layer%d", categories[c], layer),
                 Form("Layer %d: %s;Strip;Multiplicity;Entries", layer, comments[c]),
-                24, 0, 24, 9, 1, 10);
+                STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, 9, 1, 10);
 
             // 1D Distribution (Summed Multiplicity)
             h1d_mult[categories[c]][layer] = new TH1F(
@@ -803,13 +803,13 @@ void plotMultiplicity(TFile* input_file) {
             prof_avg[categories[c]][layer] = new TProfile(
                 Form("prof_avg_%s_layer%d", categories[c], layer),
                 Form("Layer %d: %s;Strip;#LTAverage Multiplicity#GT [Hits]", layer, comments[c]),
-                24, 0, 24);
+                STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER);
 
             // 1D Profile (Fraction of Mult > 1 vs Strip)
             prof_frac[categories[c]][layer] = new TProfile(
                 Form("prof_frac_%s_layer%d", categories[c], layer),
                 Form("Layer %d: %s;Strip;#frac{N_{mult > 1}}{N_{events}}", layer, comments[c]),
-                24, 0, 24);
+                STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER);
         }
     }
 
@@ -966,12 +966,12 @@ void plotDelay(TFile* input_file) {
             h2d_delay[categories[c]][layer] = new TH2F(
                 Form("h2d_%s_layer%d", categories[c], layer),
                 Form("Layer %d: %s;Strip;Delay from First Hit [ns];Entries", layer, comments[c]),
-                24, 0, 24, max_delay_bins, x_min, x_max);
+                STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, max_delay_bins, x_min, x_max);
 
             prof_delay[categories[c]][layer] = new TProfile(
                 Form("prof_avg_%s_layer%d", categories[c], layer),
                 Form("Layer %d: %s;Strip;#LTAverage Delay#GT [ns]", layer, comments[c]),
-                24, 0, 24);
+                STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER);
 
             // Create a 3-element vector of 1D Histograms for 2nd, 3rd, and 4th+ hits
             for (int hit = 0; hit < 3; ++hit) {
