@@ -41,6 +41,30 @@
 // ==========================================================================================
 namespace perFileHelpers {
 
+inline std::pair<double, double> getPercentileRange(
+    std::vector<double>& data,
+    double lower_p = 0.025,
+    double upper_p = 0.975)
+{
+    if (data.empty()) return {-6.5 * TIME_TICK_NS, 6.5 * TIME_TICK_NS};
+
+    std::sort(data.begin(), data.end());
+    size_t n = data.size();
+
+    size_t idx_low  = static_cast<size_t>(lower_p * (n - 1));
+    size_t idx_high = static_cast<size_t>(upper_p * (n - 1));
+
+    double min_val = data[idx_low];
+    double max_val = data[idx_high];
+
+    if (min_val >= max_val) {
+        min_val -= TIME_TICK_NS;
+        max_val += TIME_TICK_NS;
+    }
+
+    return {min_val, max_val};
+}
+
 void plotStrip(TFile* input_file) {
     TDirectory* analysis_dir = input_file->GetDirectory("analysis");
     TDirectory* strip_dir = analysis_dir->GetDirectory("strip");
