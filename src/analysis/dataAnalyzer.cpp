@@ -1158,12 +1158,9 @@ void plotToFs(TFile* input_file) {
     std::array<std::unique_ptr<TTreeReaderValue<std::vector<int>>>, LAYER_PAIR_COUNT> tof1_readers;
     std::array<std::unique_ptr<TTreeReaderValue<std::vector<int>>>, LAYER_PAIR_COUNT> tof2_readers;
 
-    std::array<TH1F*, LAYER_PAIR_COUNT> h_tof1;
-    std::array<TH1F*, LAYER_PAIR_COUNT> h_tof2;
-
-    int n_bins = 13;
-    double x_min = -6.5 * TIME_TICK_NS;
-    double x_max =  6.5 * TIME_TICK_NS;
+    // Buffers to accumulate raw ToF values (in ns) prior to histogram creation
+    std::array<std::vector<double>, LAYER_PAIR_COUNT> raw_tof1_data;
+    std::array<std::vector<double>, LAYER_PAIR_COUNT> raw_tof2_data;
 
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
         std::string branch1 = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1";
@@ -1171,20 +1168,15 @@ void plotToFs(TFile* input_file) {
 
         tof1_readers[i] = std::make_unique<TTreeReaderValue<std::vector<int>>>(readerTrackData, branch1.c_str());
         tof2_readers[i] = std::make_unique<TTreeReaderValue<std::vector<int>>>(readerTrackData, branch2.c_str());
-
-        h_tof1[i] = new TH1F(Form("h1d_tof_layer_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()),
-                             Form("Side #eta1: %s;ToF [ns];Entries", pair_labels[i].c_str()), n_bins, x_min, x_max);
-        h_tof2[i] = new TH1F(Form("h1d_tof_layer_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()),
-                             Form("Side #eta2: %s;ToF [ns];Entries", pair_labels[i].c_str()), n_bins, x_min, x_max);
     }
 
     while (readerTrackData.Next()) {
         for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
             if (tof1_readers[i]->GetSetupStatus() == 0) {
-                for (int t : **tof1_readers[i]) h_tof1[i]->Fill(TimeUtils::ticksToTime(t));
+                for (int t : **tof1_readers[i]) raw_tof1_data[i].push_back(TimeUtils::ticksToTime(t));
             }
             if (tof2_readers[i]->GetSetupStatus() == 0) {
-                for (int t : **tof2_readers[i]) h_tof2[i]->Fill(TimeUtils::ticksToTime(t));
+                for (int t : **tof2_readers[i]) raw_tof2_data[i].push_back(TimeUtils::ticksToTime(t));
             }
         }
     }
@@ -1222,15 +1214,40 @@ void plotToFs(TFile* input_file) {
         }
     };
 
+    double bin_width = TIME_TICK_NS;
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
-        applyVisualFit(h_tof1[i]);
-        applyVisualFit(h_tof2[i]);
+        auto [x_min1, x_max1] = perFileHelpers::getPercentileRange(raw_tof1_data[i], 0.0, 1.0);
+        auto [x_min2, x_max2] = perFileHelpers::getPercentileRange(raw_tof2_data[i], 0.0, 1.0);
 
-        h_tof1[i]->Write("", TObject::kOverwrite);
-        h_tof2[i]->Write("", TObject::kOverwrite);
+        int n_bins1 = std::max(1, static_cast<int>(std::round((x_max1 - x_min1) / bin_width)));
+        int n_bins2 = std::max(1, static_cast<int>(std::round((x_max2 - x_min2) / bin_width)));
 
-        delete h_tof1[i];
-        delete h_tof2[i];
+        x_max1 = x_min1 + n_bins1 * bin_width;
+        x_max2 = x_min2 + n_bins2 * bin_width;
+
+        TH1F* h_tof1 = new TH1F(
+            Form("h1d_tof_layer_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()),
+            Form("Side #eta1: %s;ToF [ns];Entries", pair_labels[i].c_str()),
+            n_bins1, x_min1, x_max1
+        );
+
+        TH1F* h_tof2 = new TH1F(
+            Form("h1d_tof_layer_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()),
+            Form("Side #eta2: %s;ToF [ns];Entries", pair_labels[i].c_str()),
+            n_bins2, x_min2, x_max2
+        );
+
+        for (double val : raw_tof1_data[i]) h_tof1->Fill(val);
+        for (double val : raw_tof2_data[i]) h_tof2->Fill(val);
+
+        applyVisualFit(h_tof1);
+        applyVisualFit(h_tof2);
+
+        h_tof1->Write("", TObject::kOverwrite);
+        h_tof2->Write("", TObject::kOverwrite);
+
+        delete h_tof1;
+        delete h_tof2;
     }
 }
 
@@ -1973,17 +1990,12 @@ void processToF(TFile* input_file, ToFResults& tof_results,
     std::vector<std::unique_ptr<TTreeReaderValue<std::vector<int>>>> stripF1_readers, stripS1_readers;
     std::vector<std::unique_ptr<TTreeReaderValue<std::vector<int>>>> stripF2_readers, stripS2_readers;
 
-    // Global Histograms
-    std::array<TH1D*, LAYER_PAIR_COUNT> h_tof1;
-    std::array<TH1D*, LAYER_PAIR_COUNT> h_tof2;
+    // Data accumulation containers for percentile calculation
+    std::array<std::vector<double>, LAYER_PAIR_COUNT> raw_global_eta1;
+    std::array<std::vector<double>, LAYER_PAIR_COUNT> raw_global_eta2;
 
-    // Per-Strip Histograms
-    std::array<std::array<TH1D*, STRIPS_PER_LAYER>, LAYER_PAIR_COUNT> h_tof_strip_eta1 = {};
-    std::array<std::array<TH1D*, STRIPS_PER_LAYER>, LAYER_PAIR_COUNT> h_tof_strip_eta2 = {};
-
-    int n_bins = 13;
-    double x_min = -6.5 * TIME_TICK_NS;
-    double x_max =  6.5 * TIME_TICK_NS;
+    std::array<std::array<std::vector<double>, STRIPS_PER_LAYER>, LAYER_PAIR_COUNT> raw_strip_eta1;
+    std::array<std::array<std::vector<double>, STRIPS_PER_LAYER>, LAYER_PAIR_COUNT> raw_strip_eta2;
 
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
         std::string base = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i];
@@ -1997,65 +2009,62 @@ void processToF(TFile* input_file, ToFResults& tof_results,
         tof2_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, (base + "_eta2").c_str()));
         stripF2_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, (base + "_stripFirst_eta2").c_str()));
         stripS2_readers.push_back(std::make_unique<TTreeReaderValue<std::vector<int>>>(reader_track, (base + "_stripSecond_eta2").c_str()));
-
-        // Initialize Global Histograms (Scaled to ns)
-        h_tof1[i] = new TH1D(Form("h_tof1_%s", LAYER_PAIR_SUFFIXES[i].c_str()), Form("ToF Eta1 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), n_bins, x_min, x_max);
-        h_tof2[i] = new TH1D(Form("h_tof2_%s", LAYER_PAIR_SUFFIXES[i].c_str()), Form("ToF Eta2 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), n_bins, x_min, x_max);
-
-        // Initialize Per-Strip Histograms (Scaled to ns)
-        for (int s = 0; s < STRIPS_PER_LAYER; ++s) {
-            h_tof_strip_eta1[i][s] = new TH1D(Form("h_tof1_%s_s%d", LAYER_PAIR_SUFFIXES[i].c_str(), s), "ToF", n_bins, x_min, x_max);
-            h_tof_strip_eta2[i][s] = new TH1D(Form("h_tof2_%s_s%d", LAYER_PAIR_SUFFIXES[i].c_str(), s), "ToF", n_bins, x_min, x_max);
-        }
     }
 
+    // Pass 1: Accumulate raw values into memory (Decoupled branch verification)
     while (reader_track.Next()) {
         for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
 
-            // Process Eta 1
-            if (tof1_readers[i]->GetSetupStatus() == 0 &&
-                stripF1_readers[i]->GetSetupStatus() == 0 &&
-                stripS1_readers[i]->GetSetupStatus() == 0)
-            {
+            // Process Eta 1 Global
+            if (tof1_readers[i]->GetSetupStatus() == 0) {
                 const auto& tofs = **tof1_readers[i];
-                const auto& sF = **stripF1_readers[i];
-                const auto& sS = **stripS1_readers[i];
-
                 for (size_t k = 0; k < tofs.size(); ++k) {
                     double t_ns = TimeUtils::ticksToTime(tofs[k]);
 
-                    h_tof1[i]->Fill(t_ns);
+                    raw_global_eta1[i].push_back(t_ns);
                     tof_results.time_of_flight_eta1[i].push_back(tofs[k]);
 
-                    int mapped_sF = perFileHelpers::remapStrip(sF[k]);
-                    int mapped_sS = perFileHelpers::remapStrip(sS[k]);
+                    // Process Eta 1 Strips if available
+                    if (stripF1_readers[i]->GetSetupStatus() == 0 &&
+                        stripS1_readers[i]->GetSetupStatus() == 0)
+                    {
+                        const auto& sF = **stripF1_readers[i];
+                        const auto& sS = **stripS1_readers[i];
+                        if (k < sF.size() && k < sS.size()) {
+                            int mapped_sF = perFileHelpers::remapStrip(sF[k]);
+                            int mapped_sS = perFileHelpers::remapStrip(sS[k]);
 
-                    if (mapped_sF == mapped_sS && mapped_sF >= 0 && mapped_sF < STRIPS_PER_LAYER) {
-                        h_tof_strip_eta1[i][mapped_sF]->Fill(t_ns);
+                            if (mapped_sF == mapped_sS && mapped_sF >= 0 && mapped_sF < STRIPS_PER_LAYER) {
+                                raw_strip_eta1[i][mapped_sF].push_back(t_ns);
+                            }
+                        }
                     }
                 }
             }
 
-            // Process Eta 2
-            if (tof2_readers[i]->GetSetupStatus() == 0 &&
-                stripF2_readers[i]->GetSetupStatus() == 0 &&
-                stripS2_readers[i]->GetSetupStatus() == 0)
-            {
+            // Process Eta 2 Global
+            if (tof2_readers[i]->GetSetupStatus() == 0) {
                 const auto& tofs = **tof2_readers[i];
-                const auto& sF = **stripF2_readers[i];
-                const auto& sS = **stripS2_readers[i];
-
                 for (size_t k = 0; k < tofs.size(); ++k) {
                     double t_ns = TimeUtils::ticksToTime(tofs[k]);
 
-                    h_tof2[i]->Fill(t_ns);
+                    raw_global_eta2[i].push_back(t_ns);
                     tof_results.time_of_flight_eta2[i].push_back(tofs[k]);
 
-                    int mapped_sF = perFileHelpers::remapStrip(sF[k]);
-                    int mapped_sS = perFileHelpers::remapStrip(sS[k]);
+                    // Process Eta 2 Strips if available
+                    if (stripF2_readers[i]->GetSetupStatus() == 0 &&
+                        stripS2_readers[i]->GetSetupStatus() == 0)
+                    {
+                        const auto& sF = **stripF2_readers[i];
+                        const auto& sS = **stripS2_readers[i];
+                        if (k < sF.size() && k < sS.size()) {
+                            int mapped_sF = perFileHelpers::remapStrip(sF[k]);
+                            int mapped_sS = perFileHelpers::remapStrip(sS[k]);
 
-                    if (mapped_sF == mapped_sS && mapped_sF >= 0 && mapped_sF < STRIPS_PER_LAYER) {
-                        h_tof_strip_eta2[i][mapped_sF]->Fill(t_ns);
+                            if (mapped_sF == mapped_sS && mapped_sF >= 0 && mapped_sF < STRIPS_PER_LAYER) {
+                                raw_strip_eta2[i][mapped_sF].push_back(t_ns);
+                            }
+                        }
                     }
                 }
             }
@@ -2064,7 +2073,7 @@ void processToF(TFile* input_file, ToFResults& tof_results,
 
     // Reusable Lambda to perform the Two-Pass Gaussian Fit
     auto fitAndExtract = [](TH1D* hist, double& mean_out, ErrorRange& mean_err_out,
-                                   double& res_out, ErrorRange& res_err_out) {
+                            double& res_out, ErrorRange& res_err_out) {
 
         mean_out = std::numeric_limits<double>::quiet_NaN();
         mean_err_out = ErrorRange{std::numeric_limits<double>::quiet_NaN()};
@@ -2104,10 +2113,8 @@ void processToF(TFile* input_file, ToFResults& tof_results,
 
             if (intrinsic_res_sq > 0.0) {
                 res_out = std::sqrt(intrinsic_res_sq);
-                // Standard error propagation: df/d(sigma) * sigma_err
                 double propagated_err = (p_sigma / (2.0 * res_out)) * p_sigma_err;
 
-                // Enforce physical boundary at 0.0 for the lower error bar on resolution
                 double err_low = (res_out - propagated_err < 0.0) ? res_out : propagated_err;
                 double err_high = propagated_err;
 
@@ -2116,39 +2123,70 @@ void processToF(TFile* input_file, ToFResults& tof_results,
         }
     };
 
+    // Pass 2: Dynamically construct histograms using percentile ranges & run fits
+    double bin_width = TIME_TICK_NS;
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
-        // Calculate global fits
-        fitAndExtract(h_tof1[i],
+
+        // Global Eta1/Eta2 Percentile Dynamic Boundaries (95% central interval)
+        auto [g_xmin1, g_xmax1] = perFileHelpers::getPercentileRange(raw_global_eta1[i], 0.025, 0.975);
+        auto [g_xmin2, g_xmax2] = perFileHelpers::getPercentileRange(raw_global_eta2[i], 0.025, 0.975);
+
+        int n_bins1 = std::max(1, static_cast<int>(std::round((g_xmax1 - g_xmin1) / bin_width)));
+        int n_bins2 = std::max(1, static_cast<int>(std::round((g_xmax2 - g_xmin2) / bin_width)));
+
+        g_xmax1 = g_xmin1 + n_bins1 * bin_width;
+        g_xmax2 = g_xmin2 + n_bins2 * bin_width;
+
+        TH1D* h_tof1 = new TH1D(Form("h_tof1_%s", LAYER_PAIR_SUFFIXES[i].c_str()), Form("ToF Eta1 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), n_bins1, g_xmin1, g_xmax1);
+        TH1D* h_tof2 = new TH1D(Form("h_tof2_%s", LAYER_PAIR_SUFFIXES[i].c_str()), Form("ToF Eta2 Layer %s", LAYER_PAIR_SUFFIXES[i].c_str()), n_bins2, g_xmin2, g_xmax2);
+
+        for (double val : raw_global_eta1[i]) h_tof1->Fill(val);
+        for (double val : raw_global_eta2[i]) h_tof2->Fill(val);
+
+        fitAndExtract(h_tof1,
                       tof_results.avg_time_of_flight_eta1[i], tof_results.avg_time_of_flight_eta1_error[i],
                       time_resolution_results.time_resolution_global_eta1[i], time_resolution_results.time_resolution_global_eta1_error[i]);
 
-        fitAndExtract(h_tof2[i],
+        fitAndExtract(h_tof2,
                       tof_results.avg_time_of_flight_eta2[i], tof_results.avg_time_of_flight_eta2_error[i],
                       time_resolution_results.time_resolution_global_eta2[i], time_resolution_results.time_resolution_global_eta2_error[i]);
 
-        // Calculate per-strip fits
+        delete h_tof1;
+        delete h_tof2;
+
+        // Per-Strip Percentile Dynamic Boundaries & Fits
         for (int s = 0; s < STRIPS_PER_LAYER; ++s) {
+            auto [s_xmin1, s_xmax1] = perFileHelpers::getPercentileRange(raw_strip_eta1[i][s], 0.025, 0.975);
+            auto [s_xmin2, s_xmax2] = perFileHelpers::getPercentileRange(raw_strip_eta2[i][s], 0.025, 0.975);
+
+            int n_bins1 = std::max(1, static_cast<int>(std::round((s_xmax1 - s_xmin1) / bin_width)));
+            int n_bins2 = std::max(1, static_cast<int>(std::round((s_xmax2 - s_xmin2) / bin_width)));
+
+            s_xmax1 = s_xmin1 + n_bins1 * bin_width;
+            s_xmax2 = s_xmin2 + n_bins2 * bin_width;
+
+            TH1D* h_strip1 = new TH1D(Form("h_tof1_%s_s%d", LAYER_PAIR_SUFFIXES[i].c_str(), s), "ToF", n_bins1, s_xmin1, s_xmax1);
+            TH1D* h_strip2 = new TH1D(Form("h_tof2_%s_s%d", LAYER_PAIR_SUFFIXES[i].c_str(), s), "ToF", n_bins2, s_xmin2, s_xmax2);
+
+            for (double val : raw_strip_eta1[i][s]) h_strip1->Fill(val);
+            for (double val : raw_strip_eta2[i][s]) h_strip2->Fill(val);
+
             double dummy_mean_eta1 = 0.0, dummy_mean_eta2 = 0.0;
             ErrorRange dummy_mean_err_eta1 = {0.0, 0.0}, dummy_mean_err_eta2 = {0.0, 0.0};
 
-            fitAndExtract(h_tof_strip_eta1[i][s],
+            fitAndExtract(h_strip1,
                           dummy_mean_eta1, dummy_mean_err_eta1,
                           time_resolution_results.time_resolution_strip_eta1[i][s],
                           time_resolution_results.time_resolution_strip_eta1_error[i][s]);
 
-            fitAndExtract(h_tof_strip_eta2[i][s],
+            fitAndExtract(h_strip2,
                           dummy_mean_eta2, dummy_mean_err_eta2,
                           time_resolution_results.time_resolution_strip_eta2[i][s],
                           time_resolution_results.time_resolution_strip_eta2_error[i][s]);
 
-            // Clean up memory
-            delete h_tof_strip_eta1[i][s];
-            delete h_tof_strip_eta2[i][s];
+            delete h_strip1;
+            delete h_strip2;
         }
-
-        // Clean up memory
-        delete h_tof1[i];
-        delete h_tof2[i];
     }
 }
 
