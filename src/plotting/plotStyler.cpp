@@ -325,25 +325,29 @@ namespace PlotStyler {
                     legend_entries.push_back(legend_entry);
                 }
             }
-        } else if (dynamic_cast<THStack*>(obj)) {
+        } else if (auto stack = dynamic_cast<THStack*>(obj)) {
             if (metric_name.find("tot") != std::string::npos) {
                 legend_entries.push_back("Side #eta_{1}");
                 legend_entries.push_back("Side #eta_{2}");
             } else if (metric_name.find("strip") != std::string::npos) {
+                if (stack->GetHists()) {
+                    TIter next(stack->GetHists());
+                    TObject* hist_obj = nullptr;
 
-                static const std::regex reco_status("before|after|rejected");
-                auto words_begin = std::sregex_iterator(metric_name.begin(), metric_name.end(), reco_status);
-                auto words_end = std::sregex_iterator();
+                    while ((hist_obj = next())) {
+                        std::string h_name = hist_obj->GetName();
 
-                for (std::sregex_iterator i = words_begin; i != words_end; ++i) {
-                    std::string status = (*i).str();
-
-                    if (status == "after") {
-                        legend_entries.push_back("After Track Reco");
-                    } else if (status == "before") {
-                        legend_entries.push_back("Before Track Reco");
-                    } else if (status == "rejected") {
-                        legend_entries.push_back("Rejected");
+                        if (h_name.find("after_reco") != std::string::npos) {
+                            legend_entries.push_back("After Reco");
+                        } else if (h_name.find("rejected") != std::string::npos) {
+                            legend_entries.push_back("Rejected");
+                        } else if (h_name.find("before_reco") != std::string::npos) {
+                            legend_entries.push_back("Before Reco");
+                        } else {
+                            // Fallback to histogram title/name if unhandled
+                            std::string title = (dynamic_cast<TH1*>(hist_obj)) ? hist_obj->GetTitle() : h_name;
+                            legend_entries.push_back(title);
+                        }
                     }
                 }
             } else {
@@ -2237,7 +2241,7 @@ namespace PlotStyler {
         auto stack = dynamic_cast<THStack*>(obj);
         if (!stack) return;
 
-        stack->Draw("nostack hist");
+        stack->Draw("hist");
 
         auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), stack);
 
@@ -2245,31 +2249,40 @@ namespace PlotStyler {
         TH1* hist = nullptr;
         int index = 0;
 
+        std::vector<double> cumulative_y;
         while ((hist = static_cast<TH1*>(next()))) {
-            Color_t base_color = (index == 0) ? kRed + 1 : kAzure - 3;
+            Color_t base_color = (index == 0) ? kAzure + 1 : kRed + 2;
 
-            hist->SetLineColor(base_color);
+            hist->SetLineColor(kBlack);
             hist->SetLineWidth(2);
             hist->SetLineStyle(1);
 
-            Int_t trans_color = TColor::GetColorTransparent(base_color, 0.30);
-            hist->SetFillColor(trans_color);
+            hist->SetFillColor(base_color);
             hist->SetFillStyle(1001);
 
-            for (int i = 1; i < hist->GetNbinsX(); ++i) {
+            int n_bins = hist->GetNbinsX();
+            if (cumulative_y.size() < static_cast<size_t>(n_bins + 1)) {
+                cumulative_y.resize(n_bins + 1, 0.0);
+            }
+
+            for (int i = 1; i < n_bins; ++i) {
                 double x = hist->GetXaxis()->GetBinUpEdge(i);
 
-                double y_left = hist->GetBinContent(i);
-                double y_right = hist->GetBinContent(i + 1);
+                double y_left = cumulative_y[i] + hist->GetBinContent(i);
+                double y_right = cumulative_y[i + 1] + hist->GetBinContent(i + 1);
 
                 double y_max_line = std::min(y_left, y_right);
 
                 if (y_max_line > 0) {
                     TLine* edge = new TLine(x, 0.0, x, y_max_line);
-                    edge->SetLineColorAlpha(base_color, 0.55);
+                    edge->SetLineColor(kBlack);
                     edge->SetLineWidth(2);
                     edge->Draw();
                 }
+            }
+
+            for (int i = 1; i <= n_bins; ++i) {
+                cumulative_y[i] += hist->GetBinContent(i);
             }
 
             index++;
@@ -2294,7 +2307,7 @@ namespace PlotStyler {
             0.01
         );
 
-        drawATLASLegend(obj, legend_entries, ndc_x0 + 0.03, ndc_y0 - 0.2, 13);
+        drawATLASLegend(obj, legend_entries, ndc_x0 + 0.03, ndc_y0 - 0.15, 13);
 
         canvas->Modified();
         canvas->Update();

@@ -97,10 +97,8 @@ void plotStrip(TFile* input_file) {
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
-    // Create histograms using arrays
-    const int nConfigs = 6;
+    const int nConfigs = 4;
     const char* categories[nConfigs] = {
-        "strip_eta1_before_reco", "strip_eta2_before_reco",
         "strip_eta1_after_reco", "strip_eta2_after_reco",
         "strip_eta1_rejected", "strip_eta2_rejected"
     };
@@ -109,8 +107,8 @@ void plotStrip(TFile* input_file) {
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH1F(Form("h1d_%s_layer%d", categories[c], layer),
-                            Form("Layer %d;Strip;Hits", layer),
-                            STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER);
+                                  Form("Layer %d;Strip;Hits", layer),
+                                  STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER);
             strip_histograms[categories[c]][layer] = hist;
         }
     }
@@ -122,13 +120,11 @@ void plotStrip(TFile* input_file) {
 
         for (size_t i = 0; i < n_hits; ++i) {
             int layer = (*layers)[i];
-
             if (layer < 0 || layer > 2) continue;
 
             int strip = remapStrip((*strips)[i]);
 
             if ((*raw_time1)[i] != 0) {
-                strip_histograms["strip_eta1_before_reco"][layer]->Fill(strip);
                 if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
                     strip_histograms["strip_eta1_after_reco"][layer]->Fill(strip);
                 } else {
@@ -136,7 +132,6 @@ void plotStrip(TFile* input_file) {
                 }
             }
             if ((*raw_time2)[i] != 0) {
-                strip_histograms["strip_eta2_before_reco"][layer]->Fill(strip);
                 if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
                     strip_histograms["strip_eta2_after_reco"][layer]->Fill(strip);
                 } else {
@@ -159,10 +154,8 @@ void plotStrip(TFile* input_file) {
     };
 
     std::vector<StackPairing> stack_pairings = {
-        {"eta1", {"strip_eta1_after_reco", "strip_eta1_before_reco"}, "after_before_reco"},
-        {"eta2", {"strip_eta2_after_reco", "strip_eta2_before_reco"}, "after_before_reco"},
-        {"eta1", {"strip_eta1_after_reco", "strip_eta1_rejected"}, "after_reco_rejected"},
-        {"eta2", {"strip_eta2_after_reco", "strip_eta2_rejected"}, "after_reco_rejected"}
+        {"eta1", {"strip_eta1_after_reco", "strip_eta1_rejected"}, "reco_stack"},
+        {"eta2", {"strip_eta2_after_reco", "strip_eta2_rejected"}, "reco_stack"}
     };
 
     for (const auto& pairing : stack_pairings) {
@@ -170,14 +163,14 @@ void plotStrip(TFile* input_file) {
             THStack* stack = new THStack(Form("h1d_strip_%s_%s_layer%d", pairing.side.c_str(), pairing.suffix.c_str(), layer),
                                          Form("Layer %d;Strip;Hits", layer));
 
-            TH1* first_hist = strip_histograms[pairing.pair.first][layer];
-            TH1* second_hist = strip_histograms[pairing.pair.second][layer];
+            TH1* after_hist = strip_histograms[pairing.pair.first][layer];
+            TH1* rejected_hist = strip_histograms[pairing.pair.second][layer];
 
-            first_hist->SetFillColor(kRed - 3);
-            second_hist->SetFillColor(kBlue - 2);
+            after_hist->SetFillColor(kRed + 1);
+            rejected_hist->SetFillColor(kAzure - 3);
 
-            stack->Add(first_hist);
-            stack->Add(second_hist);
+            stack->Add(after_hist);
+            stack->Add(rejected_hist);
 
             stack->Write("", TObject::kOverwrite);
             delete stack;
