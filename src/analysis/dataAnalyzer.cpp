@@ -212,21 +212,19 @@ void extractBeamSpotRoI(TH2* agg_hist, RoI& roi, double core_frac, double halo_f
 
 void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     TDirectory* analysis_dir = input_file->GetDirectory("analysis");
-    TDirectory* dt_strip_dir = analysis_dir->GetDirectory("dt_strip");
+    if (!analysis_dir) return;
+
+    TDirectory* dt_strip_dir = analysis_dir->mkdir("dt_strip");
+    if (!dt_strip_dir) dt_strip_dir = analysis_dir->GetDirectory("dt_strip");
     dt_strip_dir->cd();
 
     TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
     TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
-    if (!proc_tree || proc_tree->IsZombie()) {
-        std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
-        return;
-    }
-    if (!track_tree || track_tree->IsZombie()) {
-        std::cerr << "Error: Invalid track reconstruction tree for analysis." << std::endl;
+    if (!proc_tree || proc_tree->IsZombie() || !track_tree || track_tree->IsZombie()) {
+        std::cerr << "Error: Invalid processed or track tree for analysis." << std::endl;
         return;
     }
 
-    // Read processed data into vectors and create 2D histograms for dt vs strip for each layer and valid track category
     TTreeReader readerProcData(proc_tree);
     TTreeReader readerTrackData(track_tree);
     TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
@@ -235,26 +233,44 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
-    // Create histograms using arrays
     const int nConfigs = 2;
     const char* suffixes[nConfigs] = {"dt_strip", "dt_strip_track"};
     const char* comments[nConfigs] = {"Before Track Reco", "After Track Reco"};
 
-    std::map<std::string, std::map<int, TH2*>> dt_strip_histograms;
+    const int n_bins_x = STRIPS_PER_LAYER;
+    const double x_min_strip = 0.0;
+    const double x_max_strip = static_cast<double>(STRIPS_PER_LAYER);
+
+    const int n_bins_y = 24;
+    const int dt_max_ticks = n_bins_y / 2;
+    const int dt_min_ticks = -dt_max_ticks;
+
+    std::map<std::string, std::map<int, TH2F*>> dt_strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
-            auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
-                            Form("Layer %d: %s;Strip;#Delta#it{t} [Ticks]; Entries", layer, comments[c]),
-                            STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, 24, -12, 12);
+            auto* hist = new TH2F(
+                Form("h2d_%s_layer%d", suffixes[c], layer),
+                Form("Layer %d: %s;Strip;#Delta#it{t} [Ticks];Entries", layer, comments[c]),
+                n_bins_x, x_min_strip, x_max_strip,
+                n_bins_y, dt_min_ticks, dt_max_ticks
+            );
             dt_strip_histograms[suffixes[c]][layer] = hist;
         }
     }
 
+    long long n_events = 0;
     while (readerProcData.Next() && readerTrackData.Next()) {
-        for (size_t i = 0; i < strips->size(); ++i) {
+        n_events++;
+
+        const size_t n_hits = std::min({strips->size(), layers->size(), dts->size()});
+        for (size_t i = 0; i < n_hits; ++i) {
             int layer = (*layers)[i];
-            int strip = remapStrip((*strips)[i]);
-            double dt_ticks = (*dts)[i];
+            if (layer < 0 || layer >= LAYER_COUNT) continue;
+
+            int strip = perFileHelpers::remapStrip((*strips)[i]);
+            if (strip < 0 || strip >= STRIPS_PER_LAYER) continue;
+
+            double dt_ticks = static_cast<double>((*dts)[i]);
 
             dt_strip_histograms["dt_strip"][layer]->Fill(strip, dt_ticks);
             if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
@@ -263,7 +279,6 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
         }
     }
 
-    // Region of Interest extraction
     TH2F* h_agg = (TH2F*)dt_strip_histograms["dt_strip_track"][0]->Clone("h2d_agg_tracks");
     h_agg->Add(dt_strip_histograms["dt_strip_track"][1]);
     h_agg->Add(dt_strip_histograms["dt_strip_track"][2]);
@@ -273,25 +288,28 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     double halo_threshold = 0.05;
     extractBeamSpotRoI(h_agg, region_of_interest, beam_threshold, halo_threshold);
 
-    // 3-tier RoI Map (1 = No Beam, 2 = Halo, 3 = Beam Core)
-    TH2F* h_roi_map = new TH2F("h2d_roi_map",
-                               "Beam Spot Region of Interest;Strip;#Delta#it{t} [Ticks]",
-                               STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, 24, -12, 12);
+    TH2F* h_roi_map = new TH2F(
+        "h2d_roi_map", "Beam Spot Region of Interest;Strip;#Delta#it{t} [Ticks]",
+        n_bins_x, x_min_strip, x_max_strip, n_bins_y, dt_min_ticks, dt_max_ticks
+    );
 
+    // Default 1.0 (No Beam)
     for (int bx = 1; bx <= h_roi_map->GetNbinsX(); ++bx) {
         for (int by = 1; by <= h_roi_map->GetNbinsY(); ++by) {
             h_roi_map->SetBinContent(bx, by, 1.0);
         }
     }
 
+    // Mark Halo region (2.0)
     for (const auto& pt : region_of_interest.halo_region) {
-        int bx = h_roi_map->GetXaxis()->FindBin(pt.first);
+        int bx = h_roi_map->GetXaxis()->FindBin(pt.first + 0.5);
         int by = h_roi_map->GetYaxis()->FindBin(pt.second);
         h_roi_map->SetBinContent(bx, by, 2.0);
     }
 
+    // Mark Beam region (3.0)
     for (const auto& pt : region_of_interest.beam_region) {
-        int bx = h_roi_map->GetXaxis()->FindBin(pt.first);
+        int bx = h_roi_map->GetXaxis()->FindBin(pt.first + 0.5);
         int by = h_roi_map->GetYaxis()->FindBin(pt.second);
         h_roi_map->SetBinContent(bx, by, 3.0);
     }
@@ -302,11 +320,50 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     delete h_agg;
     delete h_roi_map;
 
-    // Write histograms to file and clean up
+    double dx_cm = STRIP_WIDTH_CM;
+    double dt_bin_width_ns = TIME_TICK_NS;
+    double dy_cm = (SIGNAL_SPEED * dt_bin_width_ns) / 2.0;
+
+    double cell_area_cm2 = dx_cm * dy_cm;
+    double total_exposure = n_events * TRIGGER_TIME_WINDOW * cell_area_cm2;
+
+    const double x_min_cm = 0.0;
+    const double x_max_cm = STRIPS_PER_LAYER * STRIP_WIDTH_CM;
+    const double y_min_cm = (SIGNAL_SPEED * dt_min_ticks * TIME_TICK_NS) / 2.0;
+    const double y_max_cm = (SIGNAL_SPEED * dt_max_ticks * TIME_TICK_NS) / 2.0;
+
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
-            dt_strip_histograms[suffixes[c]][layer]->Write("", TObject::kOverwrite);
-            delete dt_strip_histograms[suffixes[c]][layer];
+            TH2F* h_count = dt_strip_histograms[suffixes[c]][layer];
+
+            h_count->Write("", TObject::kOverwrite);
+
+            if (total_exposure > 0.0) {
+                TH2F* h_rate = new TH2F(
+                    Form("h2d_rate_map_%s_layer%d", suffixes[c], layer),
+                    Form("Rate Map Layer %d (%s);X [cm];Y [cm];Rate [Hz/cm^{2}]", layer, comments[c]),
+                    n_bins_x, x_min_cm, x_max_cm,
+                    n_bins_y, y_min_cm, y_max_cm
+                );
+
+                for (int bx = 1; bx <= n_bins_x; ++bx) {
+                    for (int by = 1; by <= n_bins_y; ++by) {
+                        double counts = h_count->GetBinContent(bx, by);
+                        if (counts > 0.0) {
+                            h_rate->SetBinContent(bx, by, counts / total_exposure);
+                            h_rate->SetBinError(bx, by, std::sqrt(counts) / total_exposure);
+                        } else {
+                            h_rate->SetBinContent(bx, by, 0.0);
+                            h_rate->SetBinError(bx, by, 0.0);
+                        }
+                    }
+                }
+
+                h_rate->Write("", TObject::kOverwrite);
+                delete h_rate;
+            }
+
+            delete h_count;
         }
     }
 }
