@@ -1598,8 +1598,8 @@ void getRate(TFile* input_file, RateResults& rate_results) {
     TTreeReaderValue<int> hits(readerProcData, "n_hits");
     TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
     TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
-    TTreeReaderValue<std::vector<int>> time1(readerProcData, "proc_time1");
-    TTreeReaderValue<std::vector<int>> time2(readerProcData, "proc_time2");
+    TTreeReaderValue<std::vector<int>> proc_time1(readerProcData, "proc_time1");
+    TTreeReaderValue<std::vector<int>> proc_time2(readerProcData, "proc_time2");
 
     // Global counters
     long long total_hits = 0;
@@ -1610,8 +1610,6 @@ void getRate(TFile* input_file, RateResults& rate_results) {
     // Eta/Layer-specific counters
     std::array<long long, 3> total_hits_eta1 = {0, 0, 0};
     std::array<long long, 3> total_hits_eta2 = {0, 0, 0};
-    std::array<std::unordered_set<int>, 3> unique_strips_eta1;
-    std::array<std::unordered_set<int>, 3> unique_strips_eta2;
 
     // Eta/Layer/Strip-specific counters
     long long hits_per_strip_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
@@ -1634,21 +1632,19 @@ void getRate(TFile* input_file, RateResults& rate_results) {
         }
 
         // Process Eta/Layer-specific Rates
-        if (time1.GetSetupStatus() == 0 && time2.GetSetupStatus() == 0) {
-            const size_t n_hits = std::min({time1->size(), time2->size()});
+        if (proc_time1.GetSetupStatus() == 0 && proc_time2.GetSetupStatus() == 0) {
+            const size_t n_hits = std::min({proc_time1->size(), proc_time2->size()});
             for (size_t i = 0; i < n_hits; ++i) {
                 int layer = (*layers)[i];
                 int strip = perFileHelpers::remapStrip((*strips)[i]);
 
-                if ((*time1)[i] != 0) {
+                if ((*proc_time1)[i] != -1) {
                     total_hits_eta1[layer] += 1;
                     hits_per_strip_eta1[layer][strip]++;
-                    unique_strips_eta1[layer].insert(strip);
                 }
-                if ((*time2)[i] != 0) {
+                if ((*proc_time2)[i] != -1) {
                     total_hits_eta2[layer] += 1;
                     hits_per_strip_eta2[layer][strip]++;
-                    unique_strips_eta2[layer].insert(strip);
                 }
             }
         }
@@ -1678,14 +1674,12 @@ void getRate(TFile* input_file, RateResults& rate_results) {
 
     // Calculate final Eta/Layer-specific rates
     for (int layer = 0; layer < LAYER_COUNT; ++layer) {
-        const int n_strips_eta1 = static_cast<int>(unique_strips_eta1[layer].size());
-        const int n_strips_eta2 = static_cast<int>(unique_strips_eta2[layer].size());
 
         std::tie(rate_results.rate_eta1[layer], rate_results.rate_eta1_error[layer]) =
-            calculateRate(total_hits_eta1[layer], event_count, n_strips_eta1, 1);
+            calculateRate(total_hits_eta1[layer], event_count, STRIPS_PER_LAYER, 1);
 
         std::tie(rate_results.rate_eta2[layer], rate_results.rate_eta2_error[layer]) =
-            calculateRate(total_hits_eta2[layer], event_count, n_strips_eta2, 1);
+            calculateRate(total_hits_eta2[layer], event_count, STRIPS_PER_LAYER, 1);
 
         // Calculate final Strip-specific rates
         for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
