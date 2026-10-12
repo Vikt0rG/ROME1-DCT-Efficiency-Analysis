@@ -29,60 +29,74 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
     eff_dir->cd();
 
     TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
-    if (!proc_tree || proc_tree->IsZombie()) {
-        std::cerr << "Error: Invalid ProcessedData tree for efficiency map generation." << std::endl;
-        return;
-    }
     TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
-    if (!track_tree || track_tree->IsZombie()) {
-        std::cerr << "Error: Invalid TrackReconstruction tree for efficiency map generation." << std::endl;
-        return;
-    }
+
+    requireEqualTreeEntries({
+        {"ProcessedData", proc_tree},
+        {"TrackReconstruction", track_tree}
+    });
 
     TTreeReader readerProcData(proc_tree);
     TTreeReader readerTrackData(track_tree);
 
+    TTreeReaderValue<int> proc_trigger_time(readerProcData, "proc_trigger_time");
     TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
     TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
     TTreeReaderValue<std::vector<int>> dts(readerProcData, "proc_dt_time1_time2");
-    TTreeReaderValue<int> proc_trigger_time(readerProcData, "proc_trigger_time");
     TTreeReaderValue<std::vector<int>> proc_dt_time1_trigger(readerProcData, "proc_dt_time1_trigger");
     TTreeReaderValue<std::vector<int>> proc_dt_time2_trigger(readerProcData, "proc_dt_time2_trigger");
+    TTreeReaderValue<std::vector<bool>> has_valid_time_eta1(readerProcData, "has_valid_time_eta1");
+    TTreeReaderValue<std::vector<bool>> has_valid_time_eta2(readerProcData, "has_valid_time_eta2");
 
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
     const int n_bins_x = STRIPS_PER_LAYER;
+
     const int n_bins_y = 30;
-    const int dt_offset = n_bins_y / 2;
 
-    int passed_counts[LAYER_COUNT][STRIPS_PER_LAYER][n_bins_y] = {{{0}}};
-    int total_counts[LAYER_COUNT][STRIPS_PER_LAYER][n_bins_y] = {{{0}}};
+    const double dt_min_ticks = -15.0;
+    const double dt_max_ticks = 15.0;
+    const double dt_range_ticks = dt_max_ticks - dt_min_ticks;
 
-    int track_passed_counts[LAYER_COUNT][STRIPS_PER_LAYER][n_bins_y] = {{{0}}};
-    int track_total_counts[LAYER_COUNT][STRIPS_PER_LAYER][n_bins_y] = {{{0}}};
+    // Standard raw array allocation matching dynamic n_bins_y
+    std::vector<std::vector<std::vector<int>>> passed_counts(LAYER_COUNT, std::vector<std::vector<int>>(STRIPS_PER_LAYER, std::vector<int>(n_bins_y, 0)));
+    std::vector<std::vector<std::vector<int>>> total_counts(LAYER_COUNT, std::vector<std::vector<int>>(STRIPS_PER_LAYER, std::vector<int>(n_bins_y, 0)));
+
+    std::vector<std::vector<std::vector<int>>> track_passed_counts(LAYER_COUNT, std::vector<std::vector<int>>(STRIPS_PER_LAYER, std::vector<int>(n_bins_y, 0)));
+    std::vector<std::vector<std::vector<int>>> track_total_counts(LAYER_COUNT, std::vector<std::vector<int>>(STRIPS_PER_LAYER, std::vector<int>(n_bins_y, 0)));
+
+    int event_idx = 0;
 
     while (readerProcData.Next() && readerTrackData.Next()) {
+        event_idx++;
         if (use_external_trigger && *proc_trigger_time == -1) continue;
 
-        bool cell_hits[LAYER_COUNT][STRIPS_PER_LAYER][n_bins_y] = {{{false}}};
-        bool track_cell_hits[LAYER_COUNT][STRIPS_PER_LAYER][n_bins_y] = {{{false}}};
+        try {
+            requireEqualDataSizes({
+                {"proc_strip", strips->size()},
+                {"proc_layer", layers->size()},
+                {"proc_dt_time1_time2", dts->size()},
+                {"proc_dt_time1_trigger", proc_dt_time1_trigger->size()},
+                {"proc_dt_time2_trigger", proc_dt_time2_trigger->size()},
+                {"has_valid_time_eta1", has_valid_time_eta1->size()},
+                {"has_valid_time_eta2", has_valid_time_eta2->size()},
+                {"in_valid_track_eta1", in_valid_track_eta1->size()},
+                {"in_valid_track_eta2", in_valid_track_eta2->size()}
+            });
+        } catch (const std::runtime_error& e) {
+            std::cerr << "Error in event #" << event_idx << ": " << e.what() << std::endl;
+            throw;
+        }
 
-        // Check all sizes:
-        std::cout << "Sizes: strips=" << strips->size() << ", layers=" << layers->size()
-                  << ", dts=" << dts->size() << ", proc_trigger_time=" << *proc_trigger_time
-                  << ", proc_dt_time1_trigger=" << proc_dt_time1_trigger->size()
-                  << ", proc_dt_time2_trigger=" << proc_dt_time2_trigger->size()
-                  << ", in_valid_track_eta1=" << in_valid_track_eta1->size()
-                  << ", in_valid_track_eta2=" << in_valid_track_eta2->size() << std::endl;
+        std::vector<std::vector<std::vector<bool>>> cell_hits(LAYER_COUNT, std::vector<std::vector<bool>>(STRIPS_PER_LAYER, std::vector<bool>(n_bins_y, false)));
+        std::vector<std::vector<std::vector<bool>>> track_cell_hits(LAYER_COUNT, std::vector<std::vector<bool>>(STRIPS_PER_LAYER, std::vector<bool>(n_bins_y, false)));
 
-        const size_t n_hits = std::min({
-            strips->size(), layers->size(), dts->size(),
-            proc_dt_time1_trigger->size(), proc_dt_time2_trigger->size(),
-            in_valid_track_eta1->size(), in_valid_track_eta2->size()
-        });
+        const size_t n_hits = strips->size();
 
         for (size_t i = 0; i < n_hits; ++i) {
+
+            if (!(*has_valid_time_eta1)[i] && !(*has_valid_time_eta2)[i]) continue;
 
             int layer = (*layers)[i];
             if (layer < 0 || layer >= LAYER_COUNT) continue;
@@ -97,13 +111,15 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
             if (dt1_trig >= DEFAULT_DT_MIN && dt1_trig <= DEFAULT_DT_MAX &&
                 dt2_trig >= DEFAULT_DT_MIN && dt2_trig <= DEFAULT_DT_MAX) 
             {
-                int dt_ticks = (*dts)[i];
-                int dt_idx = dt_ticks + dt_offset;
+                double dt_ticks = static_cast<double>((*dts)[i]);
 
-                if (dt_idx >= 0 && dt_idx < n_bins_y) {
+                // Linear Mapping Formula: Maps signed values to [0, n_bins_y - 1]
+                if (dt_ticks >= dt_min_ticks && dt_ticks < dt_max_ticks) {
+                    int dt_idx = static_cast<int>(((dt_ticks - dt_min_ticks) / dt_range_ticks) * n_bins_y);
+                    dt_idx = std::clamp(dt_idx, 0, n_bins_y - 1);
+
                     cell_hits[layer][strip][dt_idx] = true;
 
-                    // Track validity cut
                     if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
                         track_cell_hits[layer][strip][dt_idx] = true;
                     }
@@ -111,10 +127,10 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
             }
         }
 
-        // Tag-and-Probe coincidence computation for both hit sets
+        // Tag-and-Probe Coincidence Computation across the coarse cells
         for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
             for (int dt = 0; dt < n_bins_y; ++dt) {
-                // Raw cell hits within time window
+                // Raw cell hits
                 bool h0 = cell_hits[0][strip][dt];
                 bool h1 = cell_hits[1][strip][dt];
                 bool h2 = cell_hits[2][strip][dt];
@@ -132,7 +148,7 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
                     if (h2) passed_counts[2][strip][dt]++;
                 }
 
-                // Track cell hits within time window
+                // Track cell hits
                 bool th0 = track_cell_hits[0][strip][dt];
                 bool th1 = track_cell_hits[1][strip][dt];
                 bool th2 = track_cell_hits[2][strip][dt];
@@ -157,17 +173,14 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
     const double x_min_cm = 0.0;
     const double x_max_cm = STRIPS_PER_LAYER * STRIP_WIDTH_CM;
 
-    const double dt_min_ticks = -15.0;
-    const double dt_max_ticks = 15.0;
-
     const double y_min_cm = (SIGNAL_SPEED * dt_min_ticks * TIME_TICK_NS) / 2.0;
     const double y_max_cm = (SIGNAL_SPEED * dt_max_ticks * TIME_TICK_NS) / 2.0;
 
     struct MapConfig {
         std::string suffix;
         std::string title_tag;
-        int (*passed_ptr)[STRIPS_PER_LAYER][n_bins_y];
-        int (*total_ptr)[STRIPS_PER_LAYER][n_bins_y];
+        const std::vector<std::vector<std::vector<int>>>& passed_ptr;
+        const std::vector<std::vector<std::vector<int>>>& total_ptr;
     };
 
     std::vector<MapConfig> configs = {
