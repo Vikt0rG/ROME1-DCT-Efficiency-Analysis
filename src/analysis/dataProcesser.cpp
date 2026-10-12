@@ -425,7 +425,6 @@ void DataProcesser::clearEventVectors() {
     proc_time1.clear();
     proc_time2.clear();
     proc_dt_time1_time2.clear();
-    proc_trigger_time.clear();
     proc_dt_time1_trigger.clear();
     proc_dt_time2_trigger.clear();
     proc_tot1.clear();
@@ -482,7 +481,7 @@ void DataProcesser::pushBackWordData(const DCTWord& word) {
 
 // Utility function to push processed hit data into the corresponding vectors for tree filling
 void DataProcesser::pushBackProcessedData(const Event& event) {
-    proc_trigger_time.push_back(event.getTriggerTime());
+    proc_trigger_time = event.getTriggerTime();
     proc_bc0.push_back(BC0);
     // Loop over hits in the event and push processed data into vectors
     for (const auto& hit : event.getHits()) {
@@ -492,8 +491,8 @@ void DataProcesser::pushBackProcessedData(const Event& event) {
         proc_time1.push_back(hit.getTimeEta1());
         proc_time2.push_back(hit.getTimeEta2());
         proc_dt_time1_time2.push_back(hit.getTimeEta1() - hit.getTimeEta2());
-        proc_dt_time1_trigger.push_back(hit.getTimeEta1() - event.getTriggerTime());
-        proc_dt_time2_trigger.push_back(hit.getTimeEta2() - event.getTriggerTime());
+        proc_dt_time1_trigger.push_back(hit.getTimeEta1() - proc_trigger_time);
+        proc_dt_time2_trigger.push_back(hit.getTimeEta2() - proc_trigger_time);
         proc_tot1.push_back(hit.getToT1());
         proc_tot2.push_back(hit.getToT2());
     }

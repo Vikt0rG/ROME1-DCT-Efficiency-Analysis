@@ -49,7 +49,7 @@ public:
     void setupOutputFile();
     void setupBranches();
 
-    // Accessors for vectors
+    // Accessors for class variables and vectors
     std::vector<int>& getHitClk() { return hit_clk; }
     std::vector<int>& getHitChannel() { return hit_channel; }
     std::vector<int>& getHitRawBcid() { return hit_raw_bcid; }
@@ -57,6 +57,7 @@ public:
     std::vector<int>& getHitRawTime2() { return hit_raw_time2; }
     std::vector<int>& getHitRise() { return hit_rise; }
 
+    int getProcTriggerTime() { return proc_trigger_time; }
     std::vector<int>& getProcLayer() { return proc_layer; }
     std::vector<int>& getProcStrip() { return proc_strip; }
     std::vector<int>& getProcBC0() { return proc_bc0; }
@@ -64,7 +65,6 @@ public:
     std::vector<int>& getProcTime1() { return proc_time1; }
     std::vector<int>& getProcTime2() { return proc_time2; }
     std::vector<int>& getProcDtTime1Time2() { return proc_dt_time1_time2; }
-    std::vector<int>& getProcTriggerTime() { return proc_trigger_time; }
     std::vector<int>& getProcDtTime1Trigger() { return proc_dt_time1_trigger; }
     std::vector<int>& getProcDtTime2Trigger() { return proc_dt_time2_trigger; }
     std::vector<int>& getProcTot1() { return proc_tot1; }
@@ -170,9 +170,10 @@ private:
     std::vector<int> hit_clk, hit_channel, hit_raw_bcid;
     std::vector<int> hit_raw_time1, hit_raw_time2, hit_rise;
 
-    // Processed data vectors
+    // Processed class variables and vectors
+    int proc_trigger_time = -1;
     std::vector<int> proc_layer, proc_strip, proc_bc0, proc_bcid, proc_time1, proc_time2;
-    std::vector<int> proc_dt_time1_time2, proc_trigger_time;
+    std::vector<int> proc_dt_time1_time2;
     std::vector<int> proc_dt_time1_trigger, proc_dt_time2_trigger;
     std::vector<int> proc_tot1, proc_tot2;
 
