@@ -91,6 +91,8 @@ void DataProcesser::setupBranches() {
     _processed_data_tree->Branch("proc_dt_time2_trigger", &proc_dt_time2_trigger);
     _processed_data_tree->Branch("proc_tot1", &proc_tot1);
     _processed_data_tree->Branch("proc_tot2", &proc_tot2);
+    _processed_data_tree->Branch("has_valid_time_eta1", &_has_valid_time_eta1);
+    _processed_data_tree->Branch("has_valid_time_eta2", &_has_valid_time_eta2);
 
     // Branch definitions for clusterization tree
     _clusterization_tree->Branch("cluster_id_from_eta1", &_cluster_id_from_eta1);
@@ -429,6 +431,8 @@ void DataProcesser::clearEventVectors() {
     proc_dt_time2_trigger.clear();
     proc_tot1.clear();
     proc_tot2.clear();
+    _has_valid_time_eta1.clear();
+    _has_valid_time_eta2.clear();
 
     _cluster_id_from_eta1.clear();
     _cluster_id_from_eta2.clear();
@@ -843,28 +847,14 @@ void DataProcesser::processEvent(
     // Create an Event object and transfer hits using move semantics, passing the counters reference
     Event event(current_event_number, std::move(current_event_hits), counters, counters_tracks, _use_external_trigger);
 
-    // Extract trigger information from the event
-    event.extractTriggerTime();
+    event.extractTriggerTime();                     // Extract trigger information from the event
+    event.calculateTOT();                           // Calculate ToT before clusterization
+    hitsWithValidTime(event);                       // Check if hits have valid processed time (non-negative)
+    pushBackProcessedData(event);                   // Push back processed hit data into vectors for tree filling
 
-    // Calculate ToT before clusterization
-    event.calculateTOT();
-
-    // Push back processed hit data into vectors for tree filling
-    pushBackProcessedData(event);
-
-    // Fill the processed data tree
-    if (_processed_data_tree && proc_layer.size() > 0) {
-        _processed_data_tree->Fill();
-    }
-
-    // Clusterization
-    event.clusterize();
-
-    // Update hit cluster IDs after clusterization
-    updateClusterIDs(event);
-
-    // Calculate ToT for cluster centers
-    event.calculateTOTCluster();
+    event.clusterize();                             // Clusterization
+    updateClusterIDs(event);                        // Update hit cluster IDs after clusterization
+    event.calculateTOTCluster();                    // Calculate ToT for cluster centers
 
     // Push back cluster-level data for both eta1 and eta2 sides
     for (const auto& cluster : event.getClustersEta1()) {
@@ -874,34 +864,29 @@ void DataProcesser::processEvent(
         pushBackClusterData(cluster);
     }
 
-    // Fill the clusterization tree (write if either eta1 or eta2 has clusters)
-    if (_clusterization_tree && (cluster_size_eta1.size() > 0 || cluster_size_eta2.size() > 0)) {
-        _clusterization_tree->Fill();
-    }
-
-    // Track reconstruction
-    event.reconstructTracks(_dt_max, _dt_min);
-
-    // Update track IDs after track reconstruction
-    updateTrackIDs(event);
-
-    // Check if hits are in valid tracks
-    hitsInValidTrack(event);
+    event.reconstructTracks(_dt_max, _dt_min);      // Track reconstruction
+    updateTrackIDs(event);                          // Update track IDs after track reconstruction
+    hitsInValidTrack(event);                        // Check if hits are in valid tracks
 
     // Push back track-level data for both eta1 and eta2 sides
     for (const auto& track : event.getTracks()) {
         pushBackTrackData(track);
     }
 
-    // Reset and update efficiency flags for each new event
-    event.updateEfficiencyFlags(_dt_max, _dt_min);
+    event.updateEfficiencyFlags(_dt_max, _dt_min);  // Reset and update efficiency flags for each new event
+    event.updateEfficiencyCounters();               // Update efficiency counters based on reconstructed tracks
 
-    // Update efficiency counters based on reconstructed tracks
-    event.updateEfficiencyCounters();
-
-    // Fill the track reconstruction tree (write if either eta1 or eta2 has tracks)
-    if (_track_reconstruction_tree && (_track_length_eta1.size() > 0 || _track_length_eta2.size() > 0)) {
-        _track_reconstruction_tree->Fill();
+    // Fill trees if there are hits in the event
+    if (n_hits > 0) {
+        if (_processed_data_tree) {
+            _processed_data_tree->Fill();
+        }
+        if (_clusterization_tree && (cluster_size_eta1.size() > 0 || cluster_size_eta2.size() > 0)) {
+            _clusterization_tree->Fill();
+        }
+        if (_track_reconstruction_tree) {
+            _track_reconstruction_tree->Fill();
+        }
     }
 }
 
@@ -934,6 +919,14 @@ void DataProcesser::updateTrackIDs(const Event& event) {
         }
     }
 }
+
+// Utility function to check if a hit has a reasonable processed time (i.e. non-negative)
+void DataProcesser::hitsWithValidTime(const Event& event) {
+    for (const auto& hit : event.getHits()) {
+        _has_valid_time_eta1.push_back(hit.getRawTimeEta1() != 0);
+        _has_valid_time_eta2.push_back(hit.getRawTimeEta2() != 0);
+    }
+}   
 
 // Utility function to check if a hit is a part of a valid track based on its track ID
 // and push back the result into the corresponding vectors for tree filling

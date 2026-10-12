@@ -117,6 +117,10 @@ public:
     /// @param event Reference to the current event being processed
     void hitsInValidTrack(const Event& event);
 
+    /// @brief Utility function to determine if a hit has a valid processed time and fill the corresponding branch
+    /// @param event Reference to the current event being processed
+    void hitsWithValidTime(const Event& event);
+
     void pushBackWordData(const DCTWord&);
     void pushBackProcessedData(const Event&);
     void pushBackClusterData(const Cluster&);
@@ -176,6 +180,7 @@ private:
     std::vector<int> proc_dt_time1_time2;
     std::vector<int> proc_dt_time1_trigger, proc_dt_time2_trigger;
     std::vector<int> proc_tot1, proc_tot2;
+    std::vector<bool> _has_valid_time_eta1, _has_valid_time_eta2;
 
     // Cluster and track vectors
     std::vector<int> cluster_size_eta1, cluster_size_eta2;
