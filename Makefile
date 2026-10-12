@@ -20,6 +20,7 @@ SRCS := $(SRC_DIR)/main.cpp \
         $(SRC_DIR)/core/track.cpp \
         $(SRC_DIR)/core/event.cpp \
         $(SRC_DIR)/analysis/dataProcesser.cpp \
+		$(SRC_DIR)/analysis/perFileHelpers.cpp \
         $(SRC_DIR)/analysis/dataAnalyzer.cpp \
         $(SRC_DIR)/plotting/dataPlotter.cpp \
         $(SRC_DIR)/plotting/plotStyler.cpp \
