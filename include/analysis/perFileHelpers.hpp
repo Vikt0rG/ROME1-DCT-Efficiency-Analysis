@@ -7,6 +7,7 @@
 #include "core/types.hpp"
 
 class TFile;
+class TH2;
 
 /// @brief Validate that all provided TTrees have the same number of entries
 /// @param named_trees A list of pairs containing tree names and their corresponding TTree pointers
