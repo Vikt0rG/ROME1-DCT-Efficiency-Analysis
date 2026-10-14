@@ -12,6 +12,7 @@
 #include <TTreeReader.h>
 #include <TTreeReaderArray.h>
 #include <TTreeReaderValue.h>
+#include <TFitResult.h>
 #include "TClass.h"
 #include "TKey.h"
 #include <TGraph.h>
@@ -83,6 +84,110 @@ namespace CrossGroupHelpers {
         }
         return -1.0;
     };
+
+    // Helper to extract numeric filter value from group names (e.g., "group_filter_10_5", "filter10")
+    double parseFilterSetting(const std::string& group_name) {
+        std::string lower_name = group_name;
+        std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(), ::tolower);
+
+        if (lower_name.find("filter") == std::string::npos) return -1.0;
+
+        if (lower_name.find("off") != std::string::npos) return 0.0;
+
+        std::regex re("filter[_-]?(\\d+[._]\\d+|\\d+)");
+        std::smatch match;
+        if (std::regex_search(lower_name, match, re)) {
+            std::string val_str = match[1].str();
+            std::replace(val_str.begin(), val_str.end(), '_', '.');
+            try {
+                return std::stod(val_str);
+            } catch (...) {
+                return -1.0;
+            }
+        }
+        return -1.0;
+    }
+
+    void assembleRateVsFilterGraph(
+        TDirectory* summary_dir, 
+        const std::string& side_label, 
+        const std::vector<std::pair<double, std::pair<double, double>>>& filter_rate_pairs) 
+    {
+        if (filter_rate_pairs.empty() || !summary_dir) return;
+
+        summary_dir->cd();
+        std::string name = "rate_vs_filter_" + side_label;
+        std::string title = "Rate vs Filter Setting: Side " + side_label + ";Filter Setting;Rate at Max HV [kHz]";
+
+        const size_t n_points = filter_rate_pairs.size();
+        TGraphErrors* gr = new TGraphErrors();
+        gr->SetName(name.c_str());
+        gr->SetTitle(title.c_str());
+
+        double y_min = std::numeric_limits<double>::max();
+        double y_max = std::numeric_limits<double>::lowest();
+
+        double x_min = std::numeric_limits<double>::max();
+        double x_max = std::numeric_limits<double>::lowest();
+
+        for (size_t i = 0; i < n_points; ++i) {
+            double filter_val = filter_rate_pairs[i].first;
+            double rate = filter_rate_pairs[i].second.first;
+            double rate_err = filter_rate_pairs[i].second.second;
+
+            gr->SetPoint(static_cast<int>(i), filter_val, rate);
+            gr->SetPointError(static_cast<int>(i), 0.0, rate_err);
+
+            if (filter_val < x_min) x_min = filter_val;
+            if (filter_val > x_max) x_max = filter_val;
+
+            if (rate - rate_err < y_min) y_min = rate - rate_err;
+            if (rate + rate_err > y_max) y_max = rate + rate_err;
+        }
+
+        // Add 10% padding to Y-axis range
+        double y_range = y_max - y_min;
+        if (y_range <= 0.0) y_range = y_max * 0.1;
+        if (y_range <= 0.0) y_range = 1.0;
+
+        double y_pad = y_range * 0.1;
+        double final_ymin = std::max(0.0, y_min - y_pad);
+        double final_ymax = y_max + y_pad;
+
+        // Add margin to X-axis range
+        double x_margin = (x_max - x_min > 0) ? (x_max - x_min) * 0.1 : 1.0;
+        double final_xmin = std::max(0.0, x_min - x_margin);
+        double final_xmax = x_max + x_margin;
+
+        // Construct explicit TH1F frame to guarantee ROOT renders the axis properly
+        TH1F* frame = new TH1F(
+            Form("frame_rate_filter_%s", side_label.c_str()),
+            title.c_str(),
+            100, final_xmin, final_xmax
+        );
+        frame->SetDirectory(nullptr);
+        frame->GetYaxis()->SetRangeUser(final_ymin, final_ymax);
+        frame->GetYaxis()->SetTitle("Rate [kHz]");
+        frame->GetXaxis()->SetTitle("Filter Setting");
+
+        gr->SetHistogram(frame);
+        gr->SetMarkerStyle(20);
+        gr->SetMarkerSize(1.0);
+        gr->SetMarkerColor(kAzure + 2);
+        gr->SetLineColor(kAzure + 2);
+
+        // Apply Linear Fit if there are at least 2 points
+        if (n_points >= 2) {
+            std::string fit_name = "fit_rate_vs_filter_" + side_label;
+            TF1* lin_fit = new TF1(fit_name.c_str(), "pol1", x_min, x_max);
+            lin_fit->SetLineColor(kRed + 1);
+            TFitResultPtr fit_res = gr->Fit(lin_fit, "Q0S");
+            gr->GetListOfFunctions()->Add(lin_fit);
+        }
+
+        gr->Write("", TObject::kOverwrite);
+        delete gr;
+    }
 
     void assembleV50Graph(const std::string& metric_name, const std::vector<FitResult>& fits) {
         constexpr double padding_factor = 0.1;
@@ -871,8 +976,80 @@ void DataPlotter::plotCrossGroupFits(TDirectory* config_dir, const std::map<std:
     }
 }
 
+void DataPlotter::plotCrossGroupRateMetrics(TDirectory* config_dir) {
+    if (!config_dir) return;
+
+    std::vector<std::pair<double, std::pair<double, double>>> filter_rate_eta1;
+    std::vector<std::pair<double, std::pair<double, double>>> filter_rate_eta2;
+
+    TIter next_group(config_dir->GetListOfKeys());
+    TKey* group_key = nullptr;
+
+    while ((group_key = static_cast<TKey*>(next_group()))) {
+        if (!group_key->IsFolder()) continue;
+
+        std::string group_name = group_key->GetName();
+        double filter_setting = CrossGroupHelpers::parseFilterSetting(group_name);
+
+        // Process only groups matching "filter" and having a valid setting (including 0.0 for OFF)
+        if (filter_setting < 0.0) continue;
+
+        TDirectory* group_dir = config_dir->GetDirectory(group_name.c_str());
+        TDirectory* rate_dir = group_dir ? group_dir->GetDirectory("rate_layers_analysis") : nullptr;
+        if (!rate_dir) continue;
+
+        // Lambda to extract rate at maximum High Voltage (HV) point
+        auto extract_rate_at_max_hv = [&](const std::string& rate_metric_name) -> std::pair<double, double> {
+            TMultiGraph* mg = rate_dir->Get<TMultiGraph>(rate_metric_name.c_str());
+            if (!mg || !mg->GetListOfGraphs()) return {-1.0, 0.0};
+
+            TGraph* g = dynamic_cast<TGraph*>(mg->GetListOfGraphs()->First());
+            if (!g || g->GetN() == 0) return {-1.0, 0.0};
+
+            int n_points = g->GetN();
+            double* x_vals = g->GetX();
+            double* y_vals = g->GetY();
+            double* ey_high = g->GetEYhigh();
+
+            int max_hv_idx = 0;
+            double max_hv = x_vals[0];
+
+            for (int i = 1; i < n_points; ++i) {
+                if (x_vals[i] > max_hv) {
+                    max_hv = x_vals[i];
+                    max_hv_idx = i;
+                }
+            }
+
+            double rate_at_max_hv = y_vals[max_hv_idx];
+            double err_at_max_hv = (ey_high) ? ey_high[max_hv_idx] : 0.0;
+
+            return {rate_at_max_hv, err_at_max_hv};
+        };
+
+        auto r_eta1 = extract_rate_at_max_hv("rate_eta1");
+        auto r_eta2 = extract_rate_at_max_hv("rate_eta2");
+
+        if (r_eta1.first >= 0.0) filter_rate_eta1.push_back({filter_setting, r_eta1});
+        if (r_eta2.first >= 0.0) filter_rate_eta2.push_back({filter_setting, r_eta2});
+    }
+
+    if (filter_rate_eta1.empty() && filter_rate_eta2.empty()) return;
+
+    TDirectory* summary_dir = PathUtils::ensureDirectory(config_dir, "cross_group_summaries");
+    if (!summary_dir) return;
+
+    // Sort entries by ascending filter setting
+    auto sort_fn = [](const auto& a, const auto& b) { return a.first < b.first; };
+    std::sort(filter_rate_eta1.begin(), filter_rate_eta1.end(), sort_fn);
+    std::sort(filter_rate_eta2.begin(), filter_rate_eta2.end(), sort_fn);
+
+    // Assemble and save standalone cross-group rate graphs
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "eta1", filter_rate_eta1);
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "eta2", filter_rate_eta2);
+}
+
 void DataPlotter::cumulativeAnalysisRootFile() {
-    // Handle file and basic directories
     TFile* analysis_root = initializeAnalysisFile();
 
     for (const auto& [config_path, config_data] : _parsed_configs) {
@@ -891,7 +1068,8 @@ void DataPlotter::cumulativeAnalysisRootFile() {
             plotStripMetrics(scan_dir, scan_data);
         }
 
-        // Extract and plot cross-group fits for efficiency metrics
+        plotCrossGroupRateMetrics(config_dir);
+
         auto cross_group_fits = extractCrossGroupFits(config_dir);
         if (!cross_group_fits.empty()) {
             plotCrossGroupFits(config_dir, cross_group_fits);

@@ -32,6 +32,11 @@ namespace Utilities {
 /// @brief Namespace for helper functions related to cross-group analysis and plotting
 namespace CrossGroupHelpers {
 
+    void assembleRateVsFilterGraph(
+        TDirectory* summary_dir, 
+        const std::string& side_label, 
+        const std::vector<std::pair<double, std::pair<double, double>>>& filter_rate_pairs
+    );
     void assembleV50Graph(const std::string& metric_name, const std::vector<FitResult>& fits);
     void assembleVWPGraph(const std::string& metric_name, const std::vector<FitResult>& fits);
 
@@ -56,7 +61,12 @@ public:
     void plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& scan_data);
     void plotLayerMetrics(TDirectory* scan_dir, const MetricsData& scan_data);
     void plotStripMetrics(TDirectory* scan_dir, const MetricsData& scan_data);
-    void plotCrossGroupFits(TDirectory* config_dir, const std::map<std::string, std::vector<FitResult>>& all_fits);
+    void plotCrossGroupRateMetrics(TDirectory* config_dir);
+    void plotCrossGroupFits(
+        TDirectory* config_dir,
+        const std::map<std::string,
+        std::vector<FitResult>>& all_fits
+    );
 
     void cumulativeAnalysisRootFile();
     void cumulativeAnalysisPlots();
