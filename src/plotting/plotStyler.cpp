@@ -47,7 +47,9 @@ namespace PlotStyler {
         {"h2d_roi_map",             TH2::Class(),                  PlotCategory::RoI},
         {"h1d_cs_eta",              TH1::Class(),                  PlotCategory::CSDistribution},
         {"h1d_tot_eta",             TH1::Class(),                  PlotCategory::ToTDistribution},
+        {"h2d_corr_tot",            TH2::Class(),                  PlotCategory::ToTMultCorrelation},
         {"stack_tot_side_",         THStack::Class(),              PlotCategory::ToTCombSidesDistribution},
+        {"stack_tot_multi",         THStack::Class(),              PlotCategory::ToTCombMultiDistribution},
         {"stack_tot_layer",         THStack::Class(),              PlotCategory::ToTCombLayersDistribution},
         {"h1d_tof_layer",           TH1::Class(),                  PlotCategory::ToFDistribution},
         {"h2d_time_of_flight",      TH2::Class(),                  PlotCategory::ToFHeatmap},
@@ -83,6 +85,7 @@ namespace PlotStyler {
         {PlotCategory::RateStripVsHV,               &styleRateStripVsHV},
         {PlotCategory::CSDistribution,              &styleCSDistribution},
         {PlotCategory::ToFDistribution,             &styleToFDistribution},
+        {PlotCategory::ToTMultCorrelation,          &styleToTCorrelation},
         {PlotCategory::ToFHeatmap,                  &styleToFHeatmap},
         {PlotCategory::AvgToFVsHV,                  &styleAvgToFVsHV},
         {PlotCategory::TimeResolutionVsHV,          &styleAvgTRVsHV},
@@ -95,6 +98,7 @@ namespace PlotStyler {
         {PlotCategory::RoI,                         &styleRoI},
         {PlotCategory::ToTDistribution,             &styleToTDistribution},
         {PlotCategory::ToTCombSidesDistribution,    &styleToTCombSidesDistribution},
+        {PlotCategory::ToTCombMultiDistribution,    &styleToTCombMultiDistribution},
         {PlotCategory::ToTCombLayersDistribution,   &styleToTCombLayersDistribution},
         {PlotCategory::AvgMultStrip,                &styleAvgMultStrip},
         {PlotCategory::FracMultStrip,               &styleFracMultStrip},
@@ -2827,6 +2831,341 @@ namespace PlotStyler {
             rx->SetRangeUser(0.0, global_percentile);
             rx->SetTitle("ToT [ns]");
             rx->SetTitleFont(42);
+            rx->SetTitleSize(0.14);
+            rx->SetTitleOffset(1.0);
+            rx->SetLabelFont(42);
+            rx->SetLabelSize(0.11);
+            rx->SetNdivisions(505);
+            rx->SetTickLength(0.06);
+        }
+        if (ry) {
+            ry->SetTitle("#eta+ / #eta-");
+            ry->SetTitleFont(42);
+            ry->SetLabelFont(42);
+            ry->SetTitleSize(0.14);
+            ry->SetLabelSize(0.11);
+            ry->SetTitleOffset(0.50);
+            ry->SetNdivisions(505);
+            h_ratio->SetMinimum(0.0);
+            h_ratio->SetMaximum(2.0);
+        }
+
+        pad2->Modified();
+        pad2->Update();
+
+        double x_max_pad2 = pad2->GetUxmax();
+        double y_min_pad2 = pad2->GetUymin();
+        double y_max_pad2 = pad2->GetUymax();
+
+        Objects::line(pad2, 0.0, x_max_pad2, 1.0, 1.0, kGray+2, 2, 1);
+        if (x_max_pad2 > TOT_ROI_MAX + 1.0) {
+            Objects::line(pad2, TOT_ROI_MAX, TOT_ROI_MAX, y_min_pad2, y_max_pad2, kBlack, 9, 1);
+            Objects::hatchedRegion(pad2, TOT_ROI_MAX, x_max_pad2, y_min_pad2, y_max_pad2, 3244);
+        }
+
+        pad2->Modified();
+        pad2->Update();
+
+        canvas->cd();
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleToTCorrelation(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto h2d = dynamic_cast<TH2F*>(obj);
+        if (!h2d) return;
+
+        canvas->SetWindowSize(800, 800);
+        canvas->SetCanvasSize(800, 800);
+        canvas->cd();
+
+        TPad* pad1 = new TPad("pad1", "pad1", 0.0, 0.0, 1.0, 1.0);
+        pad1->SetLeftMargin(0.16);
+        pad1->SetRightMargin(0.14);
+        pad1->SetTopMargin(0.07);
+        pad1->SetBottomMargin(0.14);
+        pad1->Draw();
+        pad1->cd();
+
+        // Calculate 95th percentile independently for X (Primary ToT) and Y (Secondary ToT)
+        TH1D* projX = h2d->ProjectionX("_temp_proj_x");
+        TH1D* projY = h2d->ProjectionY("_temp_proj_y");
+
+        double percentile_limit = 0.95;
+        double max_x = TOT_ROI_MAX;
+        double max_y = TOT_ROI_MAX;
+
+        if (projX->GetEffectiveEntries() > 0) {
+            double q[1];
+            double prob[1] = {percentile_limit};
+            projX->GetQuantiles(1, q, prob);
+            if (q[0] > 0) max_x = q[0];
+        }
+
+        if (projY->GetEffectiveEntries() > 0) {
+            double q[1];
+            double prob[1] = {percentile_limit};
+            projY->GetQuantiles(1, q, prob);
+            if (q[0] > 0) max_y = q[0];
+        }
+
+        delete projX;
+        delete projY;
+
+        // Apply percentile ranges to histogram axes
+        h2d->GetXaxis()->SetRangeUser(0.0, max_x);
+        h2d->GetYaxis()->SetRangeUser(0.0, max_y);
+
+        h2d->GetXaxis()->SetTitle("Primary ToT [ns]");
+        h2d->GetYaxis()->SetTitle("Secondary ToT [ns]");
+        h2d->GetZaxis()->SetTitle("Entries");
+
+        h2d->Draw("COLZ");
+        pad1->Update();
+
+        double u_xmin = pad1->GetUxmin();
+        double u_xmax = pad1->GetUxmax();
+        double u_ymin = pad1->GetUymin();
+        double u_ymax = pad1->GetUymax();
+
+        double roi_x = std::min<double>(TOT_ROI_MAX, u_xmax);
+
+        // Hatched Region on X-axis (Primary ToT > TOT_ROI_MAX)
+        if (u_xmax > TOT_ROI_MAX + 1.0) {
+            Objects::line(pad1, TOT_ROI_MAX, TOT_ROI_MAX, u_ymin, TOT_ROI_MAX, kBlack, 9, 1);
+            Objects::hatchedRegion(pad1, TOT_ROI_MAX, u_xmax, u_ymin, u_ymax, 3244);
+
+            double x_ndc = (TOT_ROI_MAX - pad1->GetX1()) / (pad1->GetX2() - pad1->GetX1());
+            x_ndc += 0.015;
+
+            TLatex* roi_text_x = new TLatex();
+            roi_text_x->SetNDC(true);
+            roi_text_x->SetTextAngle(90);
+            roi_text_x->SetTextAlign(23);
+            roi_text_x->SetTextFont(42);
+            roi_text_x->SetTextSize(0.035);
+            roi_text_x->SetTextColor(kBlack);
+            roi_text_x->DrawLatex(x_ndc, 0.35, "Streamer/Afterpulse Region");
+        }
+
+        // Hatched Region on Y-axis (Secondary ToT > TOT_ROI_MAX)
+        if (u_ymax > TOT_ROI_MAX + 1.0) {
+            Objects::line(pad1, u_xmin, roi_x, TOT_ROI_MAX, TOT_ROI_MAX, kBlack, 9, 1);
+            Objects::hatchedRegion(pad1, u_xmin, roi_x, TOT_ROI_MAX, u_ymax, 3244);
+        }
+
+        applyATLASStyle(obj, pad1);
+
+        double ndc_x0 = pad1->GetLeftMargin();
+        double ndc_y0 = 1.0 - pad1->GetTopMargin();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        drawATLASHeaderBlock(
+            ndc_x0 + 0.05,
+            ndc_y0 - 0.09,
+            "Work in Progress",
+            plot_title,
+            12,
+            kWhite, 0.70f,
+            kWhite, 0,
+            0.01
+        );
+
+        pad1->Modified();
+        pad1->Update();
+
+        canvas->cd();
+        canvas->Modified();
+        canvas->Update();
+    }
+
+    void styleToTCombMultiDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
+        auto stack = dynamic_cast<THStack*>(obj);
+
+        auto [title_lines, x_label, y_label, compiled_legend_entries] = compilePlotLabels(obj->GetTitle(), stack);
+
+        if (!stack) return;
+
+        TList* hist_list = stack->GetHists();
+        if (!hist_list || hist_list->GetSize() < 2) return;
+
+        canvas->SetWindowSize(800, 840);
+        canvas->SetCanvasSize(800, 840);
+
+        canvas->cd();
+
+        TPad* pad1 = new TPad("pad1", "pad1", 0.0, 0.30, 1.0, 1.0);
+        pad1->SetLeftMargin(0.16);
+        pad1->SetRightMargin(0.05);
+        pad1->SetTopMargin(0.07);
+        pad1->SetBottomMargin(0.03);
+        pad1->Draw();
+
+        TPad* pad2 = new TPad("pad2", "pad2", 0.0, 0.0, 1.0, 0.30);
+        pad2->SetLeftMargin(0.16);
+        pad2->SetRightMargin(0.05);
+        pad2->SetTopMargin(0.05);
+        pad2->SetBottomMargin(0.35);
+        pad2->SetTicks(1, 1);
+        pad2->Draw();
+
+        std::vector<std::pair<double, Color_t>> mean_line_data;
+        TH1* h1 = nullptr;
+        TH1* h2 = nullptr;
+
+        TIter next(hist_list);
+        TH1* hist = nullptr;
+        int index = 0;
+
+        std::vector<TH1*> histograms;
+
+        double global_percentile = 0.0;
+        double percentile = 0.99;
+
+        while ((hist = static_cast<TH1*>(next()))) {
+            Color_t base_color = (index == 0) ? kAzure + 2 : kOrange + 10;
+            mean_line_data.push_back({hist->GetMean(), base_color});
+
+            if (index == 0) h1 = hist;
+            if (index == 1) h2 = hist;
+
+            hist->SetLineColor(base_color);
+            hist->SetLineWidth(2);
+            hist->SetLineStyle(1);
+
+            Int_t trans_color = TColor::GetColorTransparent(base_color, 0.30);
+            hist->SetFillColor(trans_color);
+            hist->SetFillStyle(1001);
+
+            if (hist->GetEffectiveEntries() > 0) {
+                double q[1];
+                double prob[1] = {percentile};
+                hist->GetQuantiles(1, q, prob);
+                if (q[0] > global_percentile) {
+                    global_percentile = q[0];
+                }
+            }
+
+            index++;
+            histograms.push_back(hist);
+        }
+
+        pad1->cd();
+        applyATLASStyle(obj, pad1);
+        stack->Draw("nostack hist");
+
+        if (stack->GetXaxis()) {
+            stack->GetXaxis()->SetRangeUser(0.0, global_percentile);
+
+            stack->GetXaxis()->SetLabelSize(0);
+            stack->GetXaxis()->SetTitleSize(0);
+        }
+        if (stack->GetYaxis()) {
+            stack->GetYaxis()->SetTitle("Hits");
+            stack->GetYaxis()->SetTitleSize(0.06);
+            stack->GetYaxis()->SetLabelSize(0.05);
+            stack->GetYaxis()->SetTitleOffset(1.2);
+        }
+
+        pad1->Modified();
+        pad1->Update();
+
+        double x_max = pad1->GetUxmax();
+        double y_min = pad1->GetUymin();
+        double y_max = pad1->GetUymax();
+
+        if (x_max > TOT_ROI_MAX + 1.0) {
+            Objects::line(pad1, TOT_ROI_MAX, TOT_ROI_MAX, y_min, y_max, kBlack, 9, 1);
+            Objects::hatchedRegion(pad1, TOT_ROI_MAX, x_max, y_min, y_max, 3244);
+
+            double x_ndc = (TOT_ROI_MAX - pad1->GetX1()) / (pad1->GetX2() - pad1->GetX1());
+            x_ndc += 0.015;
+            double y_ndc = 0.35;
+
+            TLatex* roi_text = new TLatex();
+            roi_text->SetNDC(true);
+            roi_text->SetTextAngle(90);
+            roi_text->SetTextAlign(23);
+            roi_text->SetTextFont(42);
+            roi_text->SetTextSize(0.035);
+            roi_text->SetTextColor(kBlack);
+            roi_text->DrawLatex(x_ndc, y_ndc, "Streamer/Afterpulse Region");
+        }
+
+        for (const auto& data : mean_line_data) {
+            double mean_x = data.first;
+            Color_t color = data.second;
+
+            TLine* mean_line = new TLine(mean_x, y_min, mean_x, y_max);
+            mean_line->SetLineColor(color);
+            mean_line->SetLineWidth(2);
+            mean_line->SetLineStyle(11);
+            mean_line->Draw();
+        }
+
+        double ndc_x0 = 1.0 - pad1->GetRightMargin();
+        double ndc_y0 = 1.0 - pad1->GetTopMargin();
+
+        std::string plot_title = obj ? obj->GetTitle() : "";
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 - 0.05,
+            ndc_y0 - 0.09,
+            "Work in Progress",
+            plot_title,
+            32,
+            kWhite, 0.70f,
+            kWhite, 0,
+            0.01
+        );
+
+        pad1->Modified();
+        pad1->Update();
+
+        std::vector<std::string> legend_entries = {" First hit", " Secondary hits"};
+        double legend_y = header ? header->GetY1NDC() - 0.05 : 0.70;
+        double leg_width = 0.45;
+        double leg_height = histograms.size() * 0.04;
+
+        TLegend* leg = new TLegend(ndc_x0 - 0.05 - leg_width, legend_y - leg_height, ndc_x0 - 0.05, legend_y);
+        leg->SetBorderSize(0);
+        leg->SetLineColor(kWhite);
+        leg->SetFillStyle(1001);
+        leg->SetFillColorAlpha(kWhite, 0.5);
+        leg->SetTextFont(42);
+        leg->SetTextSize(0.04);
+
+        for (size_t i = 0; i < histograms.size() && i < legend_entries.size(); ++i) {
+            TH1* h = histograms[i];
+            double mean_val = h->GetMean();
+            std::string label_with_mean = Form("%s (#mu = %.1f ns)", legend_entries[i].c_str(), mean_val);
+
+            leg->AddEntry(h, label_with_mean.c_str(), "f");
+        }
+        leg->Draw();
+
+        pad2->cd();
+
+        TH1* h_ratio = static_cast<TH1*>(h1->Clone("h_ratio"));
+        h_ratio->SetDirectory(nullptr);
+        h_ratio->Reset();
+        h_ratio->Divide(h1, h2, 1.0, 1.0, "B");
+
+        h_ratio->SetLineColor(kBlack);
+        h_ratio->SetMarkerColor(kBlack);
+        h_ratio->SetLineWidth(2);
+        h_ratio->SetMarkerStyle(20);
+        h_ratio->SetMarkerSize(0.8);
+        h_ratio->SetFillStyle(0);
+
+        h_ratio->Draw("ep");
+
+        TAxis* rx = h_ratio->GetXaxis();
+        TAxis* ry = h_ratio->GetYaxis();
+
+        if (rx) {
+            rx->SetRangeUser(0.0, global_percentile);
+            rx->SetTitle("ToT [ns]");
+            rx->SetTitleFont(42);
             rx->SetTitleSize(0.14);  
             rx->SetTitleOffset(1.0);
             rx->SetLabelFont(42);
@@ -2836,14 +3175,14 @@ namespace PlotStyler {
         }
 
         if (ry) {
-            ry->SetTitle("#eta_{1} / #eta_{2}");
+            ry->SetTitle("Fraction");
             ry->SetTitleFont(42);
             ry->SetLabelFont(42);
             ry->SetTitleSize(0.14);
             ry->SetLabelSize(0.11);
             ry->SetTitleOffset(0.50);
             ry->SetNdivisions(505);
-            h_ratio->SetMinimum(0.0); 
+            h_ratio->SetMinimum(0.0);
             h_ratio->SetMaximum(2.0);
         }
 
