@@ -167,7 +167,7 @@ namespace CrossGroupHelpers {
         );
         frame->SetDirectory(nullptr);
         frame->GetYaxis()->SetRangeUser(final_ymin, final_ymax);
-        frame->GetYaxis()->SetTitle("Rate [kHz]");
+        frame->GetYaxis()->SetTitle("Rate [Hz/cm^{2}]");
         frame->GetXaxis()->SetTitle("Filter Setting");
 
         gr->SetHistogram(frame);
@@ -330,7 +330,8 @@ namespace {
         "track_eff_eta1_external", "track_eff_eta2_external", "track_eff_or_external", "track_eff_and_external",
         "track_eff_eta1_rpc", "track_eff_eta2_rpc", "track_eff_or_rpc", "track_eff_and_rpc",
         "avg_cluster_size_eta1_layers", "avg_cluster_size_eta2_layers",
-        "rate_eta1", "rate_eta2",
+        "rate_layers_eta1", "rate_layers_eta2", "rate_layers_or", "rate_layers_and",
+        "track_rate_layers_eta1", "track_rate_layers_eta2", "track_rate_layers_or", "track_rate_layers_and",
         "avg_tot_layer_eta1", "avg_tot_layer_eta2",
         "track_avg_tot_layer_eta1", "track_avg_tot_layer_eta2",
         "beam_avg_tot_layer_eta1", "beam_avg_tot_layer_eta2",
@@ -338,11 +339,14 @@ namespace {
     };
 
     const std::vector<std::string> scalar_metrics = {
-        "avg_cluster_size_eta1", "avg_cluster_size_eta2", "rate"
+        "avg_cluster_size_eta1", "avg_cluster_size_eta2",
+        "rate_eta1", "rate_eta2", "rate_or", "rate_and",
+        "track_rate_eta1", "track_rate_eta2", "track_rate_or", "track_rate_and"
     };
 
     const std::vector<std::string> strip_layer_metrics = {
-        "rate_strips_eta1", "rate_strips_eta2",
+        "rate_strips_eta1", "rate_strips_eta2", "rate_strips_or", "rate_strips_and",
+        "track_rate_strips_eta1", "track_rate_strips_eta2", "track_rate_strips_or", "track_rate_strips_and",
         "avg_tot_strip_eta1", "avg_tot_strip_eta2",
         "track_avg_tot_strip_eta1", "track_avg_tot_strip_eta2",
         "beam_avg_tot_strip_eta1", "beam_avg_tot_strip_eta2",
@@ -408,6 +412,7 @@ TDirectory* DataPlotter::setupScanDirectories(TDirectory* config_dir, const std:
     // (Multi)Graphs for Global Metrics
     PathUtils::ensureDirectory(scan_dir, "efficiency_analysis");
     PathUtils::ensureDirectory(scan_dir, "cluster_analysis");
+    PathUtils::ensureDirectory(scan_dir, "rate_global_analysis");
     PathUtils::ensureDirectory(scan_dir, "rate_layers_analysis");
     PathUtils::ensureDirectory(scan_dir, "rate_strips_analysis");
     PathUtils::ensureDirectory(scan_dir, "tot_layers_analysis");
@@ -744,7 +749,7 @@ void DataPlotter::plotLayerMetrics(
             is_eff_metric = true;
         }
         else if (metric_name.rfind("avg_cluster", 0) == 0) metric_dir = clus_dir;
-        else if (metric_name.rfind("rate_eta", 0) == 0) metric_dir = nois_dir;
+        else if (metric_name.find("rate") != std::string::npos) metric_dir = nois_dir;
         else if (metric_name.find("tot") != std::string::npos) metric_dir = tot_dir;
 
         if (!metric_dir) continue;
@@ -834,7 +839,7 @@ void DataPlotter::plotStripMetrics(TDirectory* scan_dir, const MetricsData& scan
         TDirectory* metric_dir = scan_dir;
         bool is_tof_metric = false;
 
-        if (metric_name.find("rate_strips_eta") != std::string::npos) metric_dir = nois_dir;
+        if (metric_name.find("rate") != std::string::npos) metric_dir = nois_dir;
         else if (metric_name.find("tot") != std::string::npos) metric_dir = tot_dir;
         else if (metric_name.find("multiplicity") != std::string::npos) metric_dir = mult_dir;
         else if (metric_name.find("time_resolution") != std::string::npos) {
@@ -981,6 +986,23 @@ void DataPlotter::plotCrossGroupRateMetrics(TDirectory* config_dir) {
 
     std::vector<std::pair<double, std::pair<double, double>>> filter_rate_eta1;
     std::vector<std::pair<double, std::pair<double, double>>> filter_rate_eta2;
+    std::vector<std::pair<double, std::pair<double, double>>> filter_rate_eta_or;
+    std::vector<std::pair<double, std::pair<double, double>>> filter_rate_eta_and;
+
+    std::vector<std::pair<double, std::pair<double, double>>> track_filter_rate_eta1;
+    std::vector<std::pair<double, std::pair<double, double>>> track_filter_rate_eta2;
+    std::vector<std::pair<double, std::pair<double, double>>> track_filter_rate_eta_or;
+    std::vector<std::pair<double, std::pair<double, double>>> track_filter_rate_eta_and;
+
+    std::vector<std::pair<double, std::pair<double, double>>> filter_rate_layers_eta1;
+    std::vector<std::pair<double, std::pair<double, double>>> filter_rate_layers_eta2;
+    std::vector<std::pair<double, std::pair<double, double>>> filter_rate_layers_eta_or;
+    std::vector<std::pair<double, std::pair<double, double>>> filter_rate_layers_eta_and;
+
+    std::vector<std::pair<double, std::pair<double, double>>> track_filter_rate_layers_eta1;
+    std::vector<std::pair<double, std::pair<double, double>>> track_filter_rate_layers_eta2;
+    std::vector<std::pair<double, std::pair<double, double>>> track_filter_rate_layers_eta_or;
+    std::vector<std::pair<double, std::pair<double, double>>> track_filter_rate_layers_eta_and;
 
     TIter next_group(config_dir->GetListOfKeys());
     TKey* group_key = nullptr;
@@ -995,15 +1017,22 @@ void DataPlotter::plotCrossGroupRateMetrics(TDirectory* config_dir) {
         if (filter_setting < 0.0) continue;
 
         TDirectory* group_dir = config_dir->GetDirectory(group_name.c_str());
-        TDirectory* rate_dir = group_dir ? group_dir->GetDirectory("rate_layers_analysis") : nullptr;
-        if (!rate_dir) continue;
+
+        TDirectory* rate_global_dir = group_dir->GetDirectory("rate_global_analysis");
+        TDirectory* rate_layer_dir  = group_dir->GetDirectory("rate_layers_analysis");
+        if (!rate_global_dir || !rate_layer_dir) continue;
 
         // Lambda to extract rate at maximum High Voltage (HV) point
-        auto extract_rate_at_max_hv = [&](const std::string& rate_metric_name) -> std::pair<double, double> {
-            TMultiGraph* mg = rate_dir->Get<TMultiGraph>(rate_metric_name.c_str());
-            if (!mg || !mg->GetListOfGraphs()) return {-1.0, 0.0};
+        auto extract_rate_at_max_hv = [](TDirectory* dir, const std::string& rate_metric_name) -> std::pair<double, double> {
+            if (!dir) return {-1.0, 0.0};
 
-            TGraph* g = dynamic_cast<TGraph*>(mg->GetListOfGraphs()->First());
+            TGraph* g = dir->Get<TGraph>(rate_metric_name.c_str());
+            if (!g) {
+                TMultiGraph* mg = dir->Get<TMultiGraph>(rate_metric_name.c_str());
+                if (mg && mg->GetListOfGraphs()) {
+                    g = dynamic_cast<TGraph*>(mg->GetListOfGraphs()->First());
+                }
+            }
             if (!g || g->GetN() == 0) return {-1.0, 0.0};
 
             int n_points = g->GetN();
@@ -1027,14 +1056,46 @@ void DataPlotter::plotCrossGroupRateMetrics(TDirectory* config_dir) {
             return {rate_at_max_hv, err_at_max_hv};
         };
 
-        auto r_eta1 = extract_rate_at_max_hv("rate_eta1");
-        auto r_eta2 = extract_rate_at_max_hv("rate_eta2");
+        auto r_eta1 = extract_rate_at_max_hv(rate_global_dir, "rate_eta1");
+        auto r_eta2 = extract_rate_at_max_hv(rate_global_dir, "rate_eta2");
+        auto r_eta_or = extract_rate_at_max_hv(rate_global_dir, "rate_eta_or");
+        auto r_eta_and = extract_rate_at_max_hv(rate_global_dir, "rate_eta_and");
+
+        auto track_r_eta1 = extract_rate_at_max_hv(rate_global_dir, "track_rate_eta1");
+        auto track_r_eta2 = extract_rate_at_max_hv(rate_global_dir, "track_rate_eta2");
+        auto track_r_eta_or = extract_rate_at_max_hv(rate_global_dir, "track_rate_eta_or");
+        auto track_r_eta_and = extract_rate_at_max_hv(rate_global_dir, "track_rate_eta_and");
+
+        auto r_layers_eta1 = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta1");
+        auto r_layers_eta2 = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta2");
+        auto r_layers_eta_or = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta_or");
+        auto r_layers_eta_and = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta_and");
+
+        auto track_r_layers_eta1 = extract_rate_at_max_hv(rate_layer_dir, "track_rate_layers_eta1");
+        auto track_r_layers_eta2 = extract_rate_at_max_hv(rate_layer_dir, "track_rate_layers_eta2");
+        auto track_r_layers_eta_or = extract_rate_at_max_hv(rate_layer_dir, "track_rate_layers_eta_or");
+        auto track_r_layers_eta_and = extract_rate_at_max_hv(rate_layer_dir, "track_rate_layers_eta_and");
 
         if (r_eta1.first >= 0.0) filter_rate_eta1.push_back({filter_setting, r_eta1});
         if (r_eta2.first >= 0.0) filter_rate_eta2.push_back({filter_setting, r_eta2});
-    }
+        if (r_eta_or.first >= 0.0) filter_rate_eta_or.push_back({filter_setting, r_eta_or});
+        if (r_eta_and.first >= 0.0) filter_rate_eta_and.push_back({filter_setting, r_eta_and});
 
-    if (filter_rate_eta1.empty() && filter_rate_eta2.empty()) return;
+        if (track_r_eta1.first >= 0.0) track_filter_rate_eta1.push_back({filter_setting, track_r_eta1});
+        if (track_r_eta2.first >= 0.0) track_filter_rate_eta2.push_back({filter_setting, track_r_eta2});
+        if (track_r_eta_or.first >= 0.0) track_filter_rate_eta_or.push_back({filter_setting, track_r_eta_or});
+        if (track_r_eta_and.first >= 0.0) track_filter_rate_eta_and.push_back({filter_setting, track_r_eta_and});
+
+        if (r_layers_eta1.first >= 0.0) filter_rate_layers_eta1.push_back({filter_setting, r_layers_eta1});
+        if (r_layers_eta2.first >= 0.0) filter_rate_layers_eta2.push_back({filter_setting, r_layers_eta2});
+        if (r_layers_eta_or.first >= 0.0) filter_rate_layers_eta_or.push_back({filter_setting, r_layers_eta_or});
+        if (r_layers_eta_and.first >= 0.0) filter_rate_layers_eta_and.push_back({filter_setting, r_layers_eta_and});
+
+        if (track_r_layers_eta1.first >= 0.0) track_filter_rate_layers_eta1.push_back({filter_setting, track_r_layers_eta1});
+        if (track_r_layers_eta2.first >= 0.0) track_filter_rate_layers_eta2.push_back({filter_setting, track_r_layers_eta2});
+        if (track_r_layers_eta_or.first >= 0.0) track_filter_rate_layers_eta_or.push_back({filter_setting, track_r_layers_eta_or});
+        if (track_r_layers_eta_and.first >= 0.0) track_filter_rate_layers_eta_and.push_back({filter_setting, track_r_layers_eta_and});
+    }
 
     TDirectory* summary_dir = PathUtils::ensureDirectory(config_dir, "cross_group_summaries");
     if (!summary_dir) return;
@@ -1043,10 +1104,44 @@ void DataPlotter::plotCrossGroupRateMetrics(TDirectory* config_dir) {
     auto sort_fn = [](const auto& a, const auto& b) { return a.first < b.first; };
     std::sort(filter_rate_eta1.begin(), filter_rate_eta1.end(), sort_fn);
     std::sort(filter_rate_eta2.begin(), filter_rate_eta2.end(), sort_fn);
+    std::sort(filter_rate_eta_or.begin(), filter_rate_eta_or.end(), sort_fn);
+    std::sort(filter_rate_eta_and.begin(), filter_rate_eta_and.end(), sort_fn);
+
+    std::sort(filter_rate_layers_eta1.begin(), filter_rate_layers_eta1.end(), sort_fn);
+    std::sort(filter_rate_layers_eta2.begin(), filter_rate_layers_eta2.end(), sort_fn);
+    std::sort(filter_rate_layers_eta_or.begin(), filter_rate_layers_eta_or.end(), sort_fn);
+    std::sort(filter_rate_layers_eta_and.begin(), filter_rate_layers_eta_and.end(), sort_fn);
+
+    std::sort(track_filter_rate_eta1.begin(), track_filter_rate_eta1.end(), sort_fn);
+    std::sort(track_filter_rate_eta2.begin(), track_filter_rate_eta2.end(), sort_fn);
+    std::sort(track_filter_rate_eta_or.begin(), track_filter_rate_eta_or.end(), sort_fn);
+    std::sort(track_filter_rate_eta_and.begin(), track_filter_rate_eta_and.end(), sort_fn);
+
+    std::sort(track_filter_rate_layers_eta1.begin(), track_filter_rate_layers_eta1.end(), sort_fn);
+    std::sort(track_filter_rate_layers_eta2.begin(), track_filter_rate_layers_eta2.end(), sort_fn);
+    std::sort(track_filter_rate_layers_eta_or.begin(), track_filter_rate_layers_eta_or.end(), sort_fn);
+    std::sort(track_filter_rate_layers_eta_and.begin(), track_filter_rate_layers_eta_and.end(), sort_fn);
 
     // Assemble and save standalone cross-group rate graphs
     CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "eta1", filter_rate_eta1);
     CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "eta2", filter_rate_eta2);
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "eta_or", filter_rate_eta_or);
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "eta_and", filter_rate_eta_and);
+
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "track_eta1", track_filter_rate_eta1);
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "track_eta2", track_filter_rate_eta2);
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "track_eta_or", track_filter_rate_eta_or);
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "track_eta_and", track_filter_rate_eta_and);
+
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "layers_eta1", filter_rate_layers_eta1);
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "layers_eta2", filter_rate_layers_eta2);
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "layers_eta_or", filter_rate_layers_eta_or);
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "layers_eta_and", filter_rate_layers_eta_and);
+
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "track_layers_eta1", track_filter_rate_layers_eta1);
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "track_layers_eta2", track_filter_rate_layers_eta2);
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "track_layers_eta_or", track_filter_rate_layers_eta_or);
+    CrossGroupHelpers::assembleRateVsFilterGraph(summary_dir, "track_layers_eta_and", track_filter_rate_layers_eta_and);
 }
 
 void DataPlotter::cumulativeAnalysisRootFile() {

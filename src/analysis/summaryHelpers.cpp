@@ -73,18 +73,59 @@ void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, Measureme
     summary_tree->Branch("avg_cluster_size_eta2_layers_error", &data.cluster_size_results.avg_cluster_size_eta2_layers_error, "avg_cluster_size_eta2_layers_error[6]/D");
 
     // Rate results
-    summary_tree->Branch("rate", &data.rate_results.rate);
-    summary_tree->Branch("rate_error", &data.rate_results.rate_error, Form("rate_error[%d]/D", 2));
+    summary_tree->Branch("rate_eta1", &data.rate_results.rate_eta1);
+    summary_tree->Branch("rate_eta2", &data.rate_results.rate_eta2);
+    summary_tree->Branch("rate_or", &data.rate_results.rate_or);
+    summary_tree->Branch("rate_and", &data.rate_results.rate_and);
+    summary_tree->Branch("rate_eta1_error", &data.rate_results.rate_eta1_error, Form("rate_eta1_error[%d]/D", 2));
+    summary_tree->Branch("rate_eta2_error", &data.rate_results.rate_eta2_error, Form("rate_eta2_error[%d]/D", 2));
+    summary_tree->Branch("rate_or_error", &data.rate_results.rate_or_error, Form("rate_or_error[%d]/D", 2));
+    summary_tree->Branch("rate_and_error", &data.rate_results.rate_and_error, Form("rate_and_error[%d]/D", 2));
 
-    summary_tree->Branch("rate_eta1", &data.rate_results.rate_eta1, Form("rate_eta1[%d]/D", 3));
-    summary_tree->Branch("rate_eta2", &data.rate_results.rate_eta2, Form("rate_eta2[%d]/D", 3));
-    summary_tree->Branch("rate_eta1_error", &data.rate_results.rate_eta1_error, Form("rate_eta1_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("rate_eta2_error", &data.rate_results.rate_eta2_error, Form("rate_eta2_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("track_rate_eta1", &data.rate_results_tracks.rate_eta1);
+    summary_tree->Branch("track_rate_eta2", &data.rate_results_tracks.rate_eta2);
+    summary_tree->Branch("track_rate_or", &data.rate_results_tracks.rate_or);
+    summary_tree->Branch("track_rate_and", &data.rate_results_tracks.rate_and);
+    summary_tree->Branch("track_rate_eta1_error", &data.rate_results_tracks.rate_eta1_error, Form("track_rate_eta1_error[%d]/D", 2));
+    summary_tree->Branch("track_rate_eta2_error", &data.rate_results_tracks.rate_eta2_error, Form("track_rate_eta2_error[%d]/D", 2));
+    summary_tree->Branch("track_rate_or_error", &data.rate_results_tracks.rate_or_error, Form("track_rate_or_error[%d]/D", 2));
+    summary_tree->Branch("track_rate_and_error", &data.rate_results_tracks.rate_and_error, Form("track_rate_and_error[%d]/D", 2));
+
+    summary_tree->Branch("rate_layers_eta1", &data.rate_results.rate_layers_eta1, Form("rate_layers_eta1[%d]/D", 3));
+    summary_tree->Branch("rate_layers_eta2", &data.rate_results.rate_layers_eta2, Form("rate_layers_eta2[%d]/D", 3));
+    summary_tree->Branch("rate_layers_or", &data.rate_results.rate_layers_or, Form("rate_layers_or[%d]/D", 3));
+    summary_tree->Branch("rate_layers_and", &data.rate_results.rate_layers_and, Form("rate_layers_and[%d]/D", 3));
+    summary_tree->Branch("rate_layers_eta1_error", &data.rate_results.rate_layers_eta1_error, Form("rate_layers_eta1_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_layers_eta2_error", &data.rate_results.rate_layers_eta2_error, Form("rate_layers_eta2_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_layers_or_error", &data.rate_results.rate_layers_or_error, Form("rate_layers_or_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_layers_and_error", &data.rate_results.rate_layers_and_error, Form("rate_layers_and_error[%d]/D", LAYER_COUNT * 2));
+
+    summary_tree->Branch("track_rate_layers_eta1", &data.rate_results_tracks.rate_layers_eta1, Form("track_rate_layers_eta1[%d]/D", 3));
+    summary_tree->Branch("track_rate_layers_eta2", &data.rate_results_tracks.rate_layers_eta2, Form("track_rate_layers_eta2[%d]/D", 3));
+    summary_tree->Branch("track_rate_layers_or", &data.rate_results_tracks.rate_layers_or, Form("track_rate_layers_or[%d]/D", 3));
+    summary_tree->Branch("track_rate_layers_and", &data.rate_results_tracks.rate_layers_and, Form("track_rate_layers_and[%d]/D", 3));
+    summary_tree->Branch("track_rate_layers_eta1_error", &data.rate_results_tracks.rate_layers_eta1_error, Form("track_rate_layers_eta1_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("track_rate_layers_eta2_error", &data.rate_results_tracks.rate_layers_eta2_error, Form("track_rate_layers_eta2_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("track_rate_layers_or_error", &data.rate_results_tracks.rate_layers_or_error, Form("track_rate_layers_or_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("track_rate_layers_and_error", &data.rate_results_tracks.rate_layers_and_error, Form("track_rate_layers_and_error[%d]/D", LAYER_COUNT * 2));
 
     summary_tree->Branch("rate_strips_eta1", &data.rate_results.rate_strips_eta1, Form("rate_strips_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
     summary_tree->Branch("rate_strips_eta2", &data.rate_results.rate_strips_eta2, Form("rate_strips_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("rate_strips_or", &data.rate_results.rate_strips_or, Form("rate_strips_or[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("rate_strips_and", &data.rate_results.rate_strips_and, Form("rate_strips_and[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
     summary_tree->Branch("rate_strips_eta1_error", &data.rate_results.rate_strips_eta1_error, Form("rate_strips_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
     summary_tree->Branch("rate_strips_eta2_error", &data.rate_results.rate_strips_eta2_error, Form("rate_strips_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("rate_strips_or_error", &data.rate_results.rate_strips_or_error, Form("rate_strips_or_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("rate_strips_and_error", &data.rate_results.rate_strips_and_error, Form("rate_strips_and_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+
+    summary_tree->Branch("track_rate_strips_eta1", &data.rate_results_tracks.rate_strips_eta1, Form("track_rate_strips_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("track_rate_strips_eta2", &data.rate_results_tracks.rate_strips_eta2, Form("track_rate_strips_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("track_rate_strips_or", &data.rate_results_tracks.rate_strips_or, Form("track_rate_strips_or[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("track_rate_strips_and", &data.rate_results_tracks.rate_strips_and, Form("track_rate_strips_and[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("track_rate_strips_eta1_error", &data.rate_results_tracks.rate_strips_eta1_error, Form("track_rate_strips_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("track_rate_strips_eta2_error", &data.rate_results_tracks.rate_strips_eta2_error, Form("track_rate_strips_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("track_rate_strips_or_error", &data.rate_results_tracks.rate_strips_or_error, Form("track_rate_strips_or_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("track_rate_strips_and_error", &data.rate_results_tracks.rate_strips_and_error, Form("track_rate_strips_and_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
     // ToT results
     summary_tree->Branch("avg_tot_layer_eta1", &data.tot_results.avg_tot_eta1_layer, Form("avg_tot_layer_eta1[%d]/D", LAYER_COUNT));
@@ -330,67 +371,79 @@ void getClusterSize(TFile* input_file, ClusterSizeResults& cluster_results) {
     }
 }
 
-void getRate(TFile* input_file, RateResults& rate_results) {
-    TTree* input_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
+void getRate(TFile* input_file, RateResults& rate_results, bool in_valid_track_only) {
     TTree* processed_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
-    if (!input_tree || !processed_tree) {
+    TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
+    if (!processed_tree || !track_tree) {
         std::cerr << "Error: One or more required trees not found in file " << input_file->GetName() << std::endl;
         std::exit(EXIT_FAILURE);
     }
 
-    TTreeReader readerInputData(input_tree);
     TTreeReader readerProcData(processed_tree);
+    TTreeReader readerTrackData(track_tree);
 
-    TTreeReaderValue<int> hits(readerProcData, "n_hits");
     TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
     TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
     TTreeReaderValue<std::vector<int>> proc_time1(readerProcData, "proc_time1");
     TTreeReaderValue<std::vector<int>> proc_time2(readerProcData, "proc_time2");
+    TTreeReaderValue<std::vector<bool>> has_valid_time_eta1(readerProcData, "has_valid_time_eta1");
+    TTreeReaderValue<std::vector<bool>> has_valid_time_eta2(readerProcData, "has_valid_time_eta2");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
+    TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
+
+    long long event_count = 0;
 
     // Global counters
-    long long total_hits = 0;
-    long long event_count = 0;
-    std::unordered_set<int> unique_strips;
-    std::unordered_set<int> unique_layers;
+    long long total_hits_eta1 = 0;
+    long long total_hits_eta2 = 0;
+    long long total_hits_or = 0;
+    long long total_hits_and = 0;
 
     // Eta/Layer-specific counters
-    std::array<long long, 3> total_hits_eta1 = {0, 0, 0};
-    std::array<long long, 3> total_hits_eta2 = {0, 0, 0};
+    std::array<long long, 3> total_hits_per_layer_eta1 = {0, 0, 0};
+    std::array<long long, 3> total_hits_per_layer_eta2 = {0, 0, 0};
+    std::array<long long, 3> total_hits_per_layer_or = {0, 0, 0};
+    std::array<long long, 3> total_hits_per_layer_and = {0, 0, 0};
 
     // Eta/Layer/Strip-specific counters
     long long hits_per_strip_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
     long long hits_per_strip_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
-
-    while (readerInputData.Next() && readerProcData.Next()) {
+    long long hits_per_strip_or[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
+    long long hits_per_strip_and[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
+    while (readerProcData.Next() && readerTrackData.Next()) {
         event_count += 1;
 
-        // Process Global Rates
-        if (hits.GetSetupStatus() == 0) {
-            total_hits += static_cast<long long>(*hits);
-        }
-        if (strips.GetSetupStatus() == 0 && layers.GetSetupStatus() == 0) {
-            for (int strip : *strips) {
-                unique_strips.insert(strip);
-            }
-            for (int layer : *layers) {
-                unique_layers.insert(layer);
-            }
-        }
-
-        // Process Eta/Layer-specific Rates
-        if (proc_time1.GetSetupStatus() == 0 && proc_time2.GetSetupStatus() == 0) {
-            const size_t n_hits = std::min({proc_time1->size(), proc_time2->size()});
+        // Process Rates
+        if (proc_time1.GetSetupStatus() == 0 && proc_time2.GetSetupStatus() == 0 &&
+            has_valid_time_eta1.GetSetupStatus() == 0 && has_valid_time_eta2.GetSetupStatus() == 0)
+        {
+            const size_t n_hits = proc_time1->size();
             for (size_t i = 0; i < n_hits; ++i) {
                 int layer = (*layers)[i];
                 int strip = perFileHelpers::remapStrip((*strips)[i]);
 
-                if ((*proc_time1)[i] != -1) {
-                    total_hits_eta1[layer] += 1;
+                bool pass_track_cut = !in_valid_track_only || ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]);
+                if (!pass_track_cut) continue;
+
+                if ((*has_valid_time_eta1)[i]) {
+                    total_hits_eta1++;
+                    total_hits_per_layer_eta1[layer]++;
                     hits_per_strip_eta1[layer][strip]++;
                 }
-                if ((*proc_time2)[i] != -1) {
-                    total_hits_eta2[layer] += 1;
+                if ((*has_valid_time_eta2)[i]) {
+                    total_hits_eta2++;
+                    total_hits_per_layer_eta2[layer]++;
                     hits_per_strip_eta2[layer][strip]++;
+                }
+                if ((*has_valid_time_eta1)[i] || (*has_valid_time_eta2)[i]) {
+                    total_hits_or++;
+                    total_hits_per_layer_or[layer]++;
+                    hits_per_strip_or[layer][strip]++;
+                }
+                if ((*has_valid_time_eta1)[i] && (*has_valid_time_eta2)[i]) {
+                    total_hits_and++;
+                    total_hits_per_layer_and[layer]++;
+                    hits_per_strip_and[layer][strip]++;
                 }
             }
         }
@@ -412,20 +465,30 @@ void getRate(TFile* input_file, RateResults& rate_results) {
         return {rate, rate_error};
     };
 
-    int n_strips = static_cast<int>(unique_strips.size());
-    int n_layers = static_cast<int>(unique_layers.size());
-
-    std::tie(rate_results.rate, rate_results.rate_error) =
-            calculateRate(total_hits, event_count, n_strips, n_layers);
+    // Calculate detector-wide rates
+    std::tie(rate_results.rate_eta1, rate_results.rate_eta1_error) =
+            calculateRate(total_hits_eta1, event_count, STRIPS_PER_LAYER, LAYER_COUNT);
+    std::tie(rate_results.rate_eta2, rate_results.rate_eta2_error) =
+            calculateRate(total_hits_eta2, event_count, STRIPS_PER_LAYER, LAYER_COUNT);
+    std::tie(rate_results.rate_or, rate_results.rate_or_error) =
+            calculateRate(total_hits_or, event_count, STRIPS_PER_LAYER, LAYER_COUNT);
+    std::tie(rate_results.rate_and, rate_results.rate_and_error) =
+            calculateRate(total_hits_and, event_count, STRIPS_PER_LAYER, LAYER_COUNT);
 
     // Calculate final Eta/Layer-specific rates
     for (int layer = 0; layer < LAYER_COUNT; ++layer) {
 
-        std::tie(rate_results.rate_eta1[layer], rate_results.rate_eta1_error[layer]) =
-            calculateRate(total_hits_eta1[layer], event_count, STRIPS_PER_LAYER, 1);
+        std::tie(rate_results.rate_layers_eta1[layer], rate_results.rate_layers_eta1_error[layer]) =
+            calculateRate(total_hits_per_layer_eta1[layer], event_count, STRIPS_PER_LAYER, 1);
 
-        std::tie(rate_results.rate_eta2[layer], rate_results.rate_eta2_error[layer]) =
-            calculateRate(total_hits_eta2[layer], event_count, STRIPS_PER_LAYER, 1);
+        std::tie(rate_results.rate_layers_eta2[layer], rate_results.rate_layers_eta2_error[layer]) =
+            calculateRate(total_hits_per_layer_eta2[layer], event_count, STRIPS_PER_LAYER, 1);
+
+        std::tie(rate_results.rate_layers_or[layer], rate_results.rate_layers_or_error[layer]) =
+            calculateRate(total_hits_per_layer_or[layer], event_count, STRIPS_PER_LAYER, 1);
+
+        std::tie(rate_results.rate_layers_and[layer], rate_results.rate_layers_and_error[layer]) =
+            calculateRate(total_hits_per_layer_and[layer], event_count, STRIPS_PER_LAYER, 1);
 
         // Calculate final Strip-specific rates
         for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
@@ -436,6 +499,14 @@ void getRate(TFile* input_file, RateResults& rate_results) {
             std::tie(rate_results.rate_strips_eta2[layer][strip],
                      rate_results.rate_strips_eta2_error[layer][strip]) =
                 calculateRate(hits_per_strip_eta2[layer][strip], event_count, 1, 1);
+
+            std::tie(rate_results.rate_strips_or[layer][strip],
+                     rate_results.rate_strips_or_error[layer][strip]) =
+                calculateRate(hits_per_strip_or[layer][strip], event_count, 1, 1);
+
+            std::tie(rate_results.rate_strips_and[layer][strip],
+                     rate_results.rate_strips_and_error[layer][strip]) =
+                calculateRate(hits_per_strip_and[layer][strip], event_count, 1, 1);
         }
     }
 }

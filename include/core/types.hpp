@@ -130,20 +130,34 @@ struct ClusterSizeResults {
 
 struct RateResults {
     // Detector-wide rate results
-    double rate = 0.0;
-    ErrorRange rate_error = {};
+    double rate_eta1 = 0.0;
+    double rate_eta2 = 0.0;
+    double rate_or = 0.0;
+    double rate_and = 0.0;
+    ErrorRange rate_eta1_error = {};
+    ErrorRange rate_eta2_error = {};
+    ErrorRange rate_or_error = {};
+    ErrorRange rate_and_error = {};
 
     // Layer-wide rate results
-    double rate_eta1[LAYER_COUNT] = {};
-    double rate_eta2[LAYER_COUNT] = {};
-    ErrorRange rate_eta1_error[LAYER_COUNT] = {};
-    ErrorRange rate_eta2_error[LAYER_COUNT] = {};
+    double rate_layers_eta1[LAYER_COUNT] = {};
+    double rate_layers_eta2[LAYER_COUNT] = {};
+    double rate_layers_or[LAYER_COUNT] = {};
+    double rate_layers_and[LAYER_COUNT] = {};
+    ErrorRange rate_layers_eta1_error[LAYER_COUNT] = {};
+    ErrorRange rate_layers_eta2_error[LAYER_COUNT] = {};
+    ErrorRange rate_layers_or_error[LAYER_COUNT] = {};
+    ErrorRange rate_layers_and_error[LAYER_COUNT] = {};
 
     // Strip-wide rate results
     double rate_strips_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {};
     double rate_strips_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    double rate_strips_or[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    double rate_strips_and[LAYER_COUNT][STRIPS_PER_LAYER] = {};
     ErrorRange rate_strips_eta1_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
     ErrorRange rate_strips_eta2_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    ErrorRange rate_strips_or_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    ErrorRange rate_strips_and_error[LAYER_COUNT][STRIPS_PER_LAYER] = {};
 };
 
 struct DeadStrips {
@@ -280,6 +294,7 @@ struct MeasurementData {
     EfficiencyResults efficiency_results_tracks;
     ClusterSizeResults cluster_size_results;
     RateResults rate_results;
+    RateResults rate_results_tracks;
     RoI region_of_interest;
     DeadStrips dead_strips;
     ToTResults tot_results;

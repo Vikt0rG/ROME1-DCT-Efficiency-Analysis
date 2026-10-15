@@ -22,7 +22,7 @@ namespace summaryHelpers {
     void getEfficiency(TFile* input_file,
         EfficiencyResults& efficiency_results, EfficiencyResults& efficiency_results_tracks);
     void getClusterSize(TFile* input_file, ClusterSizeResults& cluster_size_results);
-    void getRate(TFile* input_file, RateResults& rate_results);
+    void getRate(TFile* input_file, RateResults& rate_results, bool in_valid_track_only);
     void getDeadStrips(DeadStrips& dead_strips);
     void getAverageToT(TFile* input_file, ToTResults& tot_results, bool in_beam_only,
         bool in_valid_track_only, DeadStrips& dead_strips, const RoI& region_of_interest);

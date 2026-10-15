@@ -78,7 +78,8 @@ void DataAnalyzer::produceGlobalStats(TFile* input_file, MeasurementData& data) 
 
     getEfficiency(input_file, data.efficiency_results, data.efficiency_results_tracks);
     getClusterSize(input_file, data.cluster_size_results);
-    getRate(input_file, data.rate_results);
+    getRate(input_file, data.rate_results, false);
+    getRate(input_file, data.rate_results_tracks, true);
     getDeadStrips(data.dead_strips);
     getAverageToT(input_file, data.tot_results, false, false, data.dead_strips, data.region_of_interest);
     getAverageToT(input_file, data.tot_results_tracks, false, true, data.dead_strips, data.region_of_interest);
