@@ -58,6 +58,7 @@ public:
     std::map<std::string, MetricsData> extractScanData(const std::string& summary_file_path);
     std::map<std::string, std::vector<FitResult>> extractCrossGroupFits(TDirectory* base_dir);
 
+    void plotScalarMetrics(TDirectory* scan_dir, const MetricsData& scan_data);
     void plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& scan_data);
     void plotLayerMetrics(TDirectory* scan_dir, const MetricsData& scan_data);
     void plotStripMetrics(TDirectory* scan_dir, const MetricsData& scan_data);

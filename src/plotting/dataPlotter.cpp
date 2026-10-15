@@ -505,22 +505,22 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
         // Extract Scalar Metrics (0D)
         for (size_t i{0}; i < scalar_metrics.size(); ++i) {
             const auto& metric_name = scalar_metrics[i];
-            current_scan.scalar_x[metric_name].push_back(scan_hv);
-            current_scan.scalar_y[metric_name].push_back(**scalar_values[i]);
+            if (scalar_values[i]->GetSetupStatus() == 0) {
+                current_scan.scalar_x[metric_name].push_back(scan_hv);
+                current_scan.scalar_y[metric_name].push_back(**scalar_values[i]);
+            }
         }
 
         // Extract Global Metrics (1D Graphs)
         for (size_t i{0}; i < global_metrics.size(); ++i) {
             const auto& metric_name = global_metrics[i];
 
-            // Check if the branch actually exists in the file
             if (global_values[i]->GetSetupStatus() == 0) {
                 auto& series = current_scan.global_metrics[metric_name];
 
                 series.x.push_back(scan_hv);
                 series.y.push_back(**global_values[i]);
 
-                // Read the low and high bounds from the [2] array
                 series.y_errors_low.push_back((*global_errors[i])[0]);
                 series.y_errors_high.push_back((*global_errors[i])[1]);
             }
@@ -531,14 +531,15 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
             const auto& metric_name = raw_metrics[i];
 
             if (raw_arrays[i]->GetSetupStatus() == 0) {
-                // Store the entire vector mapped to the current High Voltage
                 current_scan.raw_tof_data[metric_name][scan_hv] = **raw_arrays[i];
             }
         }
- 
+
         // Extract Layer Metrics (1D)
         for (size_t i{0}; i < layer_metrics.size(); ++i) {
             const auto& metric_name = layer_metrics[i];
+            if (layer_arrays[i]->GetSetupStatus() != 0) continue;
+
             const auto& vals = *layer_arrays[i];
             const auto& errs = *layer_error_arrays[i];
 
@@ -558,6 +559,8 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
 
         // Extract Strip Metrics (2D)
         for (size_t i{0}; i < strip_layer_metrics.size(); ++i) {
+            if (strip_arrays[i]->GetSetupStatus() != 0) continue;
+
             const auto& metric_name = strip_layer_metrics[i];
             const auto& vals = *strip_arrays[i];
             const auto& errs = *strip_error_arrays[i];
@@ -586,7 +589,6 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
             const auto& vals = *strip_tof_arrays[i];
             const auto& errs = *strip_tof_error_arrays[i];
 
-            // Convert raw branch name back to base metric name to group eta sides
             int pair_idx = i / 2;
             std::string base_metric = (i % 2 == 0) ? "time_resolution_strip_eta1" : "time_resolution_strip_eta2";
 
@@ -594,7 +596,6 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
                 if (strip >= vals.GetSize()) break;
                 if (std::isnan(vals[strip])) continue;
 
-                // Reusing the int layer map slot for the pair index
                 auto& strip_series = current_scan.strip_metrics[base_metric][pair_idx][strip];
                 strip_series.x.push_back(scan_hv);
                 strip_series.y.push_back(vals[strip]);
@@ -607,6 +608,39 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
     summary_root_file->Close();
     delete summary_root_file;
     return result;
+}
+
+// Write extracted scalar metrics into rate_layers_analysis or cluster_analysis
+void DataPlotter::plotScalarMetrics(TDirectory* scan_dir, const MetricsData& scan_data) {
+    if (!scan_dir) return;
+
+    TDirectory* rate_global_dir = scan_dir->GetDirectory("rate_global_analysis");
+    TDirectory* clus_dir = scan_dir->GetDirectory("cluster_analysis");
+
+    for (const auto& [metric_name, x_vals] : scan_data.scalar_x) {
+        if (x_vals.empty()) continue;
+        const auto& y_vals = scan_data.scalar_y.at(metric_name);
+
+        TDirectory* target_dir = scan_dir;
+        if (metric_name.find("rate") != std::string::npos) {
+            target_dir = rate_global_dir;
+        } else if (metric_name.find("cluster") != std::string::npos) {
+            target_dir = clus_dir;
+        }
+
+        if (!target_dir) continue;
+        target_dir->cd();
+
+        TGraph* graph = new TGraph(x_vals.size(), x_vals.data(), y_vals.data());
+        graph->SetName(metric_name.c_str());
+        graph->SetTitle((metric_name + ";HV [V];Value").c_str());
+        graph->SetMarkerStyle(20);
+        graph->SetMarkerColor(kAzure + 2);
+        graph->SetLineColor(kAzure + 2);
+
+        graph->Write("", TObject::kOverwrite);
+        delete graph;
+    }
 }
 
 void DataPlotter::plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& scan_data) {
@@ -851,7 +885,6 @@ void DataPlotter::plotStripMetrics(TDirectory* scan_dir, const MetricsData& scan
 
         for (const auto& [layer_idx, strip_map] : layer_map) {
 
-            // Filter out non-scanned layers/pairs entirely
             bool is_scanned = (scanned_layer >= LAYER_COUNT || scanned_layer < 0);
             if (!is_scanned) {
                 if (!is_tof_metric) {
@@ -1158,6 +1191,7 @@ void DataPlotter::cumulativeAnalysisRootFile() {
         for (const auto& [group_name, scan_data] : scan_data_map) {
             TDirectory* scan_dir = setupScanDirectories(config_dir, group_name);
 
+            plotScalarMetrics(scan_dir, scan_data);
             plotGlobalMetrics(scan_dir, scan_data);
             plotLayerMetrics(scan_dir, scan_data);
             plotStripMetrics(scan_dir, scan_data);
