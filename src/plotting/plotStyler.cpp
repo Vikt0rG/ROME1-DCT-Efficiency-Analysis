@@ -240,10 +240,10 @@ namespace PlotStyler {
         static const std::regex side_re("eta1|eta2|_or|_and");
         if (std::regex_search(metric_name, match, side_re)) {
             std::string m = match.str(0);
-            if (m == "eta1")       title_parts.push_back("Side #eta_{1}");
-            else if (m == "eta2")  title_parts.push_back("Side #eta_{2}");
-            else if (m == "_or_")  title_parts.push_back("OR(#eta_{1}, #eta_{2})");
-            else if (m == "_and_") title_parts.push_back("AND(#eta_{1}, #eta_{2})");
+            if (m == "eta1")       title_parts.push_back("Side #eta+");
+            else if (m == "eta2")  title_parts.push_back("Side #eta-");
+            else if (m == "_or")   title_parts.push_back("OR(#eta+, #eta-)");
+            else if (m == "_and")  title_parts.push_back("AND(#eta+, #eta-)");
         }
 
         // Layer Pair Context
@@ -333,8 +333,8 @@ namespace PlotStyler {
             }
         } else if (auto stack = dynamic_cast<THStack*>(obj)) {
             if (metric_name.find("tot") != std::string::npos) {
-                legend_entries.push_back("Side #eta_{1}");
-                legend_entries.push_back("Side #eta_{2}");
+                legend_entries.push_back("Side #eta+");
+                legend_entries.push_back("Side #eta-");
             } else if (metric_name.find("strip") != std::string::npos) {
                 if (stack->GetHists()) {
                     TIter next(stack->GetHists());
@@ -742,7 +742,7 @@ namespace PlotStyler {
         // Title at Top Right
         tex->SetTextAlign(31);
         tex->SetTextSize(0.035);
-        tex->DrawLatex(x_max, y_max + major_tick_len * 2.5, "Efficiency OR(#eta_{1}, #eta_{2}) [%]");
+        tex->DrawLatex(x_max, y_max + major_tick_len * 2.5, "Efficiency OR(#eta+, #eta-) [%]");
 
         // Numbers (Centered above major ticks)
         tex->SetTextAlign(21);
@@ -858,10 +858,10 @@ namespace PlotStyler {
         // Extract side context for y-axis & remove it from the header block
         std::string side_suffix = "";
         std::vector<std::pair<std::string, std::string>> side_map = {
-            {"Side #eta_{1}", "#eta_{1}"},
-            {"Side #eta_{2}", "#eta_{2}"},
-            {"OR(#eta_{1}, #eta_{2})", "OR(#eta_{1}, #eta_{2})"},
-            {"AND(#eta_{1}, #eta_{2})", "AND(#eta_{1}, #eta_{2})"}
+            {"Side #eta+", "#eta+"},
+            {"Side #eta-", "#eta-"},
+            {"OR(#eta+, #eta-)", "OR(#eta+, #eta-)"},
+            {"AND(#eta+, #eta-)", "AND(#eta+, #eta-)"}
         };
 
         for (auto& line : title_lines) {
@@ -1133,7 +1133,7 @@ namespace PlotStyler {
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
                 xAxis->SetLimits(50.0, 100.0);
                 setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 50.0, .x_max = 100.0});
-                xAxis->SetTitle("Efficiency OR(#eta_{1}, #eta_{2}) [%]");
+                xAxis->SetTitle("Efficiency OR(#eta+, #eta-) [%]");
             }
             if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
                 setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 50.0, .x_max = 100.0});
@@ -1285,7 +1285,7 @@ namespace PlotStyler {
         if (mg->GetHistogram()) {
             if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
                 setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 0.0, .x_max = 100.0});
-                xAxis->SetTitle("Efficiency OR(#eta_{1}, #eta_{2}) [%]");
+                xAxis->SetTitle("Efficiency OR(#eta+, #eta-) [%]");
             }
             if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
                 setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 0.0, .x_max = 100.0});
@@ -1713,7 +1713,7 @@ namespace PlotStyler {
         if (TH1* frame = mg->GetHistogram()) {
             if (TAxis* xAxis = frame->GetXaxis()) {
                 setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 10.0, .x_max = 100.0});
-                xAxis->SetTitle("Efficiency OR(#eta_{1}, #eta_{2}) [%]");
+                xAxis->SetTitle("Efficiency OR(#eta+, #eta-) [%]");
                 x_max_limit = xAxis->GetXmax();
             }
             if (TAxis* yAxis = frame->GetYaxis()) {
@@ -2574,7 +2574,7 @@ namespace PlotStyler {
 
         double legend_y_top = header ? header->GetY1NDC() - 0.02 : ndc_y0 - 0.15;
 
-        TLegend* fit_legend = new TLegend(ndc_x0 + 0.03, legend_y_top - 0.18, ndc_x0 + 0.35, legend_y_top);
+        TLegend* fit_legend = new TLegend(ndc_x0 + 0.03, legend_y_top - 0.12, ndc_x0 + 0.35, legend_y_top);
         fit_legend->SetTextAlign(12);
         fit_legend->SetBorderSize(0);
         fit_legend->SetFillStyle(0);
@@ -2788,7 +2788,7 @@ namespace PlotStyler {
         pad1->Modified();
         pad1->Update();
 
-        std::vector<std::string> legend_entries = {" Side #eta_{1}", " Side #eta_{2}"};
+        std::vector<std::string> legend_entries = {" Side #eta+", " Side #eta-"};
         double legend_y = header ? header->GetY1NDC() - 0.05 : 0.70;
         double leg_width = 0.32;
         double leg_height = histograms.size() * 0.04;

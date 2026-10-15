@@ -563,7 +563,7 @@ void plotCS(TFile* input_file) {
 
     const int nConfigs = 2;
     const char* categories[nConfigs] = {"cs_eta1", "cs_eta2"};
-    const char* comments[nConfigs] = {"Side #eta_{1}", "Side #eta_{2}"};
+    const char* comments[nConfigs] = {"Side #eta+", "Side #eta-"};
 
     std::map<std::string, std::map<int, TH1*>> strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
@@ -992,8 +992,8 @@ void plotToTVsStrip(TFile* input_file) {
         "tot1_after_reco", "tot2_after_reco"
     };
     const char* comments[nConfigs] = {
-        "Side #eta_{1}: Before Track Reco", "Side #eta_{2}: Before Track Reco",
-        "Side #eta_{1}: After Track Reco", "Side #eta_{2}: After Track Reco"
+        "Side #eta+: Before Track Reco", "Side #eta-: Before Track Reco",
+        "Side #eta+: After Track Reco", "Side #eta-: After Track Reco"
     };
 
     std::map<std::string, std::map<int, TH2*>> tot_strip_histograms;
@@ -1074,9 +1074,9 @@ void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest) {
         "tot_eta1_dt_strip_beam", "tot_eta2_dt_strip_beam"
     };
     const char* comments[nConfigs] = {
-        "Side #eta_{1}: Before Track Reco", "Side #eta_{2}: Before Track Reco",
-        "Side #eta_{1}: After Track Reco", "Side #eta_{2}: After Track Reco",
-        "Side #eta_{1}: Beam Spot Region", "Side #eta_{2}: Beam Spot Region"
+        "Side #eta+: Before Track Reco", "Side #eta-: Before Track Reco",
+        "Side #eta+: After Track Reco", "Side #eta-: After Track Reco",
+        "Side #eta+: Beam Spot Region", "Side #eta-: Beam Spot Region"
     };
 
     std::map<std::string, std::map<int, TProfile2D*>> profile_histograms;
@@ -1178,8 +1178,8 @@ void plotMultiplicity(TFile* input_file) {
         "mult_eta1_after_reco",  "mult_eta2_after_reco"
     };
     const char* comments[nConfigs] = {
-        "Side #eta_{1}: Before Track Reco", "Side #eta_{2}: Before Track Reco",
-        "Side #eta_{1}: After Track Reco", "Side #eta_{2}: After Track Reco"
+        "Side #eta+: Before Track Reco", "Side #eta-: Before Track Reco",
+        "Side #eta+: After Track Reco", "Side #eta-: After Track Reco"
     };
 
     // [category][layer] -> histogram
@@ -1352,8 +1352,8 @@ void plotDelay(TFile* input_file) {
         "delay_eta1_after_reco",  "delay_eta2_after_reco"
     };
     const char* comments[nConfigs] = {
-        "Side #eta_{1}: Before Track Reco", "Side #eta_{2}: Before Track Reco",
-        "Side #eta_{1}: After Track Reco", "Side #eta_{2}: After Track Reco"
+        "Side #eta+: Before Track Reco", "Side #eta-: Before Track Reco",
+        "Side #eta+: After Track Reco", "Side #eta-: After Track Reco"
     };
 
     std::map<std::string, std::map<int, TH2F*>> h2d_delay;
@@ -1606,13 +1606,13 @@ void plotToFs(TFile* input_file) {
 
         TH1F* h_tof1 = new TH1F(
             Form("h1d_tof_layer_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()),
-            Form("Side #eta1: %s;ToF [ns];Entries", pair_labels[i].c_str()),
+            Form("Side #eta+: %s;ToF [ns];Entries", pair_labels[i].c_str()),
             n_bins1, x_min1, x_max1
         );
 
         TH1F* h_tof2 = new TH1F(
             Form("h1d_tof_layer_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()),
-            Form("Side #eta2: %s;ToF [ns];Entries", pair_labels[i].c_str()),
+            Form("Side #eta-: %s;ToF [ns];Entries", pair_labels[i].c_str()),
             n_bins2, x_min2, x_max2
         );
 
