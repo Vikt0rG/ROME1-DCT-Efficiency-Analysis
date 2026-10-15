@@ -53,10 +53,11 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
 
     const int n_bins_x = STRIPS_PER_LAYER;
 
-    const int n_bins_y = 30;
-
-    const double dt_min_ticks = -15.0;
-    const double dt_max_ticks = 15.0;
+    // HARD CODED STUFF: TB/COSMICS
+    // const int n_bins_y = 34; // TEST BEAM
+    const int n_bins_y = 26; // COSMICS
+    const int dt_max_ticks = n_bins_y / 2;
+    const int dt_min_ticks = -dt_max_ticks;
     const double dt_range_ticks = dt_max_ticks - dt_min_ticks;
 
     // Standard raw array allocation matching dynamic n_bins_y
@@ -96,7 +97,7 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
 
         for (size_t i = 0; i < n_hits; ++i) {
 
-            if (!(*has_valid_time_eta1)[i] && !(*has_valid_time_eta2)[i]) continue;
+            if (!(*has_valid_time_eta1)[i] || !(*has_valid_time_eta2)[i]) continue;
 
             int layer = (*layers)[i];
             if (layer < 0 || layer >= LAYER_COUNT) continue;
