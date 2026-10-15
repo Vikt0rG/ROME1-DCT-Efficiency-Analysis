@@ -627,11 +627,6 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
     TDirectory* tot_dir = analysis_dir->GetDirectory("tot");
     tot_dir->cd();
 
-    TTree* input_data_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
-    if (!input_data_tree || input_data_tree->IsZombie()) {
-        std::cerr << "Error: Invalid input data tree for analysis." << std::endl;
-        return;
-    }
     TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
     if (!proc_tree || proc_tree->IsZombie()) {
         std::cerr << "Error: Invalid processed data tree for analysis." << std::endl;
@@ -643,36 +638,45 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
         return;
     }
 
-    TTreeReader readerInputData(input_data_tree);
     TTreeReader readerProcData(proc_tree);
     TTreeReader readerTrackData(track_tree);
-    TTreeReaderValue<std::vector<int>> raw_time1(readerInputData, "hit_raw_time1");
-    TTreeReaderValue<std::vector<int>> raw_time2(readerInputData, "hit_raw_time2");
+    TTreeReaderValue<std::vector<int>> time1(readerProcData, "proc_time1");
+    TTreeReaderValue<std::vector<int>> time2(readerProcData, "proc_time2");
     TTreeReaderValue<std::vector<int>> tot1(readerProcData, "proc_tot1");
     TTreeReaderValue<std::vector<int>> tot2(readerProcData, "proc_tot2");
     TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
     TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
     TTreeReaderValue<std::vector<int>> dts(readerProcData, "proc_dt_time1_time2");
+    TTreeReaderValue<std::vector<bool>> has_valid_time_eta1(readerProcData, "has_valid_time_eta1");
+    TTreeReaderValue<std::vector<bool>> has_valid_time_eta2(readerProcData, "has_valid_time_eta2");
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
     const int nConfigs = 6;
     const char* categories[nConfigs] = {
         "tot_eta1_before_reco", "tot_eta2_before_reco",
-        "tot_eta1_after_reco", "tot_eta2_after_reco",
-        "tot_eta1_beam", "tot_eta2_beam"
+        "tot_eta1_after_reco",  "tot_eta2_after_reco",
+        "tot_eta1_beam",        "tot_eta2_beam"
     };
     const char* comments[nConfigs] = {
         "Before Track Reco", "Before Track Reco",
-        "After Track Reco", "After Track Reco",
-        "Beam Spot Region", "Beam Spot Region"
+        "After Track Reco",  "After Track Reco",
+        "Beam Spot Region",  "Beam Spot Region"
     };
 
-    // Allocate a large upper bound for the initial creation
+    // 12 Multiplicity categories (primary, secondary hits per side)
+    const int nMultiConfigs = 12;
+    const char* multi_categories[nMultiConfigs] = {
+        "tot_eta1_primary_before_reco", "tot_eta1_secondary_before_reco",
+        "tot_eta2_primary_before_reco", "tot_eta2_secondary_before_reco",
+        "tot_eta1_primary_after_reco",  "tot_eta1_secondary_after_reco",
+        "tot_eta2_primary_after_reco",  "tot_eta2_secondary_after_reco",
+        "tot_eta1_primary_beam",        "tot_eta1_secondary_beam",
+        "tot_eta2_primary_beam",        "tot_eta2_secondary_beam"
+    };
+
     int max_expected_ticks = 150;
     const int nBins = max_expected_ticks;
-
-    // Shift bins by half a tick so discrete values align with the bin centers
     const double xMin = -0.5 * TIME_TICK_NS;
     const double xMax = (max_expected_ticks - 0.5) * TIME_TICK_NS;
 
@@ -686,13 +690,80 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
         }
     }
 
-    while (readerInputData.Next() && readerProcData.Next() && readerTrackData.Next()) {
-        const size_t n_hits = std::min({tot1->size(), tot2->size(), strips->size(), layers->size(), dts->size()});
+    for (int c = 0; c < nMultiConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            auto* hist = new TH1F(Form("h1d_%s_layer%d", multi_categories[c], layer),
+                            Form("Layer %d: %s;ToT [ns];Hits", layer, multi_categories[c]),
+                            nBins, xMin, xMax);
+            strip_histograms[multi_categories[c]][layer] = hist;
+        }
+    }
+
+    // 2D Correlation Histograms (Primary ToT vs Secondary ToT)
+    std::map<std::string, std::map<int, TH2F*>> h2d_tot_corr;
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            h2d_tot_corr[categories[c]][layer] = new TH2F(
+                Form("h2d_corr_%s_layer%d", categories[c], layer),
+                Form("Layer %d: %s;Primary ToT [ns];Secondary ToT [ns];Entries", layer, comments[c]),
+                nBins, xMin, xMax, nBins, xMin, xMax);
+        }
+    }
+
+    while (readerProcData.Next() && readerTrackData.Next()) {
+        const size_t n_hits = std::min({tot1->size(), tot2->size(), strips->size(), layers->size(), dts->size(), time1->size(), time2->size()});
+
+        // First pass: Find minimum processed hit time per strip per side for the current event
+        std::map<std::pair<int, int>, int> min_time_eta1;
+        std::map<std::pair<int, int>, int> min_time_eta2;
+
         for (size_t i = 0; i < n_hits; ++i) {
             int layer = (*layers)[i];
             if (layer < 0 || layer > 2) continue;
 
             int strip = perFileHelpers::remapStrip((*strips)[i]);
+            auto key = std::make_pair(layer, strip);
+
+            if ((*has_valid_time_eta1)[i]) {
+                int t1 = (*time1)[i];
+                if (min_time_eta1.find(key) == min_time_eta1.end() || t1 < min_time_eta1[key]) {
+                    min_time_eta1[key] = t1;
+                }
+            }
+            if ((*has_valid_time_eta2)[i]) {
+                int t2 = (*time2)[i];
+                if (min_time_eta2.find(key) == min_time_eta2.end() || t2 < min_time_eta2[key]) {
+                    min_time_eta2[key] = t2;
+                }
+            }
+        }
+
+        // Pass 1.5: Extract Primary ToT for 2D correlations
+        std::map<std::pair<int, int>, double> primary_tot_eta1;
+        std::map<std::pair<int, int>, double> primary_tot_eta2;
+
+        for (size_t i = 0; i < n_hits; ++i) {
+            int layer = (*layers)[i];
+            if (layer < 0 || layer > 2) continue;
+
+            int strip = perFileHelpers::remapStrip((*strips)[i]);
+            auto key = std::make_pair(layer, strip);
+
+            if ((*has_valid_time_eta1)[i] && (*time1)[i] == min_time_eta1[key]) {
+                primary_tot_eta1[key] = TimeUtils::ticksToTime((*tot1)[i]);
+            }
+            if ((*has_valid_time_eta2)[i] && (*time2)[i] == min_time_eta2[key]) {
+                primary_tot_eta2[key] = TimeUtils::ticksToTime((*tot2)[i]);
+            }
+        }
+
+        // Second pass: Fill 1D histograms and 2D correlation histograms
+        for (size_t i = 0; i < n_hits; ++i) {
+            int layer = (*layers)[i];
+            if (layer < 0 || layer > 2) continue;
+
+            int strip = perFileHelpers::remapStrip((*strips)[i]);
+            auto key = std::make_pair(layer, strip);
             int dt = (*dts)[i];
 
             double tot1_ns = TimeUtils::ticksToTime((*tot1)[i]);
@@ -703,17 +774,55 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
                                      region_of_interest.beam_region.end(),
                                      std::make_pair(strip, dt)) != region_of_interest.beam_region.end();
 
-            // Before reco
-            if ((*raw_time1)[i] != 0) strip_histograms["tot_eta1_before_reco"][layer]->Fill(tot1_ns);
-            if ((*raw_time2)[i] != 0) strip_histograms["tot_eta2_before_reco"][layer]->Fill(tot2_ns);
+            // Side Eta1
+            if ((*has_valid_time_eta1)[i]) {
+                bool is_primary_eta1 = ((*time1)[i] == min_time_eta1[key]);
+                std::string tag_eta1 = is_primary_eta1 ? "primary" : "secondary";
 
-            // After reco
-            if ((*raw_time1)[i] != 0 && valid_track) strip_histograms["tot_eta1_after_reco"][layer]->Fill(tot1_ns);
-            if ((*raw_time2)[i] != 0 && valid_track) strip_histograms["tot_eta2_after_reco"][layer]->Fill(tot2_ns);
+                strip_histograms["tot_eta1_before_reco"][layer]->Fill(tot1_ns);
+                strip_histograms["tot_eta1_" + tag_eta1 + "_before_reco"][layer]->Fill(tot1_ns);
 
-            // Beam spot region
-            if ((*raw_time1)[i] != 0 && in_beam) strip_histograms["tot_eta1_beam"][layer]->Fill(tot1_ns);
-            if ((*raw_time2)[i] != 0 && in_beam) strip_histograms["tot_eta2_beam"][layer]->Fill(tot2_ns);
+                if (!is_primary_eta1 && primary_tot_eta1.count(key)) {
+                    double prim_tot = primary_tot_eta1[key];
+                    h2d_tot_corr["tot_eta1_before_reco"][layer]->Fill(prim_tot, tot1_ns);
+                    if (valid_track) h2d_tot_corr["tot_eta1_after_reco"][layer]->Fill(prim_tot, tot1_ns);
+                    if (in_beam) h2d_tot_corr["tot_eta1_beam"][layer]->Fill(prim_tot, tot1_ns);
+                }
+
+                if (valid_track) {
+                    strip_histograms["tot_eta1_after_reco"][layer]->Fill(tot1_ns);
+                    strip_histograms["tot_eta1_" + tag_eta1 + "_after_reco"][layer]->Fill(tot1_ns);
+                }
+                if (in_beam) {
+                    strip_histograms["tot_eta1_beam"][layer]->Fill(tot1_ns);
+                    strip_histograms["tot_eta1_" + tag_eta1 + "_beam"][layer]->Fill(tot1_ns);
+                }
+            }
+
+            // Side Eta2
+            if ((*has_valid_time_eta2)[i]) {
+                bool is_primary_eta2 = ((*time2)[i] == min_time_eta2[key]);
+                std::string tag_eta2 = is_primary_eta2 ? "primary" : "secondary";
+
+                strip_histograms["tot_eta2_before_reco"][layer]->Fill(tot2_ns);
+                strip_histograms["tot_eta2_" + tag_eta2 + "_before_reco"][layer]->Fill(tot2_ns);
+
+                if (!is_primary_eta2 && primary_tot_eta2.count(key)) {
+                    double prim_tot = primary_tot_eta2[key];
+                    h2d_tot_corr["tot_eta2_before_reco"][layer]->Fill(prim_tot, tot2_ns);
+                    if (valid_track) h2d_tot_corr["tot_eta2_after_reco"][layer]->Fill(prim_tot, tot2_ns);
+                    if (in_beam) h2d_tot_corr["tot_eta2_beam"][layer]->Fill(prim_tot, tot2_ns);
+                }
+
+                if (valid_track) {
+                    strip_histograms["tot_eta2_after_reco"][layer]->Fill(tot2_ns);
+                    strip_histograms["tot_eta2_" + tag_eta2 + "_after_reco"][layer]->Fill(tot2_ns);
+                }
+                if (in_beam) {
+                    strip_histograms["tot_eta2_beam"][layer]->Fill(tot2_ns);
+                    strip_histograms["tot_eta2_" + tag_eta2 + "_beam"][layer]->Fill(tot2_ns);
+                }
+            }
         }
     }
 
@@ -737,6 +846,13 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             strip_histograms[categories[c]][layer]->GetXaxis()->SetRangeUser(0.0, global_percentile);
+            h2d_tot_corr[categories[c]][layer]->GetXaxis()->SetRangeUser(0.0, global_percentile);
+            h2d_tot_corr[categories[c]][layer]->GetYaxis()->SetRangeUser(0.0, global_percentile);
+        }
+    }
+    for (int c = 0; c < nMultiConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            strip_histograms[multi_categories[c]][layer]->GetXaxis()->SetRangeUser(0.0, global_percentile);
         }
     }
 
@@ -778,10 +894,41 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
         }
     }
 
+    // Multi-hit comparison stacks per side (primary + secondary hits)
+    for (int layer : {0, 1, 2}) {
+        for (const auto& pair : pairings) {
+            // Side Eta1 Multi-hit Stack
+            auto* h_e1_primary   = strip_histograms["tot_eta1_primary_" + pair.suffix][layer];
+            auto* h_e1_secondary = strip_histograms["tot_eta1_secondary_" + pair.suffix][layer];
+
+            std::string stack_e1_name = Form("stack_tot_multi_eta1_%s_layer%d", pair.suffix.c_str(), layer);
+            std::string stack_e1_title = Form("Layer %d: Side #eta+: %s", layer, pair.title_modifier.c_str());
+
+            auto* stack_e1 = new THStack(stack_e1_name.c_str(), stack_e1_title.c_str());
+            stack_e1->Add(h_e1_primary);
+            stack_e1->Add(h_e1_secondary);
+            stack_e1->Write("", TObject::kOverwrite);
+            delete stack_e1;
+
+            // Side Eta2 Multi-hit Stack
+            auto* h_e2_primary   = strip_histograms["tot_eta2_primary_" + pair.suffix][layer];
+            auto* h_e2_secondary = strip_histograms["tot_eta2_secondary_" + pair.suffix][layer];
+
+            std::string stack_e2_name = Form("stack_tot_multi_eta2_%s_layer%d", pair.suffix.c_str(), layer);
+            std::string stack_e2_title = Form("Layer %d: Side #eta-: %s", layer, pair.title_modifier.c_str());
+
+            auto* stack_e2 = new THStack(stack_e2_name.c_str(), stack_e2_title.c_str());
+            stack_e2->Add(h_e2_primary);
+            stack_e2->Add(h_e2_secondary);
+            stack_e2->Write("", TObject::kOverwrite);
+            delete stack_e2;
+        }
+    }
+
     // Store stacks combining layers
     for (int c = 0; c < nConfigs; ++c) {
         std::string cat = categories[c];
-        std::string side_label = (cat.find("eta1") != std::string::npos) ? "Side #eta_{1}" : "Side #eta_{2}";
+        std::string side_label = (cat.find("eta1") != std::string::npos) ? "Side #eta+" : "Side #eta-";
         std::string stack_name = Form("stack_tot_layer_%s", cat.c_str());
         std::string stack_title = Form("%s: %s", comments[c], side_label.c_str());
 
@@ -795,10 +942,25 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
         delete stack;
     }
 
+    // Write all individual 1D histograms
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             strip_histograms[categories[c]][layer]->Write("", TObject::kOverwrite);
             delete strip_histograms[categories[c]][layer];
+        }
+    }
+    for (int c = 0; c < nMultiConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            strip_histograms[multi_categories[c]][layer]->Write("", TObject::kOverwrite);
+            delete strip_histograms[multi_categories[c]][layer];
+        }
+    }
+
+    // Write and clean up 2D correlation histograms
+    for (int c = 0; c < nConfigs; ++c) {
+        for (int layer : {0, 1, 2}) {
+            h2d_tot_corr[categories[c]][layer]->Write("", TObject::kOverwrite);
+            delete h2d_tot_corr[categories[c]][layer];
         }
     }
 }
