@@ -404,7 +404,9 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     const double x_min_strip = 0.0;
     const double x_max_strip = static_cast<double>(STRIPS_PER_LAYER);
 
-    const int n_bins_y = 30;
+    // HARD CODED STUFF: TB/COSMICS
+    // const int n_bins_y = 34; // TEST BEAM
+    const int n_bins_y = 26; // COSMICS
     const int dt_max_ticks = n_bins_y / 2;
     const int dt_min_ticks = -dt_max_ticks;
 
@@ -427,7 +429,7 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
 
         const size_t n_hits = std::min({strips->size(), layers->size(), dts->size()});
         for (size_t i = 0; i < n_hits; ++i) {
-            if (!(*has_valid_time_eta1)[i] && !(*has_valid_time_eta2)[i]) continue;
+            if (!(*has_valid_time_eta1)[i] || !(*has_valid_time_eta2)[i]) continue;
 
             int layer = (*layers)[i];
             if (layer < 0 || layer >= LAYER_COUNT) continue;
@@ -506,7 +508,7 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
             if (total_exposure > 0.0) {
                 TH2F* h_rate = new TH2F(
                     Form("h2d_rate_map_%s_layer%d", suffixes[c], layer),
-                    Form("Rate Map Layer %d (%s);X [cm];Y [cm];Rate [Hz/cm^{2}]", layer, comments[c]),
+                    Form("Rate Map: Layer %d: %s;X [cm];Y [cm];Rate [Hz/cm^{2}]", layer, comments[c]),
                     n_bins_x, x_min_cm, x_max_cm,
                     n_bins_y, y_min_cm, y_max_cm
                 );
