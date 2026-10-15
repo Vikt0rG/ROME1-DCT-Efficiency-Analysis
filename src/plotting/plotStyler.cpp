@@ -61,8 +61,10 @@ namespace PlotStyler {
         {"track_eff",               TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
         {"eff",                     TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
         {"avg_cluster_size",        TMultiGraph::Class(),          PlotCategory::MeanClusterSizeVsHV},
-        {"rate_eta",                TMultiGraph::Class(),          PlotCategory::RateVsHV},
-        {"rate_strips_eta",         TMultiGraph::Class(),          PlotCategory::RateStripVsHV},
+        {"rate_layers",             TMultiGraph::Class(),          PlotCategory::RateVsHV},
+        {"rate_strips",             TMultiGraph::Class(),          PlotCategory::RateStripVsHV},
+        {"track_rate_layers",       TMultiGraph::Class(),          PlotCategory::RateVsHV},
+        {"track_rate_strips",       TMultiGraph::Class(),          PlotCategory::RateStripVsHV},
         {"avg_tot_layer_eta",       TMultiGraph::Class(),          PlotCategory::AvgToTLayerVsHV},
         {"avg_tot_strip_eta",       TMultiGraph::Class(),          PlotCategory::AvgToTStripVsHV},
         {"avg_multiplicity",        TMultiGraph::Class(),          PlotCategory::AvgMultVsHV},
@@ -235,7 +237,7 @@ namespace PlotStyler {
         }
 
         // Side Context
-        static const std::regex side_re("eta1|eta2|_or_|_and_");
+        static const std::regex side_re("eta1|eta2|_or|_and");
         if (std::regex_search(metric_name, match, side_re)) {
             std::string m = match.str(0);
             if (m == "eta1")       title_parts.push_back("Side #eta_{1}");
@@ -260,7 +262,7 @@ namespace PlotStyler {
         }
 
         // Track Reconstruction & Beam Context
-        static const std::regex reco_re("^(beam_)?(track_)?(avg_tot|avg_multiplicity|eff)_");
+        static const std::regex reco_re("^(beam_)?(track_)?(avg_tot|avg_multiplicity|eff|rate)_");
         if (std::regex_search(metric_name, match, reco_re)) {
 
             // match[1] is the (beam_) group
