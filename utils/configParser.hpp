@@ -121,7 +121,7 @@ namespace ConfigUtils {
                 if (global_filter_str == "OFF" || global_filter_str == "off" || global_filter_str == "NONE" || global_filter_str.empty()) {
                     entry.filter = 0.0;
                 } else {
-                    try { entry.filter = std::stod(global_filter_str); } catch (...) { entry.filter = -1.0; }
+                    entry.filter = extract_float(global_filter_str, -1.0);
                 }
             }
 
