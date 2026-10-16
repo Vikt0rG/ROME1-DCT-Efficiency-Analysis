@@ -30,56 +30,89 @@ namespace ATLASStyler {
         std::vector<TLatex*> drawn_objects;
         if (!gPad) return drawn_objects;
 
+        constexpr float text_size = 0.04f;
+        constexpr float spacing = 0.01f;
+
+        // ATLAS Label (Font 72: Bold Italic)
         TLatex* l_atlas = new TLatex();
         l_atlas->SetNDC();
         l_atlas->SetTextColor(kBlack);
-        l_atlas->SetTextSize(0.04);
-        l_atlas->SetTextAlign(alignment);
+        l_atlas->SetTextSize(text_size);
+        l_atlas->SetTextFont(72);
 
-        if (status.empty()) {
-            l_atlas->SetTextFont(72);
+        // Sub-Label "Muon" (Font 62: Bold Regular)
+        TLatex* l_muon = new TLatex();
+        l_muon->SetNDC();
+        l_muon->SetTextColor(kBlack);
+        l_muon->SetTextSize(text_size);
+        l_muon->SetTextFont(62);
+
+        // Work Status Label e.g., "Work in Progress", "Internal" (Font 42: Regular)
+        TLatex* l_status = new TLatex();
+        l_status->SetNDC();
+        l_status->SetTextColor(kBlack);
+        l_status->SetTextSize(text_size);
+        l_status->SetTextFont(42);
+
+        // Helper to calculate exact bounding box width in NDC
+        auto getNDCWidth = [](TLatex* latex_obj) -> double {
+            if (!latex_obj) return 0.08;
+            UInt_t w = 0, h = 0;
+            latex_obj->GetBoundingBox(w, h);
+            return static_cast<double>(w) / gPad->GetWw();
+        };
+
+        if (alignment >= 30 && alignment <= 33) {
+            // Right-Aligned: (31, 32, 33): Draw right-to-left
+            l_status->SetTextAlign(alignment);
+            l_muon->SetTextAlign(alignment);
             l_atlas->SetTextAlign(alignment);
-            l_atlas->DrawLatex(ndc_x, ndc_y, "ATLAS");
-            drawn_objects.push_back(l_atlas);
+
+            double x_cursor = ndc_x;
+
+            // Draw Status if provided
+            TLatex* s_drawn = nullptr;
+            if (!status.empty()) {
+                s_drawn = l_status->DrawLatex(x_cursor, ndc_y, status.c_str());
+                drawn_objects.push_back(s_drawn ? s_drawn : l_status);
+                x_cursor -= (getNDCWidth(s_drawn ? s_drawn : l_status) + spacing);
+            } else {
+                delete l_status;
+            }
+
+            // Draw "Muon"
+            TLatex* m_drawn = l_muon->DrawLatex(x_cursor, ndc_y, "Muon");
+            drawn_objects.push_back(m_drawn ? m_drawn : l_muon);
+            x_cursor -= (getNDCWidth(m_drawn ? m_drawn : l_muon) + spacing);
+
+            // Draw "ATLAS"
+            TLatex* a_drawn = l_atlas->DrawLatex(x_cursor, ndc_y, "ATLAS");
+            drawn_objects.push_back(a_drawn ? a_drawn : l_atlas);
+
         } else {
-            TLatex* l_status = new TLatex();
-            l_status->SetNDC();
-            l_status->SetTextColor(kBlack);
-            l_status->SetTextSize(0.04);
+            // Left-Aligned: (11, 12, 13): Draw left-to-right
+            l_atlas->SetTextAlign(alignment);
+            l_muon->SetTextAlign(alignment);
             l_status->SetTextAlign(alignment);
 
-            if (alignment >= 30 && alignment <= 33) { // Right-aligned family
-                l_status->SetTextFont(42);
-                TLatex* s_drawn = l_status->DrawLatex(ndc_x, ndc_y, status.c_str());
+            double x_cursor = ndc_x;
 
-                double status_width = 0.12;
-                if (s_drawn) {
-                    UInt_t w = 0, h = 0;
-                    s_drawn->GetBoundingBox(w, h);
-                    status_width = static_cast<double>(w) / gPad->GetWw();
-                }
+            // Draw "ATLAS"
+            TLatex* a_drawn = l_atlas->DrawLatex(x_cursor, ndc_y, "ATLAS");
+            drawn_objects.push_back(a_drawn ? a_drawn : l_atlas);
+            x_cursor += getNDCWidth(a_drawn ? a_drawn : l_atlas) + spacing;
 
-                l_atlas->SetTextFont(72);
-                TLatex* a_drawn = l_atlas->DrawLatex(ndc_x - status_width - 0.01, ndc_y, "ATLAS");
+            // Draw "Muon"
+            TLatex* m_drawn = l_muon->DrawLatex(x_cursor, ndc_y, "Muon");
+            drawn_objects.push_back(m_drawn ? m_drawn : l_muon);
+            x_cursor += getNDCWidth(m_drawn ? m_drawn : l_muon) + spacing;
 
-                drawn_objects.push_back(a_drawn ? a_drawn : l_atlas);
+            // Draw Status if provided
+            if (!status.empty()) {
+                TLatex* s_drawn = l_status->DrawLatex(x_cursor, ndc_y, status.c_str());
                 drawn_objects.push_back(s_drawn ? s_drawn : l_status);
-            } else { // Left-aligned family
-                l_atlas->SetTextFont(72);
-                TLatex* a_drawn = l_atlas->DrawLatex(ndc_x, ndc_y, "ATLAS");
-
-                double atlas_width = 0.12;
-                if (a_drawn) {
-                    UInt_t w = 0, h = 0;
-                    a_drawn->GetBoundingBox(w, h);
-                    atlas_width = static_cast<double>(w) / gPad->GetWw();
-                }
-
-                l_status->SetTextFont(42);
-                TLatex* s_drawn = l_status->DrawLatex(ndc_x + atlas_width + 0.01, ndc_y, status.c_str());
-
-                drawn_objects.push_back(a_drawn ? a_drawn : l_atlas);
-                drawn_objects.push_back(s_drawn ? s_drawn : l_status);
+            } else {
+                delete l_status;
             }
         }
 
@@ -116,7 +149,7 @@ namespace ATLASStyler {
         if (!gPad) return nullptr;
 
         // Construct text strings
-        std::string line1 = "#bf{#it{ATLAS}}";
+        std::string line1 = "#bf{#it{ATLAS Muon}}";
         if (!status.empty()) {
             line1 += " " + status;
         }
