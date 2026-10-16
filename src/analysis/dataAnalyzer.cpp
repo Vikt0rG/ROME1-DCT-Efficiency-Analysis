@@ -29,13 +29,15 @@ DataAnalyzer::DataAnalyzer(const std::string& config_file_path, const std::strin
 DataAnalyzer::~DataAnalyzer() {
 }
 
-void DataAnalyzer::producePerFileStats(TFile* input_file, MeasurementData& data) {
+void DataAnalyzer::producePerFileStats(TFile* input_file, MeasurementData& data, MeasurementMetadata& metadata) {
 
     TDirectory* old_dir = input_file->GetDirectory("analysis");
     if (old_dir) {
         input_file->Delete("analysis;*");
         input_file->rmdir("analysis");
     }
+
+    perFileHelpers::_metadata = metadata;
 
     // Set up output directories for per-file statistics and plots
     std::vector<std::string> dir_names = {
@@ -137,7 +139,7 @@ void DataAnalyzer::produceSummaryStats() {
         metadata = metadata_entry;
 
         // Calculate and fill per-file relevant statistics for this measurement entry and save into the input ROOT file
-        producePerFileStats(input_file, data);
+        producePerFileStats(input_file, data, metadata);
 
         // Calculate and store file statistics into the summary tree for this measurement entry
         produceGlobalStats(input_file, data);
