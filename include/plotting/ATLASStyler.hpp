@@ -46,7 +46,11 @@ namespace ATLASStyler {
 
     TLegend* drawATLASLegend(TObject* obj, const std::vector<std::string>& legend_entries,
                              float ndc_x, float ndc_y, short alignment,
-                             const std::optional<std::string>& draw_option = std::nullopt);
+                             const std::optional<std::string>& draw_option = std::nullopt,
+                             std::optional<Color_t> fill_color = std::nullopt,
+                             std::optional<double> fill_alpha = std::nullopt,
+                             std::optional<Color_t> border_color = std::nullopt,
+                             std::optional<int> border_width = std::nullopt);
 
     void applyATLASStyle(TObject* obj, TPad* pad);
 

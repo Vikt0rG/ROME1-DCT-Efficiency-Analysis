@@ -237,7 +237,9 @@ namespace ATLASStyler {
     TLegend* drawATLASLegend(
         TObject* obj, const std::vector<std::string>& legend_entries,
         float ndc_x, float ndc_y, short alignment,
-        const std::optional<std::string>& draw_option
+        const std::optional<std::string>& draw_option,
+        std::optional<Color_t> fill_color, std::optional<double> fill_alpha,
+        std::optional<Color_t> border_color, std::optional<int> border_width
     ) {
 
         if (!obj || !gPad) return nullptr;
@@ -285,8 +287,20 @@ namespace ATLASStyler {
         }
 
         TLegend* leg = new TLegend(x1, y1, x2, y2);
+        if (border_color) leg->SetLineColor(border_color.value());
+        if (border_width) leg->SetLineWidth(border_width.value());
+
+        if (fill_color && fill_alpha) {
+            leg->SetFillStyle(1001);
+            leg->SetFillColorAlpha(fill_color.value(), fill_alpha.value());
+        } else if (fill_color) {
+            leg->SetFillStyle(1001);
+            leg->SetFillColor(fill_color.value());
+        } else {
+            leg->SetFillStyle(0);
+        }
+
         leg->SetBorderSize(0);
-        leg->SetFillStyle(0);
         leg->SetTextFont(42);
         leg->SetTextSize(0.04);
         leg->SetTextAlign(12);
