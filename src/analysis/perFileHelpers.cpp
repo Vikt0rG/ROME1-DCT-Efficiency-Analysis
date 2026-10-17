@@ -53,9 +53,7 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
 
     const int n_bins_x = STRIPS_PER_LAYER;
 
-    // HARD CODED STUFF: TB/COSMICS
-    // const int n_bins_y = 34; // TEST BEAM
-    const int n_bins_y = 26; // COSMICS
+    const int n_bins_y = N_BINS_DT;
     const int dt_max_ticks = n_bins_y / 2;
     const int dt_min_ticks = -dt_max_ticks;
     const double dt_range_ticks = dt_max_ticks - dt_min_ticks;
@@ -404,9 +402,7 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     const double x_min_strip = 0.0;
     const double x_max_strip = static_cast<double>(STRIPS_PER_LAYER);
 
-    // HARD CODED STUFF: TB/COSMICS
-    // const int n_bins_y = 34; // TEST BEAM
-    const int n_bins_y = 26; // COSMICS
+    const int n_bins_y = N_BINS_DT;
     const int dt_max_ticks = n_bins_y / 2;
     const int dt_min_ticks = -dt_max_ticks;
 

@@ -70,18 +70,10 @@ inline void requireEqualDataSizes(std::initializer_list<std::pair<std::string, s
 /// for each measurement entry
 namespace perFileHelpers {
 
-    struct ColumnsShift {
-        int start;
-        int end;
-        int shift;
-    };
-
-    constexpr std::array<ColumnsShift, 1> columnShifts = {{
-        {16, 31, -8} // Shifting strips 16-31 down by 8 to create a continuous range of 0-23 for TB data
-    }};
+    inline MeasurementMetadata _metadata;
 
     inline int remapStrip(int rawStrip) {
-        for (const auto& col : columnShifts)
+        for (const auto& col : COLUMN_SHIFTS)
             if (rawStrip >= col.start && rawStrip <= col.end)
                 return rawStrip + col.shift;
         return rawStrip;

@@ -54,7 +54,7 @@ void DataAnalyzer::producePerFileStats(TFile* input_file, MeasurementData& data,
     PathUtils::setupDirectories(input_file, dir_names);
 
     // Produce relevant plots for this file using helper functions
-    perFileHelpers::plotEfficiencyMap(input_file, false);
+    perFileHelpers::plotEfficiencyMap(input_file, USE_EXTERNAL_TRIGGER);
     perFileHelpers::plotStrip(input_file);
     perFileHelpers::plotCS(input_file);
     perFileHelpers::plotDtVsStrip(input_file, data.region_of_interest);
