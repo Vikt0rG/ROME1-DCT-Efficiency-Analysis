@@ -325,34 +325,34 @@ namespace {
     }();
 
     const std::vector<std::string> layer_metrics = {
-        "eff_eta1_external", "eff_eta2_external", "eff_or_external", "eff_and_external",
-        "eff_eta1_rpc", "eff_eta2_rpc", "eff_or_rpc", "eff_and_rpc",
-        "track_eff_eta1_external", "track_eff_eta2_external", "track_eff_or_external", "track_eff_and_external",
-        "track_eff_eta1_rpc", "track_eff_eta2_rpc", "track_eff_or_rpc", "track_eff_and_rpc",
+        "eff_eta1_external_before_reco", "eff_eta2_external_before_reco", "eff_or_external_before_reco", "eff_and_external_before_reco",
+        "eff_eta1_rpc_before_reco", "eff_eta2_rpc_before_reco", "eff_or_rpc_before_reco", "eff_and_rpc_before_reco",
+        "eff_eta1_external_after_reco", "eff_eta2_external_after_reco", "eff_or_external_after_reco", "eff_and_external_after_reco",
+        "eff_eta1_rpc_after_reco", "eff_eta2_rpc_after_reco", "eff_or_rpc_after_reco", "eff_and_rpc_after_reco",
         "avg_cluster_size_eta1_layers", "avg_cluster_size_eta2_layers",
-        "rate_layers_eta1", "rate_layers_eta2", "rate_layers_or", "rate_layers_and",
-        "track_rate_layers_eta1", "track_rate_layers_eta2", "track_rate_layers_or", "track_rate_layers_and",
-        "avg_tot_layer_eta1", "avg_tot_layer_eta2",
-        "track_avg_tot_layer_eta1", "track_avg_tot_layer_eta2",
-        "beam_avg_tot_layer_eta1", "beam_avg_tot_layer_eta2",
-        "beam_track_avg_tot_layer_eta1", "beam_track_avg_tot_layer_eta2"
+        "rate_layers_eta1_before_reco", "rate_layers_eta2_before_reco", "rate_layers_or_before_reco", "rate_layers_and_before_reco",
+        "rate_layers_eta1_after_reco", "rate_layers_eta2_after_reco", "rate_layers_or_after_reco", "rate_layers_and_after_reco",
+        "avg_tot_layer_eta1_before_reco", "avg_tot_layer_eta2_before_reco",
+        "avg_tot_layer_eta1_after_reco", "avg_tot_layer_eta2_after_reco",
+        "beam_avg_tot_layer_eta1_before_reco", "beam_avg_tot_layer_eta2_before_reco",
+        "beam_avg_tot_layer_eta1_after_reco", "beam_avg_tot_layer_eta2_after_reco"
     };
 
     const std::vector<std::string> scalar_metrics = {
         "avg_cluster_size_eta1", "avg_cluster_size_eta2",
-        "rate_eta1", "rate_eta2", "rate_or", "rate_and",
-        "track_rate_eta1", "track_rate_eta2", "track_rate_or", "track_rate_and"
+        "rate_eta1_before_reco", "rate_eta2_before_reco", "rate_or_before_reco", "rate_and_before_reco",
+        "rate_eta1_after_reco", "rate_eta2_after_reco", "rate_or_after_reco", "rate_and_after_reco"
     };
 
     const std::vector<std::string> strip_layer_metrics = {
-        "rate_strips_eta1", "rate_strips_eta2", "rate_strips_or", "rate_strips_and",
-        "track_rate_strips_eta1", "track_rate_strips_eta2", "track_rate_strips_or", "track_rate_strips_and",
-        "avg_tot_strip_eta1", "avg_tot_strip_eta2",
-        "track_avg_tot_strip_eta1", "track_avg_tot_strip_eta2",
-        "beam_avg_tot_strip_eta1", "beam_avg_tot_strip_eta2",
-        "beam_track_avg_tot_strip_eta1", "beam_track_avg_tot_strip_eta2",
-        "avg_multiplicity_eta1", "avg_multiplicity_eta2",
-        "track_avg_multiplicity_eta1", "track_avg_multiplicity_eta2"
+        "rate_strips_eta1_before_reco", "rate_strips_eta2_before_reco", "rate_strips_or_before_reco", "rate_strips_and_before_reco",
+        "rate_strips_eta1_after_reco", "rate_strips_eta2_after_reco", "rate_strips_or_after_reco", "rate_strips_and_after_reco",
+        "avg_tot_strip_eta1_before_reco", "avg_tot_strip_eta2_before_reco",
+        "avg_tot_strip_eta1_after_reco", "avg_tot_strip_eta2_after_reco",
+        "beam_avg_tot_strip_eta1_before_reco", "beam_avg_tot_strip_eta2_before_reco",
+        "beam_avg_tot_strip_eta1_after_reco", "beam_avg_tot_strip_eta2_after_reco",
+        "avg_multiplicity_eta1_before_reco", "avg_multiplicity_eta2_before_reco",
+        "avg_multiplicity_eta1_after_reco", "avg_multiplicity_eta2_after_reco"
     };
 
     const std::vector<std::string> strip_layer_pair_metrics = []() {
@@ -1089,25 +1089,25 @@ void DataPlotter::plotCrossGroupRateMetrics(TDirectory* config_dir) {
             return {rate_at_max_hv, err_at_max_hv};
         };
 
-        auto r_eta1 = extract_rate_at_max_hv(rate_global_dir, "rate_eta1");
-        auto r_eta2 = extract_rate_at_max_hv(rate_global_dir, "rate_eta2");
-        auto r_eta_or = extract_rate_at_max_hv(rate_global_dir, "rate_eta_or");
-        auto r_eta_and = extract_rate_at_max_hv(rate_global_dir, "rate_eta_and");
+        auto r_eta1 = extract_rate_at_max_hv(rate_global_dir, "rate_eta1_before_reco");
+        auto r_eta2 = extract_rate_at_max_hv(rate_global_dir, "rate_eta2_before_reco");
+        auto r_eta_or = extract_rate_at_max_hv(rate_global_dir, "rate_eta_or_before_reco");
+        auto r_eta_and = extract_rate_at_max_hv(rate_global_dir, "rate_eta_and_before_reco");
 
-        auto track_r_eta1 = extract_rate_at_max_hv(rate_global_dir, "track_rate_eta1");
-        auto track_r_eta2 = extract_rate_at_max_hv(rate_global_dir, "track_rate_eta2");
-        auto track_r_eta_or = extract_rate_at_max_hv(rate_global_dir, "track_rate_eta_or");
-        auto track_r_eta_and = extract_rate_at_max_hv(rate_global_dir, "track_rate_eta_and");
+        auto track_r_eta1 = extract_rate_at_max_hv(rate_global_dir, "rate_eta1_after_reco");
+        auto track_r_eta2 = extract_rate_at_max_hv(rate_global_dir, "rate_eta2_after_reco");
+        auto track_r_eta_or = extract_rate_at_max_hv(rate_global_dir, "rate_eta_or_after_reco");
+        auto track_r_eta_and = extract_rate_at_max_hv(rate_global_dir, "rate_eta_and_after_reco");
 
-        auto r_layers_eta1 = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta1");
-        auto r_layers_eta2 = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta2");
-        auto r_layers_eta_or = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta_or");
-        auto r_layers_eta_and = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta_and");
+        auto r_layers_eta1 = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta1_before_reco");
+        auto r_layers_eta2 = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta2_before_reco");
+        auto r_layers_eta_or = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta_or_before_reco");
+        auto r_layers_eta_and = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta_and_before_reco");
 
-        auto track_r_layers_eta1 = extract_rate_at_max_hv(rate_layer_dir, "track_rate_layers_eta1");
-        auto track_r_layers_eta2 = extract_rate_at_max_hv(rate_layer_dir, "track_rate_layers_eta2");
-        auto track_r_layers_eta_or = extract_rate_at_max_hv(rate_layer_dir, "track_rate_layers_eta_or");
-        auto track_r_layers_eta_and = extract_rate_at_max_hv(rate_layer_dir, "track_rate_layers_eta_and");
+        auto track_r_layers_eta1 = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta1_after_reco");
+        auto track_r_layers_eta2 = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta2_after_reco");
+        auto track_r_layers_eta_or = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta_or_after_reco");
+        auto track_r_layers_eta_and = extract_rate_at_max_hv(rate_layer_dir, "rate_layers_eta_and_after_reco");
 
         if (r_eta1.first >= 0.0) filter_rate_eta1.push_back({filter_setting, r_eta1});
         if (r_eta2.first >= 0.0) filter_rate_eta2.push_back({filter_setting, r_eta2});

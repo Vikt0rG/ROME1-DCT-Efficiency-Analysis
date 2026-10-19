@@ -183,14 +183,23 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
     };
 
     std::vector<MapConfig> configs = {
-        {"raw", "Before Track Reco", passed_counts, total_counts},
-        {"track", "After Track Reco", track_passed_counts, track_total_counts}
+        {"before_reco", "Before Track Reco", passed_counts, total_counts},
+        {"after_reco", "After Track Reco", track_passed_counts, track_total_counts}
     };
+
+    std::string filter_str = Form("%.1f", _metadata.filter);
+    std::replace(filter_str.begin(), filter_str.end(), '.', '_');
 
     for (const auto& cfg : configs) {
         for (int layer = 0; layer < LAYER_COUNT; ++layer) {
             TH2F* h_eff_map = new TH2F(
-                Form("h2d_efficiency_map_%s_layer%d", cfg.suffix.c_str(), layer),
+                Form("h2d_efficiency_map_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    cfg.suffix.c_str(),
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv),
                 Form("Efficiency Map: Layer %d: %s;X [cm];Y [cm];Efficiency", layer, cfg.title_tag.c_str()),
                 n_bins_x, x_min_cm, x_max_cm,
                 n_bins_y, y_min_cm, y_max_cm
@@ -319,10 +328,22 @@ void plotStrip(TFile* input_file) {
         {"eta2", {"strip_eta2_after_reco", "strip_eta2_rejected"}, "reco_stack"}
     };
 
+    std::string filter_str = Form("%.1f", _metadata.filter);
+    std::replace(filter_str.begin(), filter_str.end(), '.', '_');
+
     for (const auto& pairing : stack_pairings) {
         for (int layer : {0, 1, 2}) {
-            THStack* stack = new THStack(Form("h1d_strip_%s_%s_layer%d", pairing.side.c_str(), pairing.suffix.c_str(), layer),
-                                         Form("Layer %d;Strip;Hits", layer));
+            THStack* stack = new THStack(
+                Form("h1d_strip_%s_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    pairing.side.c_str(),
+                    pairing.suffix.c_str(),
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv),
+                Form("Layer %d;Strip;Hits", layer)
+            );
 
             TH1* after_hist = strip_histograms[pairing.pair.first][layer];
             TH1* rejected_hist = strip_histograms[pairing.pair.second][layer];
@@ -395,7 +416,7 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
     const int nConfigs = 2;
-    const char* suffixes[nConfigs] = {"dt_strip", "dt_strip_track"};
+    const char* reco_status[nConfigs] = {"before_reco", "after_reco"};
     const char* comments[nConfigs] = {"Before Track Reco", "After Track Reco"};
 
     const int n_bins_x = STRIPS_PER_LAYER;
@@ -406,16 +427,29 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     const int dt_max_ticks = n_bins_y / 2;
     const int dt_min_ticks = -dt_max_ticks;
 
+    std::string filter_str = Form("%.1f", _metadata.filter);
+    std::replace(filter_str.begin(), filter_str.end(), '.', '_');
+
     std::map<std::string, std::map<int, TH2F*>> dt_strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             auto* hist = new TH2F(
-                Form("h2d_%s_layer%d", suffixes[c], layer),
+                Form("h2d_dt_strip_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    reco_status[c],
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv
+                ),
                 Form("Layer %d: %s;Strip;#Delta#it{t} [Ticks];Entries", layer, comments[c]),
                 n_bins_x, x_min_strip, x_max_strip,
                 n_bins_y, dt_min_ticks, dt_max_ticks
             );
-            dt_strip_histograms[suffixes[c]][layer] = hist;
+
+
+
+            dt_strip_histograms[reco_status[c]][layer] = hist;
         }
     }
 
@@ -435,16 +469,16 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
 
             double dt_ticks = static_cast<double>((*dts)[i]);
 
-            dt_strip_histograms["dt_strip"][layer]->Fill(strip, dt_ticks);
+            dt_strip_histograms["before_reco"][layer]->Fill(strip, dt_ticks);
             if ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]) {
-                dt_strip_histograms["dt_strip_track"][layer]->Fill(strip, dt_ticks);
+                dt_strip_histograms["after_reco"][layer]->Fill(strip, dt_ticks);
             }
         }
     }
 
-    TH2F* h_agg = (TH2F*)dt_strip_histograms["dt_strip_track"][0]->Clone("h2d_agg_tracks");
-    h_agg->Add(dt_strip_histograms["dt_strip_track"][1]);
-    h_agg->Add(dt_strip_histograms["dt_strip_track"][2]);
+    TH2F* h_agg = (TH2F*)dt_strip_histograms["after_reco"][0]->Clone("h2d_agg_tracks");
+    h_agg->Add(dt_strip_histograms["after_reco"][1]);
+    h_agg->Add(dt_strip_histograms["after_reco"][2]);
     h_agg->SetTitle("Aggregated dt vs Strip for All Layers;Strip;#Delta#it{t} [Ticks]");
 
     double beam_threshold = 0.50;
@@ -497,13 +531,23 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
 
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
-            TH2F* h_count = dt_strip_histograms[suffixes[c]][layer];
+            TH2F* h_count = dt_strip_histograms[reco_status[c]][layer];
 
             h_count->Write("", TObject::kOverwrite);
 
             if (total_exposure > 0.0) {
+
+                std::string filter_str = Form("%.1f", _metadata.filter);
+                std::replace(filter_str.begin(), filter_str.end(), '.', '_');
                 TH2F* h_rate = new TH2F(
-                    Form("h2d_rate_map_%s_layer%d", suffixes[c], layer),
+                    Form("h2d_rate_map_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                        reco_status[c],
+                        layer,
+                        _metadata.mixture.c_str(),
+                        _metadata.lv_setting,
+                        filter_str.c_str(),
+                        _metadata.scanned_hv
+                    ),
                     Form("Rate Map: Layer %d: %s;X [cm];Y [cm];Rate [Hz/cm^{2}]", layer, comments[c]),
                     n_bins_x, x_min_cm, x_max_cm,
                     n_bins_y, y_min_cm, y_max_cm
@@ -558,37 +602,48 @@ void plotCS(TFile* input_file) {
     TTreeReaderValue<std::vector<int>> cluster_eta2_layer2(readerClusterData, "cluster_size_eta2_layer2");
 
     const int nConfigs = 2;
-    const char* categories[nConfigs] = {"cs_eta1", "cs_eta2"};
+    const char* side_context[nConfigs] = {"eta1", "eta2"};
     const char* comments[nConfigs] = {"Side #eta+", "Side #eta-"};
+
+    std::string filter_str = Form("%.1f", _metadata.filter);
+    std::replace(filter_str.begin(), filter_str.end(), '.', '_');
 
     std::map<std::string, std::map<int, TH1*>> strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
-            std::string hist_name = Form("h1d_%s_layer%d_hv_%d", categories[c], layer, primary_hv);
+            std::string hist_name = Form(
+                "h1d_cs_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                side_context[c],
+                layer,
+                _metadata.mixture.c_str(),
+                _metadata.lv_setting,
+                filter_str.c_str(),
+                _metadata.scanned_hv
+            );
             std::string hist_title = Form("Layer %d: %s (HV: %d V);Cluster Size [Strips];Counts",
                                           layer, comments[c], primary_hv);
 
             auto* hist = new TH1F(hist_name.c_str(), hist_title.c_str(), 6, 0.5, 6.5);
 
-            strip_histograms[categories[c]][layer] = hist;
+            strip_histograms[side_context[c]][layer] = hist;
         }
     }
 
     while (readerClusterData.Next()) {
-        for (int cs : *cluster_eta1_layer0) strip_histograms["cs_eta1"][0]->Fill(cs);
-        for (int cs : *cluster_eta1_layer1) strip_histograms["cs_eta1"][1]->Fill(cs);
-        for (int cs : *cluster_eta1_layer2) strip_histograms["cs_eta1"][2]->Fill(cs);
+        for (int cs : *cluster_eta1_layer0) strip_histograms["eta1"][0]->Fill(cs);
+        for (int cs : *cluster_eta1_layer1) strip_histograms["eta1"][1]->Fill(cs);
+        for (int cs : *cluster_eta1_layer2) strip_histograms["eta1"][2]->Fill(cs);
 
-        for (int cs : *cluster_eta2_layer0) strip_histograms["cs_eta2"][0]->Fill(cs);
-        for (int cs : *cluster_eta2_layer1) strip_histograms["cs_eta2"][1]->Fill(cs);
-        for (int cs : *cluster_eta2_layer2) strip_histograms["cs_eta2"][2]->Fill(cs);
+        for (int cs : *cluster_eta2_layer0) strip_histograms["eta2"][0]->Fill(cs);
+        for (int cs : *cluster_eta2_layer1) strip_histograms["eta2"][1]->Fill(cs);
+        for (int cs : *cluster_eta2_layer2) strip_histograms["eta2"][2]->Fill(cs);
     }
 
     cs_dir->cd();
 
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
-            TH1* hist = strip_histograms[categories[c]][layer];
+            TH1* hist = strip_histograms[side_context[c]][layer];
 
             if (hist->GetEntries() < 5) {
                 hist->Write("", TObject::kOverwrite);
@@ -671,6 +726,9 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
         "tot_eta2_primary_beam",        "tot_eta2_secondary_beam"
     };
 
+    std::string filter_str = Form("%.1f", _metadata.filter);
+    std::replace(filter_str.begin(), filter_str.end(), '.', '_');
+
     int max_expected_ticks = 150;
     const int nBins = max_expected_ticks;
     const double xMin = -0.5 * TIME_TICK_NS;
@@ -700,7 +758,15 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             h2d_tot_corr[categories[c]][layer] = new TH2F(
-                Form("h2d_corr_%s_layer%d", categories[c], layer),
+                Form(
+                    "h2d_corr_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    categories[c],
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv
+                ),
                 Form("Layer %d: %s;Primary ToT [ns];Secondary ToT [ns];Entries", layer, comments[c]),
                 nBins, xMin, xMax, nBins, xMin, xMax);
         }
@@ -877,7 +943,15 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
             h_tot2->SetLineColor(kRed);
             h_tot2->SetMarkerColor(kRed);
 
-            std::string stack_name = Form("stack_tot_side_%s_layer%d", pair.suffix.c_str(), layer);
+            std::string stack_name = Form(
+                "stack_tot_side_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                pair.suffix.c_str(),
+                layer,
+                _metadata.mixture.c_str(),
+                _metadata.lv_setting,
+                filter_str.c_str(),
+                _metadata.scanned_hv
+            );
             std::string stack_title = Form("Layer %d: %s", layer, pair.title_modifier.c_str());
 
             auto* stack = new THStack(stack_name.c_str(), stack_title.c_str());
@@ -897,7 +971,15 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
             auto* h_e1_primary   = strip_histograms["tot_eta1_primary_" + pair.suffix][layer];
             auto* h_e1_secondary = strip_histograms["tot_eta1_secondary_" + pair.suffix][layer];
 
-            std::string stack_e1_name = Form("stack_tot_multi_eta1_%s_layer%d", pair.suffix.c_str(), layer);
+            std::string stack_e1_name = Form(
+                "stack_tot_multi_eta1_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                pair.suffix.c_str(),
+                layer,
+                _metadata.mixture.c_str(),
+                _metadata.lv_setting,
+                filter_str.c_str(),
+                _metadata.scanned_hv
+            );
             std::string stack_e1_title = Form("Layer %d: Side #eta+: %s", layer, pair.title_modifier.c_str());
 
             auto* stack_e1 = new THStack(stack_e1_name.c_str(), stack_e1_title.c_str());
@@ -910,7 +992,15 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
             auto* h_e2_primary   = strip_histograms["tot_eta2_primary_" + pair.suffix][layer];
             auto* h_e2_secondary = strip_histograms["tot_eta2_secondary_" + pair.suffix][layer];
 
-            std::string stack_e2_name = Form("stack_tot_multi_eta2_%s_layer%d", pair.suffix.c_str(), layer);
+            std::string stack_e2_name = Form(
+                "stack_tot_multi_eta2_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                pair.suffix.c_str(),
+                layer,
+                _metadata.mixture.c_str(),
+                _metadata.lv_setting,
+                filter_str.c_str(),
+                _metadata.scanned_hv
+            );
             std::string stack_e2_title = Form("Layer %d: Side #eta-: %s", layer, pair.title_modifier.c_str());
 
             auto* stack_e2 = new THStack(stack_e2_name.c_str(), stack_e2_title.c_str());
@@ -925,7 +1015,14 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
     for (int c = 0; c < nConfigs; ++c) {
         std::string cat = categories[c];
         std::string side_label = (cat.find("eta1") != std::string::npos) ? "Side #eta+" : "Side #eta-";
-        std::string stack_name = Form("stack_tot_layer_%s", cat.c_str());
+        std::string stack_name = Form(
+            "stack_tot_layers_%s_%s_lv_%d_filter_%s_hv_%.0f",
+            cat.c_str(),
+            _metadata.mixture.c_str(),
+            _metadata.lv_setting,
+            filter_str.c_str(),
+            _metadata.scanned_hv
+        );
         std::string stack_title = Form("%s: %s", comments[c], side_label.c_str());
 
         auto* stack = new THStack(stack_name.c_str(), stack_title.c_str());
@@ -984,20 +1081,32 @@ void plotToTVsStrip(TFile* input_file) {
 
     const int nConfigs = 4;
     const char* suffixes[nConfigs] = {
-        "tot1_before_reco", "tot2_before_reco", 
-        "tot1_after_reco", "tot2_after_reco"
+        "tot_eta1_before_reco", "tot_eta2_before_reco", 
+        "tot_eta1_after_reco", "tot_eta2_after_reco"
     };
     const char* comments[nConfigs] = {
         "Side #eta+: Before Track Reco", "Side #eta-: Before Track Reco",
         "Side #eta+: After Track Reco", "Side #eta-: After Track Reco"
     };
 
+    std::string filter_str = Form("%.1f", _metadata.filter);
+    std::replace(filter_str.begin(), filter_str.end(), '.', '_');
+
     std::map<std::string, std::map<int, TH2*>> tot_strip_histograms;
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
-            auto* hist = new TH2F(Form("h2d_%s_layer%d", suffixes[c], layer),
-                            Form("Layer %d: %s;Strip;ToT [ns];Entries", layer, comments[c]),
-                            STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, 25, 0, 25);
+            auto* hist = new TH2F(
+                Form("h2d_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    suffixes[c],
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv
+                ),
+                Form("Layer %d: %s;Strip;ToT [ns];Entries", layer, comments[c]),
+                STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, 25, 0, 25
+            );
             tot_strip_histograms[suffixes[c]][layer] = hist;
         }
     }
@@ -1014,13 +1123,13 @@ void plotToTVsStrip(TFile* input_file) {
             bool valid_track = (*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i];
 
             // Before Reco
-            tot_strip_histograms["tot1_before_reco"][layer]->Fill(strip, tot1_ns);
-            tot_strip_histograms["tot2_before_reco"][layer]->Fill(strip, tot2_ns);
+            tot_strip_histograms["tot_eta1_before_reco"][layer]->Fill(strip, tot1_ns);
+            tot_strip_histograms["tot_eta2_before_reco"][layer]->Fill(strip, tot2_ns);
 
             // After Reco (either eta1 or eta2 valid track)
             if (valid_track) {
-                tot_strip_histograms["tot1_after_reco"][layer]->Fill(strip, tot1_ns);
-                tot_strip_histograms["tot2_after_reco"][layer]->Fill(strip, tot2_ns);
+                tot_strip_histograms["tot_eta1_after_reco"][layer]->Fill(strip, tot1_ns);
+                tot_strip_histograms["tot_eta2_after_reco"][layer]->Fill(strip, tot2_ns);
             }
         }
     }
@@ -1075,12 +1184,24 @@ void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest) {
         "Side #eta+: Beam Spot Region", "Side #eta-: Beam Spot Region"
     };
 
+    std::string filter_str = Form("%.1f", _metadata.filter);
+    std::replace(filter_str.begin(), filter_str.end(), '.', '_');
+
     std::map<std::string, std::map<int, TProfile2D*>> profile_histograms;
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
-            auto* hist = new TProfile2D(Form("h2d_%s_layer%d", categories[c], layer),
-                            Form("Layer %d: %s;Strip;#Delta#it{t} [ns];<ToT> [ns]", layer, comments[c]),
-                            STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, 20, -10, 10);
+            auto* hist = new TProfile2D(
+                Form(
+                    "h2d_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    categories[c],
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv),
+                Form("Layer %d: %s;Strip;#Delta#it{t} [ns];<ToT> [ns]", layer, comments[c]),
+                STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, 20, -10, 10
+            );
             profile_histograms[categories[c]][layer] = hist;
         }
     }
@@ -1178,6 +1299,9 @@ void plotMultiplicity(TFile* input_file) {
         "Side #eta+: After Track Reco", "Side #eta-: After Track Reco"
     };
 
+    std::string filter_str = Form("%.1f", _metadata.filter);
+    std::replace(filter_str.begin(), filter_str.end(), '.', '_');
+
     // [category][layer] -> histogram
     std::map<std::string, std::map<int, TH2F*>> h2d_mult;         // Strip vs Multiplicity vs Entries
     std::map<std::string, std::map<int, TH1F*>> h1d_mult;         // Multiplicity vs Entries (Integrated)
@@ -1188,25 +1312,57 @@ void plotMultiplicity(TFile* input_file) {
         for (int layer : {0, 1, 2}) {
             // 2D Map (Strip vs Multiplicity)
             h2d_mult[categories[c]][layer] = new TH2F(
-                Form("h2d_%s_layer%d", categories[c], layer),
+                Form(
+                    "h2d_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    categories[c],
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv
+                ),
                 Form("Layer %d: %s;Strip;Multiplicity;Entries", layer, comments[c]),
                 STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, 9, 1, 10);
 
             // 1D Distribution (Summed Multiplicity)
             h1d_mult[categories[c]][layer] = new TH1F(
-                Form("h1d_%s_layer%d", categories[c], layer),
+                Form(
+                    "h1d_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    categories[c],
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv
+                ),
                 Form("Layer %d: %s;Multiplicity;Entries", layer, comments[c]),
                 4, 1, 5);
 
             // 1D Profile (Average Multiplicity vs Strip)
             prof_avg[categories[c]][layer] = new TProfile(
-                Form("prof_avg_%s_layer%d", categories[c], layer),
+                Form(
+                    "prof_avg_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    categories[c],
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv
+                ),
                 Form("Layer %d: %s;Strip;#LTAverage Multiplicity#GT [Hits]", layer, comments[c]),
                 STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER);
 
             // 1D Profile (Fraction of Mult > 1 vs Strip)
             prof_frac[categories[c]][layer] = new TProfile(
-                Form("prof_frac_%s_layer%d", categories[c], layer),
+                Form(
+                    "prof_frac_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    categories[c],
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv
+                ),
                 Form("Layer %d: %s;Strip;#frac{N_{mult > 1}}{N_{events}}", layer, comments[c]),
                 STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER);
         }
@@ -1279,7 +1435,17 @@ void plotMultiplicity(TFile* input_file) {
         }
 
         // Combine the Average Multiplicity Profiles into a THStack
-        THStack* stack_avg = new THStack(Form("stack_avg_%s", categories[c]), Form("%s;Strip;Average Multiplicity", comments[c]));
+        THStack* stack_avg = new THStack(
+            Form(
+                "stack_avg_%s_%s_lv_%d_filter_%s_hv_%.0f",
+                categories[c],
+                _metadata.mixture.c_str(),
+                _metadata.lv_setting,
+                filter_str.c_str(),
+                _metadata.scanned_hv
+            ),
+            Form("%s;Strip;Average Multiplicity", comments[c])
+        );
         for (int layer : {0, 1, 2}) {
             prof_avg[categories[c]][layer]->SetLineColor(colors[layer]);
             prof_avg[categories[c]][layer]->SetMarkerColor(colors[layer]);
@@ -1290,7 +1456,17 @@ void plotMultiplicity(TFile* input_file) {
         stack_avg->Write("", TObject::kOverwrite);
 
         // Combine the Fraction Profiles into a THStack
-        THStack* stack_frac = new THStack(Form("stack_frac_%s", categories[c]), Form("%s;Strip;N_{mult > 1} / N_{events}", comments[c]));
+        THStack* stack_frac = new THStack(
+            Form(
+                "stack_frac_%s_%s_lv_%d_filter_%s_hv_%.0f",
+                categories[c],
+                _metadata.mixture.c_str(),
+                _metadata.lv_setting,
+                filter_str.c_str(),
+                _metadata.scanned_hv
+            ),
+            Form("%s;Strip;N_{mult > 1} / N_{events}", comments[c])
+        );
         for (int layer : {0, 1, 2}) {
             prof_frac[categories[c]][layer]->SetLineColor(colors[layer]);
             prof_frac[categories[c]][layer]->SetMarkerColor(colors[layer]);
@@ -1352,6 +1528,9 @@ void plotDelay(TFile* input_file) {
         "Side #eta+: After Track Reco", "Side #eta-: After Track Reco"
     };
 
+    std::string filter_str = Form("%.1f", _metadata.filter);
+    std::replace(filter_str.begin(), filter_str.end(), '.', '_');
+
     std::map<std::string, std::map<int, TH2F*>> h2d_delay;
     std::map<std::string, std::map<int, std::vector<TH1F*>>> h1d_delay;
     std::map<std::string, std::map<int, TProfile*>> prof_delay;
@@ -1363,12 +1542,28 @@ void plotDelay(TFile* input_file) {
     for (int c = 0; c < nConfigs; ++c) {
         for (int layer : {0, 1, 2}) {
             h2d_delay[categories[c]][layer] = new TH2F(
-                Form("h2d_%s_layer%d", categories[c], layer),
+                Form(
+                    "h2d_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    categories[c],
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv
+                ),
                 Form("Layer %d: %s;Strip;Delay from First Hit [ns];Entries", layer, comments[c]),
                 STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER, max_delay_bins, x_min, x_max);
 
             prof_delay[categories[c]][layer] = new TProfile(
-                Form("prof_avg_%s_layer%d", categories[c], layer),
+                Form(
+                    "prof_avg_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    categories[c],
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv
+                ),
                 Form("Layer %d: %s;Strip;#LTAverage Delay#GT [ns]", layer, comments[c]),
                 STRIPS_PER_LAYER, 0, STRIPS_PER_LAYER);
 
@@ -1475,14 +1670,32 @@ void plotDelay(TFile* input_file) {
     int markers[3] = {20, 21, 22};
 
     for (int c = 0; c < nConfigs; ++c) {
-        THStack* stack_avg = new THStack(Form("stack_avg_%s", categories[c]), Form("%s;Strip;Average Delay [ns]", comments[c]));
+        THStack* stack_avg = new THStack(
+            Form(
+                "stack_avg_%s_%s_lv_%d_filter_%s_hv_%.0f",
+                categories[c],
+                _metadata.mixture.c_str(),
+                _metadata.lv_setting,
+                filter_str.c_str(),
+                _metadata.scanned_hv
+            ),
+                Form("%s;Strip;Average Delay [ns]", comments[c])
+            );
 
         for (int layer : {0, 1, 2}) {
             h2d_delay[categories[c]][layer]->Write("", TObject::kOverwrite);
 
             // Package the 1D Distributions into a THStack
             THStack* stack_dist = new THStack(
-                Form("stack_%s_layer%d", categories[c], layer),
+                Form(
+                    "stack_%s_layer%d_%s_lv_%d_filter_%s_hv_%.0f",
+                    categories[c],
+                    layer,
+                    _metadata.mixture.c_str(),
+                    _metadata.lv_setting,
+                    filter_str.c_str(),
+                    _metadata.scanned_hv
+                ),
                 Form("Layer %d: %s;Delay from First Hit [ns];Entries", layer, comments[c])
             );
 
@@ -1536,6 +1749,9 @@ void plotToFs(TFile* input_file) {
     // Buffers to accumulate raw ToF values (in ns) prior to histogram creation
     std::array<std::vector<double>, LAYER_PAIR_COUNT> raw_tof1_data;
     std::array<std::vector<double>, LAYER_PAIR_COUNT> raw_tof2_data;
+
+    std::string filter_str = Form("%.1f", _metadata.filter);
+    std::replace(filter_str.begin(), filter_str.end(), '.', '_');
 
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
         std::string branch1 = "track_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1";
@@ -1601,13 +1817,29 @@ void plotToFs(TFile* input_file) {
         x_max2 = x_min2 + n_bins2 * bin_width;
 
         TH1F* h_tof1 = new TH1F(
-            Form("h1d_tof_layer_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()),
+            Form(
+                "h1d_tof_layer_pair_%s_layer%d_eta1_%s_lv_%d_filter_%s_hv_%.0f",
+                LAYER_PAIR_SUFFIXES[i].c_str(),
+                _metadata.scanned_layer,
+                _metadata.mixture.c_str(),
+                _metadata.lv_setting,
+                filter_str.c_str(),
+                _metadata.scanned_hv
+            ),
             Form("Side #eta+: %s;ToF [ns];Entries", pair_labels[i].c_str()),
             n_bins1, x_min1, x_max1
         );
 
         TH1F* h_tof2 = new TH1F(
-            Form("h1d_tof_layer_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()),
+            Form(
+                "h1d_tof_layer_pair_%s_layer%d_eta2_%s_lv_%d_filter_%s_hv_%.0f",
+                LAYER_PAIR_SUFFIXES[i].c_str(),
+                _metadata.scanned_layer,
+                _metadata.mixture.c_str(),
+                _metadata.lv_setting,
+                filter_str.c_str(),
+                _metadata.scanned_hv
+            ),
             Form("Side #eta-: %s;ToF [ns];Entries", pair_labels[i].c_str()),
             n_bins2, x_min2, x_max2
         );

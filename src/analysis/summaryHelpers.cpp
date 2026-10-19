@@ -26,41 +26,41 @@ void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, Measureme
     summary_tree->Branch("other_hv", &metadata.other_hv);
 
     // Efficiency results
-    summary_tree->Branch("eff_eta1_external", &data.efficiency_results.eta1_efficiency_external, "eff_eta1_external[3]/D");
-    summary_tree->Branch("eff_eta2_external", &data.efficiency_results.eta2_efficiency_external, "eff_eta2_external[3]/D");
-    summary_tree->Branch("eff_or_external", &data.efficiency_results.eta_or_efficiency_external, "eff_or_external[3]/D");
-    summary_tree->Branch("eff_and_external", &data.efficiency_results.eta_and_efficiency_external, "eff_and_external[3]/D");
-    summary_tree->Branch("eff_eta1_external_error", &data.efficiency_results.eta1_efficiency_external_error, "eff_eta1_external_error[6]/D");
-    summary_tree->Branch("eff_eta2_external_error", &data.efficiency_results.eta2_efficiency_external_error, "eff_eta2_external_error[6]/D");
-    summary_tree->Branch("eff_or_external_error", &data.efficiency_results.eta_or_efficiency_external_error, "eff_or_external_error[6]/D");
-    summary_tree->Branch("eff_and_external_error", &data.efficiency_results.eta_and_efficiency_external_error, "eff_and_external_error[6]/D");
+    summary_tree->Branch("eff_eta1_external_before_reco", &data.efficiency_results.eta1_efficiency_external, "eff_eta1_external_before_reco[3]/D");
+    summary_tree->Branch("eff_eta2_external_before_reco", &data.efficiency_results.eta2_efficiency_external, "eff_eta2_external_before_reco[3]/D");
+    summary_tree->Branch("eff_or_external_before_reco", &data.efficiency_results.eta_or_efficiency_external, "eff_or_external_before_reco[3]/D");
+    summary_tree->Branch("eff_and_external_before_reco", &data.efficiency_results.eta_and_efficiency_external, "eff_and_external_before_reco[3]/D");
+    summary_tree->Branch("eff_eta1_external_before_reco_error", &data.efficiency_results.eta1_efficiency_external_error, "eff_eta1_external_before_reco_error[6]/D");
+    summary_tree->Branch("eff_eta2_external_before_reco_error", &data.efficiency_results.eta2_efficiency_external_error, "eff_eta2_external_before_reco_error[6]/D");
+    summary_tree->Branch("eff_or_external_before_reco_error", &data.efficiency_results.eta_or_efficiency_external_error, "eff_or_external_before_reco_error[6]/D");
+    summary_tree->Branch("eff_and_external_before_reco_error", &data.efficiency_results.eta_and_efficiency_external_error, "eff_and_external_before_reco_error[6]/D");
 
-    summary_tree->Branch("eff_eta1_rpc", &data.efficiency_results.eta1_efficiency_rpc, "eff_eta1_rpc[3]/D");
-    summary_tree->Branch("eff_eta2_rpc", &data.efficiency_results.eta2_efficiency_rpc, "eff_eta2_rpc[3]/D");
-    summary_tree->Branch("eff_or_rpc", &data.efficiency_results.eta_or_efficiency_rpc, "eff_or_rpc[3]/D");
-    summary_tree->Branch("eff_and_rpc", &data.efficiency_results.eta_and_efficiency_rpc, "eff_and_rpc[3]/D");
-    summary_tree->Branch("eff_eta1_rpc_error", &data.efficiency_results.eta1_efficiency_rpc_error, "eff_eta1_rpc_error[6]/D");
-    summary_tree->Branch("eff_eta2_rpc_error", &data.efficiency_results.eta2_efficiency_rpc_error, "eff_eta2_rpc_error[6]/D");
-    summary_tree->Branch("eff_or_rpc_error", &data.efficiency_results.eta_or_efficiency_rpc_error, "eff_or_rpc_error[6]/D");
-    summary_tree->Branch("eff_and_rpc_error", &data.efficiency_results.eta_and_efficiency_rpc_error, "eff_and_rpc_error[6]/D");
+    summary_tree->Branch("eff_eta1_rpc_before_reco", &data.efficiency_results.eta1_efficiency_rpc, "eff_eta1_rpc_before_reco[3]/D");
+    summary_tree->Branch("eff_eta2_rpc_before_reco", &data.efficiency_results.eta2_efficiency_rpc, "eff_eta2_rpc_before_reco[3]/D");
+    summary_tree->Branch("eff_or_rpc_before_reco", &data.efficiency_results.eta_or_efficiency_rpc, "eff_or_rpc_before_reco[3]/D");
+    summary_tree->Branch("eff_and_rpc_before_reco", &data.efficiency_results.eta_and_efficiency_rpc, "eff_and_rpc_before_reco[3]/D");
+    summary_tree->Branch("eff_eta1_rpc_before_reco_error", &data.efficiency_results.eta1_efficiency_rpc_error, "eff_eta1_rpc_before_reco_error[6]/D");
+    summary_tree->Branch("eff_eta2_rpc_before_reco_error", &data.efficiency_results.eta2_efficiency_rpc_error, "eff_eta2_rpc_before_reco_error[6]/D");
+    summary_tree->Branch("eff_or_rpc_before_reco_error", &data.efficiency_results.eta_or_efficiency_rpc_error, "eff_or_rpc_before_reco_error[6]/D");
+    summary_tree->Branch("eff_and_rpc_before_reco_error", &data.efficiency_results.eta_and_efficiency_rpc_error, "eff_and_rpc_before_reco_error[6]/D");
 
-    summary_tree->Branch("track_eff_eta1_external", &data.efficiency_results_tracks.eta1_efficiency_external, "track_eff_eta1_external[3]/D");
-    summary_tree->Branch("track_eff_eta2_external", &data.efficiency_results_tracks.eta2_efficiency_external, "track_eff_eta2_external[3]/D");
-    summary_tree->Branch("track_eff_or_external", &data.efficiency_results_tracks.eta_or_efficiency_external, "track_eff_or_external[3]/D");
-    summary_tree->Branch("track_eff_and_external", &data.efficiency_results_tracks.eta_and_efficiency_external, "track_eff_and_external[3]/D");
-    summary_tree->Branch("track_eff_eta1_external_error", &data.efficiency_results_tracks.eta1_efficiency_external_error, "track_eff_eta1_external_error[6]/D");
-    summary_tree->Branch("track_eff_eta2_external_error", &data.efficiency_results_tracks.eta2_efficiency_external_error, "track_eff_eta2_external_error[6]/D");
-    summary_tree->Branch("track_eff_or_external_error", &data.efficiency_results_tracks.eta_or_efficiency_external_error, "track_eff_or_external_error[6]/D");
-    summary_tree->Branch("track_eff_and_external_error", &data.efficiency_results_tracks.eta_and_efficiency_external_error, "track_eff_and_external_error[6]/D");
+    summary_tree->Branch("eff_eta1_external_after_reco", &data.efficiency_results_tracks.eta1_efficiency_external, "eff_eta1_external_after_reco[3]/D");
+    summary_tree->Branch("eff_eta2_external_after_reco", &data.efficiency_results_tracks.eta2_efficiency_external, "eff_eta2_external_after_reco[3]/D");
+    summary_tree->Branch("eff_or_external_after_reco", &data.efficiency_results_tracks.eta_or_efficiency_external, "eff_or_external_after_reco[3]/D");
+    summary_tree->Branch("eff_and_external_after_reco", &data.efficiency_results_tracks.eta_and_efficiency_external, "eff_and_external_after_reco[3]/D");
+    summary_tree->Branch("eff_eta1_external_after_reco_error", &data.efficiency_results_tracks.eta1_efficiency_external_error, "eff_eta1_external_after_reco_error[6]/D");
+    summary_tree->Branch("eff_eta2_external_after_reco_error", &data.efficiency_results_tracks.eta2_efficiency_external_error, "eff_eta2_external_after_reco_error[6]/D");
+    summary_tree->Branch("eff_or_external_after_reco_error", &data.efficiency_results_tracks.eta_or_efficiency_external_error, "eff_or_external_after_reco_error[6]/D");
+    summary_tree->Branch("eff_and_external_after_reco_error", &data.efficiency_results_tracks.eta_and_efficiency_external_error, "eff_and_external_after_reco_error[6]/D");
 
-    summary_tree->Branch("track_eff_eta1_rpc", &data.efficiency_results_tracks.eta1_efficiency_rpc, "track_eff_eta1_rpc[3]/D");
-    summary_tree->Branch("track_eff_eta2_rpc", &data.efficiency_results_tracks.eta2_efficiency_rpc, "track_eff_eta2_rpc[3]/D");
-    summary_tree->Branch("track_eff_or_rpc", &data.efficiency_results_tracks.eta_or_efficiency_rpc, "track_eff_or_rpc[3]/D");
-    summary_tree->Branch("track_eff_and_rpc", &data.efficiency_results_tracks.eta_and_efficiency_rpc, "track_eff_and_rpc[3]/D");
-    summary_tree->Branch("track_eff_eta1_rpc_error", &data.efficiency_results_tracks.eta1_efficiency_rpc_error, "track_eff_eta1_rpc_error[6]/D");
-    summary_tree->Branch("track_eff_eta2_rpc_error", &data.efficiency_results_tracks.eta2_efficiency_rpc_error, "track_eff_eta2_rpc_error[6]/D");
-    summary_tree->Branch("track_eff_or_rpc_error", &data.efficiency_results_tracks.eta_or_efficiency_rpc_error, "track_eff_or_rpc_error[6]/D");
-    summary_tree->Branch("track_eff_and_rpc_error", &data.efficiency_results_tracks.eta_and_efficiency_rpc_error, "track_eff_and_rpc_error[6]/D");
+    summary_tree->Branch("eff_eta1_rpc_after_reco", &data.efficiency_results_tracks.eta1_efficiency_rpc, "eff_eta1_rpc_after_reco[3]/D");
+    summary_tree->Branch("eff_eta2_rpc_after_reco", &data.efficiency_results_tracks.eta2_efficiency_rpc, "eff_eta2_rpc_after_reco[3]/D");
+    summary_tree->Branch("eff_or_rpc_after_reco", &data.efficiency_results_tracks.eta_or_efficiency_rpc, "eff_or_rpc_after_reco[3]/D");
+    summary_tree->Branch("eff_and_rpc_after_reco", &data.efficiency_results_tracks.eta_and_efficiency_rpc, "eff_and_rpc_after_reco[3]/D");
+    summary_tree->Branch("eff_eta1_rpc_after_reco_error", &data.efficiency_results_tracks.eta1_efficiency_rpc_error, "eff_eta1_rpc_after_reco_error[6]/D");
+    summary_tree->Branch("eff_eta2_rpc_after_reco_error", &data.efficiency_results_tracks.eta2_efficiency_rpc_error, "eff_eta2_rpc_after_reco_error[6]/D");
+    summary_tree->Branch("eff_or_rpc_after_reco_error", &data.efficiency_results_tracks.eta_or_efficiency_rpc_error, "eff_or_rpc_after_reco_error[6]/D");
+    summary_tree->Branch("eff_and_rpc_after_reco_error", &data.efficiency_results_tracks.eta_and_efficiency_rpc_error, "eff_and_rpc_after_reco_error[6]/D");
 
     // Cluster size results
     summary_tree->Branch("avg_cluster_size_eta1", &data.cluster_size_results.avg_cluster_size_eta1);
@@ -73,111 +73,111 @@ void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, Measureme
     summary_tree->Branch("avg_cluster_size_eta2_layers_error", &data.cluster_size_results.avg_cluster_size_eta2_layers_error, "avg_cluster_size_eta2_layers_error[6]/D");
 
     // Rate results
-    summary_tree->Branch("rate_eta1", &data.rate_results.rate_eta1);
-    summary_tree->Branch("rate_eta2", &data.rate_results.rate_eta2);
-    summary_tree->Branch("rate_or", &data.rate_results.rate_or);
-    summary_tree->Branch("rate_and", &data.rate_results.rate_and);
-    summary_tree->Branch("rate_eta1_error", &data.rate_results.rate_eta1_error, Form("rate_eta1_error[%d]/D", 2));
-    summary_tree->Branch("rate_eta2_error", &data.rate_results.rate_eta2_error, Form("rate_eta2_error[%d]/D", 2));
-    summary_tree->Branch("rate_or_error", &data.rate_results.rate_or_error, Form("rate_or_error[%d]/D", 2));
-    summary_tree->Branch("rate_and_error", &data.rate_results.rate_and_error, Form("rate_and_error[%d]/D", 2));
+    summary_tree->Branch("rate_eta1_before_reco", &data.rate_results.rate_eta1);
+    summary_tree->Branch("rate_eta2_before_reco", &data.rate_results.rate_eta2);
+    summary_tree->Branch("rate_or_before_reco", &data.rate_results.rate_or);
+    summary_tree->Branch("rate_and_before_reco", &data.rate_results.rate_and);
+    summary_tree->Branch("rate_eta1_before_reco_error", &data.rate_results.rate_eta1_error, Form("rate_eta1_before_reco_error[%d]/D", 2));
+    summary_tree->Branch("rate_eta2_before_reco_error", &data.rate_results.rate_eta2_error, Form("rate_eta2_before_reco_error[%d]/D", 2));
+    summary_tree->Branch("rate_or_before_reco_error", &data.rate_results.rate_or_error, Form("rate_or_before_reco_error[%d]/D", 2));
+    summary_tree->Branch("rate_and_before_reco_error", &data.rate_results.rate_and_error, Form("rate_and_before_reco_error[%d]/D", 2));
 
-    summary_tree->Branch("track_rate_eta1", &data.rate_results_tracks.rate_eta1);
-    summary_tree->Branch("track_rate_eta2", &data.rate_results_tracks.rate_eta2);
-    summary_tree->Branch("track_rate_or", &data.rate_results_tracks.rate_or);
-    summary_tree->Branch("track_rate_and", &data.rate_results_tracks.rate_and);
-    summary_tree->Branch("track_rate_eta1_error", &data.rate_results_tracks.rate_eta1_error, Form("track_rate_eta1_error[%d]/D", 2));
-    summary_tree->Branch("track_rate_eta2_error", &data.rate_results_tracks.rate_eta2_error, Form("track_rate_eta2_error[%d]/D", 2));
-    summary_tree->Branch("track_rate_or_error", &data.rate_results_tracks.rate_or_error, Form("track_rate_or_error[%d]/D", 2));
-    summary_tree->Branch("track_rate_and_error", &data.rate_results_tracks.rate_and_error, Form("track_rate_and_error[%d]/D", 2));
+    summary_tree->Branch("rate_eta1_after_reco", &data.rate_results_tracks.rate_eta1);
+    summary_tree->Branch("rate_eta2_after_reco", &data.rate_results_tracks.rate_eta2);
+    summary_tree->Branch("rate_or_after_reco", &data.rate_results_tracks.rate_or);
+    summary_tree->Branch("rate_and_after_reco", &data.rate_results_tracks.rate_and);
+    summary_tree->Branch("rate_eta1_after_reco_error", &data.rate_results_tracks.rate_eta1_error, Form("rate_eta1_after_reco_error[%d]/D", 2));
+    summary_tree->Branch("rate_eta2_after_reco_error", &data.rate_results_tracks.rate_eta2_error, Form("rate_eta2_after_reco_error[%d]/D", 2));
+    summary_tree->Branch("rate_or_after_reco_error", &data.rate_results_tracks.rate_or_error, Form("rate_or_after_reco_error[%d]/D", 2));
+    summary_tree->Branch("rate_and_after_reco_error", &data.rate_results_tracks.rate_and_error, Form("rate_and_after_reco_error[%d]/D", 2));
 
-    summary_tree->Branch("rate_layers_eta1", &data.rate_results.rate_layers_eta1, Form("rate_layers_eta1[%d]/D", 3));
-    summary_tree->Branch("rate_layers_eta2", &data.rate_results.rate_layers_eta2, Form("rate_layers_eta2[%d]/D", 3));
-    summary_tree->Branch("rate_layers_or", &data.rate_results.rate_layers_or, Form("rate_layers_or[%d]/D", 3));
-    summary_tree->Branch("rate_layers_and", &data.rate_results.rate_layers_and, Form("rate_layers_and[%d]/D", 3));
-    summary_tree->Branch("rate_layers_eta1_error", &data.rate_results.rate_layers_eta1_error, Form("rate_layers_eta1_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("rate_layers_eta2_error", &data.rate_results.rate_layers_eta2_error, Form("rate_layers_eta2_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("rate_layers_or_error", &data.rate_results.rate_layers_or_error, Form("rate_layers_or_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("rate_layers_and_error", &data.rate_results.rate_layers_and_error, Form("rate_layers_and_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_layers_eta1_before_reco", &data.rate_results.rate_layers_eta1, Form("rate_layers_eta1_before_reco[%d]/D", 3));
+    summary_tree->Branch("rate_layers_eta2_before_reco", &data.rate_results.rate_layers_eta2, Form("rate_layers_eta2_before_reco[%d]/D", 3));
+    summary_tree->Branch("rate_layers_or_before_reco", &data.rate_results.rate_layers_or, Form("rate_layers_or_before_reco[%d]/D", 3));
+    summary_tree->Branch("rate_layers_and_before_reco", &data.rate_results.rate_layers_and, Form("rate_layers_and_before_reco[%d]/D", 3));
+    summary_tree->Branch("rate_layers_eta1_before_reco_error", &data.rate_results.rate_layers_eta1_error, Form("rate_layers_eta1_before_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_layers_eta2_before_reco_error", &data.rate_results.rate_layers_eta2_error, Form("rate_layers_eta2_before_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_layers_or_before_reco_error", &data.rate_results.rate_layers_or_error, Form("rate_layers_or_before_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_layers_and_before_reco_error", &data.rate_results.rate_layers_and_error, Form("rate_layers_and_before_reco_error[%d]/D", LAYER_COUNT * 2));
 
-    summary_tree->Branch("track_rate_layers_eta1", &data.rate_results_tracks.rate_layers_eta1, Form("track_rate_layers_eta1[%d]/D", 3));
-    summary_tree->Branch("track_rate_layers_eta2", &data.rate_results_tracks.rate_layers_eta2, Form("track_rate_layers_eta2[%d]/D", 3));
-    summary_tree->Branch("track_rate_layers_or", &data.rate_results_tracks.rate_layers_or, Form("track_rate_layers_or[%d]/D", 3));
-    summary_tree->Branch("track_rate_layers_and", &data.rate_results_tracks.rate_layers_and, Form("track_rate_layers_and[%d]/D", 3));
-    summary_tree->Branch("track_rate_layers_eta1_error", &data.rate_results_tracks.rate_layers_eta1_error, Form("track_rate_layers_eta1_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("track_rate_layers_eta2_error", &data.rate_results_tracks.rate_layers_eta2_error, Form("track_rate_layers_eta2_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("track_rate_layers_or_error", &data.rate_results_tracks.rate_layers_or_error, Form("track_rate_layers_or_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("track_rate_layers_and_error", &data.rate_results_tracks.rate_layers_and_error, Form("track_rate_layers_and_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_layers_eta1_after_reco", &data.rate_results_tracks.rate_layers_eta1, Form("rate_layers_eta1_after_reco[%d]/D", 3));
+    summary_tree->Branch("rate_layers_eta2_after_reco", &data.rate_results_tracks.rate_layers_eta2, Form("rate_layers_eta2_after_reco[%d]/D", 3));
+    summary_tree->Branch("rate_layers_or_after_reco", &data.rate_results_tracks.rate_layers_or, Form("rate_layers_or_after_reco[%d]/D", 3));
+    summary_tree->Branch("rate_layers_and_after_reco", &data.rate_results_tracks.rate_layers_and, Form("rate_layers_and_after_reco[%d]/D", 3));
+    summary_tree->Branch("rate_layers_eta1_after_reco_error", &data.rate_results_tracks.rate_layers_eta1_error, Form("rate_layers_eta1_after_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_layers_eta2_after_reco_error", &data.rate_results_tracks.rate_layers_eta2_error, Form("rate_layers_eta2_after_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_layers_or_after_reco_error", &data.rate_results_tracks.rate_layers_or_error, Form("rate_layers_or_after_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("rate_layers_and_after_reco_error", &data.rate_results_tracks.rate_layers_and_error, Form("rate_layers_and_after_reco_error[%d]/D", LAYER_COUNT * 2));
 
-    summary_tree->Branch("rate_strips_eta1", &data.rate_results.rate_strips_eta1, Form("rate_strips_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("rate_strips_eta2", &data.rate_results.rate_strips_eta2, Form("rate_strips_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("rate_strips_or", &data.rate_results.rate_strips_or, Form("rate_strips_or[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("rate_strips_and", &data.rate_results.rate_strips_and, Form("rate_strips_and[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("rate_strips_eta1_error", &data.rate_results.rate_strips_eta1_error, Form("rate_strips_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("rate_strips_eta2_error", &data.rate_results.rate_strips_eta2_error, Form("rate_strips_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("rate_strips_or_error", &data.rate_results.rate_strips_or_error, Form("rate_strips_or_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("rate_strips_and_error", &data.rate_results.rate_strips_and_error, Form("rate_strips_and_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("rate_strips_eta1_before_reco", &data.rate_results.rate_strips_eta1, Form("rate_strips_eta1_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("rate_strips_eta2_before_reco", &data.rate_results.rate_strips_eta2, Form("rate_strips_eta2_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("rate_strips_or_before_reco", &data.rate_results.rate_strips_or, Form("rate_strips_or_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("rate_strips_and_before_reco", &data.rate_results.rate_strips_and, Form("rate_strips_and_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("rate_strips_eta1_before_reco_error", &data.rate_results.rate_strips_eta1_error, Form("rate_strips_eta1_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("rate_strips_eta2_before_reco_error", &data.rate_results.rate_strips_eta2_error, Form("rate_strips_eta2_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("rate_strips_or_before_reco_error", &data.rate_results.rate_strips_or_error, Form("rate_strips_or_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("rate_strips_and_before_reco_error", &data.rate_results.rate_strips_and_error, Form("rate_strips_and_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
-    summary_tree->Branch("track_rate_strips_eta1", &data.rate_results_tracks.rate_strips_eta1, Form("track_rate_strips_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_rate_strips_eta2", &data.rate_results_tracks.rate_strips_eta2, Form("track_rate_strips_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_rate_strips_or", &data.rate_results_tracks.rate_strips_or, Form("track_rate_strips_or[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_rate_strips_and", &data.rate_results_tracks.rate_strips_and, Form("track_rate_strips_and[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_rate_strips_eta1_error", &data.rate_results_tracks.rate_strips_eta1_error, Form("track_rate_strips_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("track_rate_strips_eta2_error", &data.rate_results_tracks.rate_strips_eta2_error, Form("track_rate_strips_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("track_rate_strips_or_error", &data.rate_results_tracks.rate_strips_or_error, Form("track_rate_strips_or_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("track_rate_strips_and_error", &data.rate_results_tracks.rate_strips_and_error, Form("track_rate_strips_and_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("rate_strips_eta1_after_reco", &data.rate_results_tracks.rate_strips_eta1, Form("rate_strips_eta1_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("rate_strips_eta2_after_reco", &data.rate_results_tracks.rate_strips_eta2, Form("rate_strips_eta2_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("rate_strips_or_after_reco", &data.rate_results_tracks.rate_strips_or, Form("rate_strips_or_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("rate_strips_and_after_reco", &data.rate_results_tracks.rate_strips_and, Form("rate_strips_and_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("rate_strips_eta1_after_reco_error", &data.rate_results_tracks.rate_strips_eta1_error, Form("rate_strips_eta1_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("rate_strips_eta2_after_reco_error", &data.rate_results_tracks.rate_strips_eta2_error, Form("rate_strips_eta2_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("rate_strips_or_after_reco_error", &data.rate_results_tracks.rate_strips_or_error, Form("rate_strips_or_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("rate_strips_and_after_reco_error", &data.rate_results_tracks.rate_strips_and_error, Form("rate_strips_and_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
     // ToT results
-    summary_tree->Branch("avg_tot_layer_eta1", &data.tot_results.avg_tot_eta1_layer, Form("avg_tot_layer_eta1[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("avg_tot_layer_eta2", &data.tot_results.avg_tot_eta2_layer, Form("avg_tot_layer_eta2[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("avg_tot_layer_eta1_error", &data.tot_results.avg_tot_eta1_layer_error, Form("avg_tot_layer_eta1_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("avg_tot_layer_eta2_error", &data.tot_results.avg_tot_eta2_layer_error, Form("avg_tot_layer_eta2_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("avg_tot_layer_eta1_before_reco", &data.tot_results.avg_tot_eta1_layer, Form("avg_tot_layer_eta1_before_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("avg_tot_layer_eta2_before_reco", &data.tot_results.avg_tot_eta2_layer, Form("avg_tot_layer_eta2_before_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("avg_tot_layer_eta1_before_reco_error", &data.tot_results.avg_tot_eta1_layer_error, Form("avg_tot_layer_eta1_before_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("avg_tot_layer_eta2_before_reco_error", &data.tot_results.avg_tot_eta2_layer_error, Form("avg_tot_layer_eta2_before_reco_error[%d]/D", LAYER_COUNT * 2));
 
-    summary_tree->Branch("track_avg_tot_layer_eta1", &data.tot_results_tracks.avg_tot_eta1_layer, Form("track_avg_tot_layer_eta1[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("track_avg_tot_layer_eta2", &data.tot_results_tracks.avg_tot_eta2_layer, Form("track_avg_tot_layer_eta2[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("track_avg_tot_layer_eta1_error", &data.tot_results_tracks.avg_tot_eta1_layer_error, Form("track_avg_tot_layer_eta1_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("track_avg_tot_layer_eta2_error", &data.tot_results_tracks.avg_tot_eta2_layer_error, Form("track_avg_tot_layer_eta2_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("avg_tot_layer_eta1_after_reco", &data.tot_results_tracks.avg_tot_eta1_layer, Form("avg_tot_layer_eta1_after_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("avg_tot_layer_eta2_after_reco", &data.tot_results_tracks.avg_tot_eta2_layer, Form("avg_tot_layer_eta2_after_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("avg_tot_layer_eta1_after_reco_error", &data.tot_results_tracks.avg_tot_eta1_layer_error, Form("avg_tot_layer_eta1_after_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("avg_tot_layer_eta2_after_reco_error", &data.tot_results_tracks.avg_tot_eta2_layer_error, Form("avg_tot_layer_eta2_after_reco_error[%d]/D", LAYER_COUNT * 2));
 
-    summary_tree->Branch("beam_avg_tot_layer_eta1", &data.tot_results_beam.avg_tot_eta1_layer, Form("beam_avg_tot_layer_eta1[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("beam_avg_tot_layer_eta2", &data.tot_results_beam.avg_tot_eta2_layer, Form("beam_avg_tot_layer_eta2[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("beam_avg_tot_layer_eta1_error", &data.tot_results_beam.avg_tot_eta1_layer_error, Form("beam_avg_tot_layer_eta1_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("beam_avg_tot_layer_eta2_error", &data.tot_results_beam.avg_tot_eta2_layer_error, Form("beam_avg_tot_layer_eta2_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("beam_region_avg_tot_layer_eta1_before_reco", &data.tot_results_beam.avg_tot_eta1_layer, Form("beam_region_avg_tot_layer_eta1_before_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("beam_region_avg_tot_layer_eta2_before_reco", &data.tot_results_beam.avg_tot_eta2_layer, Form("beam_region_avg_tot_layer_eta2_before_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("beam_region_avg_tot_layer_eta1_before_reco_error", &data.tot_results_beam.avg_tot_eta1_layer_error, Form("beam_region_avg_tot_layer_eta1_before_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("beam_region_avg_tot_layer_eta2_before_reco_error", &data.tot_results_beam.avg_tot_eta2_layer_error, Form("beam_region_avg_tot_layer_eta2_before_reco_error[%d]/D", LAYER_COUNT * 2));
 
-    summary_tree->Branch("beam_track_avg_tot_layer_eta1", &data.tot_results_beam_track.avg_tot_eta1_layer, Form("beam_track_avg_tot_layer_eta1[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("beam_track_avg_tot_layer_eta2", &data.tot_results_beam_track.avg_tot_eta2_layer, Form("beam_track_avg_tot_layer_eta2[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("beam_track_avg_tot_layer_eta1_error", &data.tot_results_beam_track.avg_tot_eta1_layer_error, Form("beam_track_avg_tot_layer_eta1_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("beam_track_avg_tot_layer_eta2_error", &data.tot_results_beam_track.avg_tot_eta2_layer_error, Form("beam_track_avg_tot_layer_eta2_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("beam_region_avg_tot_layer_eta1_after_reco", &data.tot_results_beam_track.avg_tot_eta1_layer, Form("beam_region_avg_tot_layer_eta1_after_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("beam_region_avg_tot_layer_eta2_after_reco", &data.tot_results_beam_track.avg_tot_eta2_layer, Form("beam_region_avg_tot_layer_eta2_after_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("beam_region_avg_tot_layer_eta1_after_reco_error", &data.tot_results_beam_track.avg_tot_eta1_layer_error, Form("beam_region_avg_tot_layer_eta1_after_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("beam_region_avg_tot_layer_eta2_after_reco_error", &data.tot_results_beam_track.avg_tot_eta2_layer_error, Form("beam_region_avg_tot_layer_eta2_after_reco_error[%d]/D", LAYER_COUNT * 2));
 
-    summary_tree->Branch("avg_tot_strip_eta1", &data.tot_results.avg_tot_eta1, Form("avg_tot_strip_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_tot_strip_eta2", &data.tot_results.avg_tot_eta2, Form("avg_tot_strip_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_tot_strip_eta1_error", &data.tot_results.avg_tot_eta1_error, Form("avg_tot_strip_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("avg_tot_strip_eta2_error", &data.tot_results.avg_tot_eta2_error, Form("avg_tot_strip_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_tot_strip_eta1_before_reco", &data.tot_results.avg_tot_eta1, Form("avg_tot_strip_eta1_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_tot_strip_eta2_before_reco", &data.tot_results.avg_tot_eta2, Form("avg_tot_strip_eta2_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_tot_strip_eta1_before_reco_error", &data.tot_results.avg_tot_eta1_error, Form("avg_tot_strip_eta1_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_tot_strip_eta2_before_reco_error", &data.tot_results.avg_tot_eta2_error, Form("avg_tot_strip_eta2_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
-    summary_tree->Branch("track_avg_tot_strip_eta1", &data.tot_results_tracks.avg_tot_eta1, Form("track_avg_tot_strip_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_tot_strip_eta2", &data.tot_results_tracks.avg_tot_eta2, Form("track_avg_tot_strip_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_tot_strip_eta1_error", &data.tot_results_tracks.avg_tot_eta1_error, Form("track_avg_tot_strip_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("track_avg_tot_strip_eta2_error", &data.tot_results_tracks.avg_tot_eta2_error, Form("track_avg_tot_strip_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_tot_strip_eta1_after_reco", &data.tot_results_tracks.avg_tot_eta1, Form("avg_tot_strip_eta1_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_tot_strip_eta2_after_reco", &data.tot_results_tracks.avg_tot_eta2, Form("avg_tot_strip_eta2_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_tot_strip_eta1_after_reco_error", &data.tot_results_tracks.avg_tot_eta1_error, Form("avg_tot_strip_eta1_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_tot_strip_eta2_after_reco_error", &data.tot_results_tracks.avg_tot_eta2_error, Form("avg_tot_strip_eta2_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
-    summary_tree->Branch("beam_avg_tot_strip_eta1", &data.tot_results_beam.avg_tot_eta1, Form("beam_avg_tot_strip_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("beam_avg_tot_strip_eta2", &data.tot_results_beam.avg_tot_eta2, Form("beam_avg_tot_strip_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("beam_avg_tot_strip_eta1_error", &data.tot_results_beam.avg_tot_eta1_error, Form("beam_avg_tot_strip_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("beam_avg_tot_strip_eta2_error", &data.tot_results_beam.avg_tot_eta2_error, Form("beam_avg_tot_strip_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("beam_region_avg_tot_strip_eta1_before_reco", &data.tot_results_beam.avg_tot_eta1, Form("beam_region_avg_tot_strip_eta1_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("beam_region_avg_tot_strip_eta2_before_reco", &data.tot_results_beam.avg_tot_eta2, Form("beam_region_avg_tot_strip_eta2_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("beam_region_avg_tot_strip_eta1_before_reco_error", &data.tot_results_beam.avg_tot_eta1_error, Form("beam_region_avg_tot_strip_eta1_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("beam_region_avg_tot_strip_eta2_before_reco_error", &data.tot_results_beam.avg_tot_eta2_error, Form("beam_region_avg_tot_strip_eta2_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
-    summary_tree->Branch("beam_track_avg_tot_strip_eta1", &data.tot_results_beam_track.avg_tot_eta1, Form("beam_track_avg_tot_strip_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("beam_track_avg_tot_strip_eta2", &data.tot_results_beam_track.avg_tot_eta2, Form("beam_track_avg_tot_strip_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("beam_track_avg_tot_strip_eta1_error", &data.tot_results_beam_track.avg_tot_eta1_error, Form("beam_track_avg_tot_strip_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("beam_track_avg_tot_strip_eta2_error", &data.tot_results_beam_track.avg_tot_eta2_error, Form("beam_track_avg_tot_strip_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("beam_region_avg_tot_strip_eta1_after_reco", &data.tot_results_beam_track.avg_tot_eta1, Form("beam_region_avg_tot_strip_eta1_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("beam_region_avg_tot_strip_eta2_after_reco", &data.tot_results_beam_track.avg_tot_eta2, Form("beam_region_avg_tot_strip_eta2_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("beam_region_avg_tot_strip_eta1_after_reco_error", &data.tot_results_beam_track.avg_tot_eta1_error, Form("beam_region_avg_tot_strip_eta1_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("beam_region_avg_tot_strip_eta2_after_reco_error", &data.tot_results_beam_track.avg_tot_eta2_error, Form("beam_region_avg_tot_strip_eta2_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
     // Multiplicity results
-    summary_tree->Branch("avg_multiplicity_eta1", &data.multiplicity_results.avg_multiplicity_eta1, Form("avg_multiplicity_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_multiplicity_eta2", &data.multiplicity_results.avg_multiplicity_eta2, Form("avg_multiplicity_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_multiplicity_eta1_error", &data.multiplicity_results.avg_multiplicity_eta1_error, Form("avg_multiplicity_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("avg_multiplicity_eta2_error", &data.multiplicity_results.avg_multiplicity_eta2_error, Form("avg_multiplicity_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_multiplicity_eta1_before_reco", &data.multiplicity_results.avg_multiplicity_eta1, Form("avg_multiplicity_eta1_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_multiplicity_eta2_before_reco", &data.multiplicity_results.avg_multiplicity_eta2, Form("avg_multiplicity_eta2_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_multiplicity_eta1_before_reco_error", &data.multiplicity_results.avg_multiplicity_eta1_error, Form("avg_multiplicity_eta1_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_multiplicity_eta2_before_reco_error", &data.multiplicity_results.avg_multiplicity_eta2_error, Form("avg_multiplicity_eta2_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
-    summary_tree->Branch("track_avg_multiplicity_eta1", &data.multiplicity_results_tracks.avg_multiplicity_eta1, Form("track_avg_multiplicity_eta1[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_multiplicity_eta2", &data.multiplicity_results_tracks.avg_multiplicity_eta2, Form("track_avg_multiplicity_eta2[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("track_avg_multiplicity_eta1_error", &data.multiplicity_results_tracks.avg_multiplicity_eta1_error, Form("track_avg_multiplicity_eta1_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("track_avg_multiplicity_eta2_error", &data.multiplicity_results_tracks.avg_multiplicity_eta2_error, Form("track_avg_multiplicity_eta2_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_multiplicity_eta1_after_reco", &data.multiplicity_results_tracks.avg_multiplicity_eta1, Form("avg_multiplicity_eta1_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_multiplicity_eta2_after_reco", &data.multiplicity_results_tracks.avg_multiplicity_eta2, Form("avg_multiplicity_eta2_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_multiplicity_eta1_after_reco_error", &data.multiplicity_results_tracks.avg_multiplicity_eta1_error, Form("avg_multiplicity_eta1_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_multiplicity_eta2_after_reco_error", &data.multiplicity_results_tracks.avg_multiplicity_eta2_error, Form("avg_multiplicity_eta2_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
     // ToF results
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
