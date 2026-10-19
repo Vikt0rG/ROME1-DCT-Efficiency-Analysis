@@ -334,8 +334,8 @@ namespace {
         "rate_layers_eta1_after_reco", "rate_layers_eta2_after_reco", "rate_layers_or_after_reco", "rate_layers_and_after_reco",
         "avg_tot_layer_eta1_before_reco", "avg_tot_layer_eta2_before_reco",
         "avg_tot_layer_eta1_after_reco", "avg_tot_layer_eta2_after_reco",
-        "beam_avg_tot_layer_eta1_before_reco", "beam_avg_tot_layer_eta2_before_reco",
-        "beam_avg_tot_layer_eta1_after_reco", "beam_avg_tot_layer_eta2_after_reco"
+        "beam_region_avg_tot_layer_eta1_before_reco", "beam_region_avg_tot_layer_eta2_before_reco",
+        "beam_region_avg_tot_layer_eta1_after_reco", "beam_region_avg_tot_layer_eta2_after_reco"
     };
 
     const std::vector<std::string> scalar_metrics = {
@@ -349,8 +349,8 @@ namespace {
         "rate_strips_eta1_after_reco", "rate_strips_eta2_after_reco", "rate_strips_or_after_reco", "rate_strips_and_after_reco",
         "avg_tot_strip_eta1_before_reco", "avg_tot_strip_eta2_before_reco",
         "avg_tot_strip_eta1_after_reco", "avg_tot_strip_eta2_after_reco",
-        "beam_avg_tot_strip_eta1_before_reco", "beam_avg_tot_strip_eta2_before_reco",
-        "beam_avg_tot_strip_eta1_after_reco", "beam_avg_tot_strip_eta2_after_reco",
+        "beam_region_avg_tot_strip_eta1_before_reco", "beam_region_avg_tot_strip_eta2_before_reco",
+        "beam_region_avg_tot_strip_eta1_after_reco", "beam_region_avg_tot_strip_eta2_after_reco",
         "avg_multiplicity_eta1_before_reco", "avg_multiplicity_eta2_before_reco",
         "avg_multiplicity_eta1_after_reco", "avg_multiplicity_eta2_after_reco"
     };
