@@ -1206,7 +1206,7 @@ namespace PlotStyler {
 
         convertMultiGraphToEfficiencyScale(mg);
 
-        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), mg);
 
         canvas->cd();
         mg->Draw("AP0Z");
@@ -1257,7 +1257,7 @@ namespace PlotStyler {
 
         TPaveText* header = drawATLASHeaderBlock(
             ndc_x0 + 0.03,
-            ndc_y0 - 0.09,
+            ndc_y0 - 0.10,
             "Work in Progress",
             title_lines,
             12,
@@ -1359,7 +1359,10 @@ namespace PlotStyler {
 
         convertMultiGraphToEfficiencyScale(mg);
 
-        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), mg);
+
+        std::string suffix = moveSideContextToAxisTitle(y_label, title_lines);
+        if (!suffix.empty()) y_label = "Rate " + suffix + " [Hz/cm^{2}]";
 
         obj->Draw("AP0Z");
 
@@ -1429,7 +1432,10 @@ namespace PlotStyler {
 
     void styleRateStripVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
         auto mg = dynamic_cast<TMultiGraph*>(obj);
-        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), mg);
+
+        std::string suffix = moveSideContextToAxisTitle(y_label, title_lines);
+        if (!suffix.empty()) y_label = "Rate " + suffix + " [Hz/cm^{2}]";
 
         int n_graphs = (mg && mg->GetListOfGraphs()) ? mg->GetListOfGraphs()->GetSize() : 0;
         bool is_strip_plot = (n_graphs > 3);
@@ -1520,7 +1526,7 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 + 0.03, ndc_y0 - 0.10,
+            ndc_x0 + 0.03, ndc_y0 - 0.12,
             "Work in Progress",
             title_lines,
             12,
@@ -1915,7 +1921,7 @@ namespace PlotStyler {
 
     void styleTRStripVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
         auto mg = dynamic_cast<TMultiGraph*>(obj);
-        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), mg);
 
         int n_graphs = (mg && mg->GetListOfGraphs()) ? mg->GetListOfGraphs()->GetSize() : 0;
         bool is_strip_plot = (n_graphs > 3);
@@ -2047,7 +2053,7 @@ namespace PlotStyler {
 
     void styleAvgToTVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
         auto mg = dynamic_cast<TMultiGraph*>(obj);
-        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), mg);
 
         int n_graphs = (mg && mg->GetListOfGraphs()) ? mg->GetListOfGraphs()->GetSize() : 0;
         bool is_strip_plot = (n_graphs > 3);
@@ -2141,7 +2147,7 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 + 0.03, ndc_y0 - 0.10,
+            ndc_x0 + 0.03, ndc_y0 - 0.12,
             "Work in Progress",
             title_lines,
             12,
@@ -2183,7 +2189,7 @@ namespace PlotStyler {
     void styleAvgMulVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
 
         auto mg = dynamic_cast<TMultiGraph*>(obj);
-        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), mg);
 
         // Differentiate between a 24-strip plot and a 3-layer plot
         bool is_strip_plot = (mg && mg->GetListOfGraphs() && mg->GetListOfGraphs()->GetSize() > 10);
@@ -2264,12 +2270,12 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 + 0.03, ndc_y0 - 0.10,
+            ndc_x0 + 0.03, ndc_y0 - 0.12,
             "Work in Progress",
             title_lines,
             12,
             kWhite, 0.70,
-            kBlack, 1,
+            kBlack, 0,
             0.01
         );
 
@@ -2385,8 +2391,8 @@ namespace PlotStyler {
         double ndc_x0 = canvas->GetLeftMargin();
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
-        drawATLASHeaderBlock(
-            ndc_x0 + 0.03, ndc_y0 - 0.09,
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 + 0.03, ndc_y0 - 0.12,
             "Work in Progress",
             title_lines,
             12,
@@ -2395,7 +2401,12 @@ namespace PlotStyler {
             0.01
         );
 
-        drawATLASLegend(obj, legend_entries, ndc_x0 + 0.03, ndc_y0 - 0.15, 13);
+        canvas->Modified();
+        canvas->Update();
+
+        if (header) ndc_y0 = header->GetY1NDC() - 0.04;
+
+        drawATLASLegend(obj, legend_entries, ndc_x0 + 0.03, ndc_y0, 13, "f", kWhite, 0.50, kWhite, 0);
 
         canvas->Modified();
         canvas->Update();
@@ -2404,6 +2415,8 @@ namespace PlotStyler {
     void styleCSDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
         auto h1 = dynamic_cast<TH1*>(obj);
         if (!h1) return;
+
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), h1);
 
         double x_max = h1->GetXaxis()->GetXmax();
         double y_max = h1->GetMaximum() * 1.15;
@@ -2434,7 +2447,7 @@ namespace PlotStyler {
             if (y_max_line > 0) {
                 TLine* edge = new TLine(x, 0.0, x, y_max_line);
                 edge->SetLineColorAlpha(kOrange + 7, 0.55);
-                edge->SetLineWidth(1);
+                edge->SetLineWidth(2);
                 edge->Draw();
             }
         }
@@ -2454,7 +2467,22 @@ namespace PlotStyler {
         double ndc_x0 = 1.0 - canvas->GetRightMargin();
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
-        TLegend* fit_legend = new TLegend(ndc_x0 - 0.40, ndc_y0 - 0.3, ndc_x0 - 0.03, ndc_y0 - 0.13);
+        TPaveText* header = drawATLASHeaderBlock(
+            ndc_x0 - 0.03, ndc_y0 - 0.15,
+            "Work in Progress",
+            title_lines,
+            32,
+            kWhite, 0.70,
+            kBlack, 0,
+            0.01
+        );
+
+        canvas->Modified();
+        canvas->Update();
+
+        if (header) ndc_y0 = header->GetY1NDC() - 0.04;
+
+        TLegend* fit_legend = new TLegend(ndc_x0 - 0.40, ndc_y0, ndc_x0 - 0.03, ndc_y0 - 0.04);
         fit_legend->SetTextAlign(12);
         fit_legend->SetBorderSize(0);
         fit_legend->SetFillStyle(0);
@@ -2465,17 +2493,6 @@ namespace PlotStyler {
         fit_legend->AddEntry((TObject*)nullptr, Form("Mean CS = %.3f #pm %.3f", mean_cs, ep1), "");
 
         fit_legend->Draw();
-
-        std::string plot_title = obj ? obj->GetTitle() : "";
-        drawATLASHeaderBlock(
-            ndc_x0 - 0.03, ndc_y0 - 0.09,
-            "Work in Progress",
-            plot_title,
-            32,
-            kWhite, 0.70,
-            kBlack, 0,
-            0.01
-        );
     }
 
     void styleRoI(TObject* obj, TCanvas* canvas, TClass* cl) {
@@ -2543,6 +2560,8 @@ namespace PlotStyler {
     void styleToFDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
         auto h1 = dynamic_cast<TH1*>(obj);
         if (!h1) return;
+
+        auto [title_lines, x_label, y_label, _] = compilePlotLabels(obj->GetName(), h1);
 
         // Fetch dynamic percentile ranges set on the histogram
         double x_min_data = h1->GetXaxis()->GetXmin();
@@ -2642,9 +2661,9 @@ namespace PlotStyler {
 
         std::string plot_title = obj ? obj->GetTitle() : "";
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 + 0.03, ndc_y0 - 0.09,
+            ndc_x0 + 0.03, ndc_y0 - 0.14,
             "Work in Progress",
-            plot_title,
+            title_lines,
             12,
             kWhite, 0.70,
             kBlack, 0,
@@ -2679,7 +2698,7 @@ namespace PlotStyler {
 
         h2->Draw("COLZ");
 
-        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(h2->GetTitle(), h2);
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(h2->GetName(), h2);
 
         applyATLASStyle(obj, canvas);
 
@@ -2715,11 +2734,11 @@ namespace PlotStyler {
         double ndc_x0 = 1.0 - canvas->GetRightMargin();
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
-        std::string plot_title = obj ? obj->GetTitle() : "";
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), h1);
         drawATLASHeaderBlock(
             ndc_x0 - 0.03, ndc_y0 - 0.10,
             "Work in Progress",
-            plot_title,
+            title_lines,
             32,
             kWhite, 0.00,
             kBlack, 0,
@@ -2730,7 +2749,7 @@ namespace PlotStyler {
     void styleToTCombSidesDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
         auto stack = dynamic_cast<THStack*>(obj);
 
-        auto [title_lines, x_label, y_label, compiled_legend_entries] = compilePlotLabels(obj->GetTitle(), stack);
+        auto [title_lines, x_label, y_label, _] = compilePlotLabels(obj->GetName(), stack);
 
         if (!stack) return;
 
@@ -2828,13 +2847,13 @@ namespace PlotStyler {
             Objects::hatchedRegion(pad1, TOT_ROI_MAX, x_max, y_min, y_max, 3244);
 
             double x_ndc = (TOT_ROI_MAX - pad1->GetX1()) / (pad1->GetX2() - pad1->GetX1());
+            double y_ndc = 0.10;
             x_ndc += 0.015;
-            double y_ndc = 0.35;
 
             TLatex* roi_text = new TLatex();
             roi_text->SetNDC(true);
             roi_text->SetTextAngle(90);
-            roi_text->SetTextAlign(23);
+            roi_text->SetTextAlign(13);
             roi_text->SetTextFont(42);
             roi_text->SetTextSize(0.035);
             roi_text->SetTextColor(kBlack);
@@ -2855,12 +2874,11 @@ namespace PlotStyler {
         double ndc_x0 = 1.0 - pad1->GetRightMargin();
         double ndc_y0 = 1.0 - pad1->GetTopMargin();
 
-        std::string plot_title = obj ? obj->GetTitle() : "";
         TPaveText* header = drawATLASHeaderBlock(
             ndc_x0 - 0.05,
-            ndc_y0 - 0.09,
+            ndc_y0 - 0.14,
             "Work in Progress",
-            plot_title,
+            title_lines,
             32,
             kWhite, 0.70f,
             kWhite, 0,
@@ -3020,16 +3038,17 @@ namespace PlotStyler {
             Objects::hatchedRegion(pad1, TOT_ROI_MAX, u_xmax, u_ymin, u_ymax, 3244);
 
             double x_ndc = (TOT_ROI_MAX - pad1->GetX1()) / (pad1->GetX2() - pad1->GetX1());
+            double y_ndc = 0.10;
             x_ndc += 0.015;
 
             TLatex* roi_text_x = new TLatex();
             roi_text_x->SetNDC(true);
             roi_text_x->SetTextAngle(90);
-            roi_text_x->SetTextAlign(23);
+            roi_text_x->SetTextAlign(13);
             roi_text_x->SetTextFont(42);
             roi_text_x->SetTextSize(0.035);
             roi_text_x->SetTextColor(kBlack);
-            roi_text_x->DrawLatex(x_ndc, 0.35, "Streamer/Afterpulse Region");
+            roi_text_x->DrawLatex(x_ndc, y_ndc, "Streamer/Afterpulse Region");
         }
 
         // Hatched Region on Y-axis (Secondary ToT > TOT_ROI_MAX)
@@ -3042,13 +3061,13 @@ namespace PlotStyler {
 
         double ndc_x0 = pad1->GetLeftMargin();
         double ndc_y0 = 1.0 - pad1->GetTopMargin();
+        auto [title_lines, x_label, y_label, _] = compilePlotLabels(obj->GetName(), h2d);
 
-        std::string plot_title = obj ? obj->GetTitle() : "";
         drawATLASHeaderBlock(
             ndc_x0 + 0.05,
-            ndc_y0 - 0.09,
+            ndc_y0 - 0.14,
             "Work in Progress",
-            plot_title,
+            title_lines,
             12,
             kWhite, 0.70f,
             kWhite, 0,
@@ -3066,7 +3085,7 @@ namespace PlotStyler {
     void styleToTCombMultiDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
         auto stack = dynamic_cast<THStack*>(obj);
 
-        auto [title_lines, x_label, y_label, compiled_legend_entries] = compilePlotLabels(obj->GetTitle(), stack);
+        auto [title_lines, x_label, y_label, _] = compilePlotLabels(obj->GetName(), stack);
 
         if (!stack) return;
 
@@ -3163,13 +3182,13 @@ namespace PlotStyler {
             Objects::hatchedRegion(pad1, TOT_ROI_MAX, x_max, y_min, y_max, 3244);
 
             double x_ndc = (TOT_ROI_MAX - pad1->GetX1()) / (pad1->GetX2() - pad1->GetX1());
+            double y_ndc = 0.10;
             x_ndc += 0.015;
-            double y_ndc = 0.35;
 
             TLatex* roi_text = new TLatex();
             roi_text->SetNDC(true);
             roi_text->SetTextAngle(90);
-            roi_text->SetTextAlign(23);
+            roi_text->SetTextAlign(13);
             roi_text->SetTextFont(42);
             roi_text->SetTextSize(0.035);
             roi_text->SetTextColor(kBlack);
@@ -3190,12 +3209,11 @@ namespace PlotStyler {
         double ndc_x0 = 1.0 - pad1->GetRightMargin();
         double ndc_y0 = 1.0 - pad1->GetTopMargin();
 
-        std::string plot_title = obj ? obj->GetTitle() : "";
         TPaveText* header = drawATLASHeaderBlock(
             ndc_x0 - 0.05,
-            ndc_y0 - 0.09,
+            ndc_y0 - 0.14,
             "Work in Progress",
-            plot_title,
+            title_lines,
             32,
             kWhite, 0.70f,
             kWhite, 0,
@@ -3294,7 +3312,7 @@ namespace PlotStyler {
     void styleToTCombLayersDistribution(TObject* obj, TCanvas* canvas, TClass* cl) {
         auto stack = dynamic_cast<THStack*>(obj);
 
-        auto [title_lines, x_label, y_label, compiled_legend_entries] = compilePlotLabels(obj->GetTitle(), stack);
+        auto [title_lines, x_label, y_label, _] = compilePlotLabels(obj->GetName(), stack);
 
         if (!stack) return;
 
@@ -3385,13 +3403,13 @@ namespace PlotStyler {
             Objects::hatchedRegion(pad1, TOT_ROI_MAX, x_max, y_min, y_max, 3244);
 
             double x_ndc = (TOT_ROI_MAX - pad1->GetX1()) / (pad1->GetX2() - pad1->GetX1());
+            double y_ndc = 0.10;
             x_ndc += 0.015;
-            double y_ndc = 0.35;
 
             TLatex* roi_text = new TLatex();
             roi_text->SetNDC(true);
             roi_text->SetTextAngle(90);
-            roi_text->SetTextAlign(23);
+            roi_text->SetTextAlign(13);
             roi_text->SetTextFont(42);
             roi_text->SetTextSize(0.035);
             roi_text->SetTextColor(kBlack);
@@ -3412,12 +3430,11 @@ namespace PlotStyler {
         double ndc_x0 = 1.0 - pad1->GetRightMargin();
         double ndc_y0 = 1.0 - pad1->GetTopMargin();
 
-        std::string plot_title = obj ? obj->GetTitle() : "";
         TPaveText* header = drawATLASHeaderBlock(
             ndc_x0 - 0.05,
-            ndc_y0 - 0.09,
+            ndc_y0 - 0.14,
             "Work in Progress",
-            plot_title,
+            title_lines,
             32,
             kWhite, 0.70f,
             kWhite, 0,
@@ -3428,7 +3445,7 @@ namespace PlotStyler {
         pad1->Update();
 
         std::vector<std::string> legend_entries = {" Layer 0", " Layer 1", " Layer 2"};
-        double legend_y = header ? header->GetY1NDC() - 0.10 : 0.70;
+        double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
         double leg_width = 0.32;
         double leg_height = histograms.size() * 0.04;
 
@@ -3591,7 +3608,7 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 - 0.03, ndc_y0 - 0.09,
+            ndc_x0 - 0.03, ndc_y0 - 0.14,
             "Work in Progress", title_lines, 32,
             kWhite, 0.00,
             kBlack, 0, 0.01
@@ -3608,7 +3625,6 @@ namespace PlotStyler {
         TLegend* leg = new TLegend(ndc_x0 - 0.03 - leg_width, legend_y - leg_height, ndc_x0 - 0.03, legend_y);
         leg->SetBorderSize(0);
         leg->SetLineColor(kWhite);
-        leg->SetFillStyle(1001);
         leg->SetFillColorAlpha(kWhite, 0.5);
         leg->SetTextFont(42);
         leg->SetTextSize(0.04);
@@ -3627,12 +3643,10 @@ namespace PlotStyler {
         auto stack = dynamic_cast<THStack*>(obj);
         if (!stack) return;
 
-        // Extract the title
-        std::string full_title = obj->GetTitle();
-        size_t semicolon_pos = full_title.find(';');
-        std::string title = (semicolon_pos != std::string::npos) ? full_title.substr(0, semicolon_pos) : full_title;
+        auto [title_lines, x_label, y_label, _] = compilePlotLabels(obj->GetName(), stack);
 
         std::vector<TH1*> histograms;
+        double global_min_with_err = std::numeric_limits<double>::max();
         double global_max_with_err = -std::numeric_limits<double>::max();
         const std::vector<Color_t> palette = {
             kAzure + 2,
@@ -3660,9 +3674,8 @@ namespace PlotStyler {
                     // Extract max + error for this specific histogram
                     for (int bin = 1; bin <= h->GetNbinsX(); ++bin) {
                         double val_with_err = h->GetBinContent(bin) + h->GetBinError(bin);
-                        if (val_with_err > global_max_with_err) {
-                            global_max_with_err = val_with_err;
-                        }
+                        if (val_with_err > global_max_with_err) global_max_with_err = val_with_err;
+                        if (val_with_err < global_min_with_err) global_min_with_err = val_with_err;
                     }
 
                     histograms.push_back(h);
@@ -3675,12 +3688,15 @@ namespace PlotStyler {
 
         if (auto h = stack->GetHistogram()) {
             if (TAxis* yAxis = h->GetYaxis()) {
-                if (global_max_with_err <= 0) global_max_with_err = 1.0;
-                yAxis->SetRangeUser(0.0, global_max_with_err * 1.25);
+                if (global_max_with_err <= 0 || global_min_with_err >= 0) global_max_with_err = 1.0;
+                yAxis->SetRangeUser(global_min_with_err * 0.75, global_max_with_err * 1.25);
             }
         }
-
-        if (auto named_obj = dynamic_cast<TNamed*>(obj)) named_obj->SetTitle(title.c_str());
+        if (auto h = stack->GetHistogram()) {
+            if (TAxis* yAxis = h->GetYaxis()) {
+                setRange(stack, yAxis, AxisType::Y, 0.95, std::nullopt, {.y_max = 2.0});
+            }
+        }
 
         // Update canvas offsets, margins and enforce integer minor ticks
         applyATLASStyle(obj, canvas);
@@ -3693,8 +3709,8 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 - 0.03, ndc_y0 - 0.09,
-            "Work in Progress", title, 32,
+            ndc_x0 - 0.03, ndc_y0 - 0.14,
+            "Work in Progress", title_lines, 32,
             kWhite, 0.70, kBlack, 0, 0.01
         );
 
@@ -3728,10 +3744,7 @@ namespace PlotStyler {
         auto stack = dynamic_cast<THStack*>(obj);
         if (!stack) return;
 
-        // Extract the title
-        std::string full_title = obj->GetTitle();
-        size_t semicolon_pos = full_title.find(';');
-        std::string title = (semicolon_pos != std::string::npos) ? full_title.substr(0, semicolon_pos) : full_title;
+        auto [title_lines, x_label, y_label, _] = compilePlotLabels(obj->GetName(), stack);
 
         // Draw the stack with points and error bars
         stack->Draw("NOSTACK PE");
@@ -3772,16 +3785,23 @@ namespace PlotStyler {
             }
         }
 
-        // Draw a horizonal line at y=1.0 to indicate the baseline
-        double x_min = stack->GetXaxis()->GetXmin();
-        double x_max = stack->GetXaxis()->GetXmax();
-        TLine* baseline_line = new TLine(x_min, 1.0, x_max, 1.0);
-        baseline_line->SetLineColor(kBlack);
-        baseline_line->SetLineStyle(2);
-        baseline_line->SetLineWidth(1);
-        baseline_line->Draw();
+        canvas->Modified();
+        canvas->Update();
 
-        if (auto named_obj = dynamic_cast<TNamed*>(obj)) named_obj->SetTitle(title.c_str());
+        // Draw horizontal line at y=1.0
+        double y_min_pad = gPad->GetUymin();
+        double y_max_pad = gPad->GetUymax();
+
+        if (1.0 >= y_min_pad && 1.0 <= y_max_pad) {
+            double x_min = stack->GetXaxis()->GetXmin();
+            double x_max = stack->GetXaxis()->GetXmax();
+
+            TLine* baseline_line = new TLine(x_min, 1.0, x_max, 1.0);
+            baseline_line->SetLineColor(kBlack);
+            baseline_line->SetLineStyle(2);
+            baseline_line->SetLineWidth(1);
+            baseline_line->Draw();
+        }
 
         applyATLASStyle(obj, canvas);
         enforceIntegerMinorTicks(stack->GetXaxis());
@@ -3792,8 +3812,8 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 - 0.03, ndc_y0 - 0.09,
-            "Work in Progress", title, 32,
+            ndc_x0 - 0.03, ndc_y0 - 0.14,
+            "Work in Progress", title_lines, 32,
             kWhite, 0.70, kBlack, 0, 0.01
         );
 
@@ -3827,10 +3847,7 @@ namespace PlotStyler {
         auto stack = dynamic_cast<THStack*>(obj);
         if (!stack) return;
 
-        // Extract the title
-        std::string full_title = obj->GetTitle();
-        size_t semicolon_pos = full_title.find(';');
-        std::string title = (semicolon_pos != std::string::npos) ? full_title.substr(0, semicolon_pos) : full_title;
+        auto [title_lines, x_label, y_label, _] = compilePlotLabels(obj->GetName(), stack);
 
         std::vector<TH1*> histograms;
         const std::vector<Color_t> palette = {
@@ -3880,8 +3897,8 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 - 0.03, ndc_y0 - 0.09,
-            "Work in Progress", title, 32,
+            ndc_x0 - 0.03, ndc_y0 - 0.14,
+            "Work in Progress", title_lines, 32,
             kWhite, 0.70, kBlack, 0, 0.01
         );
 
@@ -3939,15 +3956,11 @@ namespace PlotStyler {
         double ndc_x0 = canvas->GetLeftMargin();
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
-        std::string plot_title = obj ? obj->GetTitle() : "";
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), obj);
         drawATLASHeaderBlock(
-            ndc_x0 + 0.03, ndc_y0 - 0.10,
-            "Work in Progress",
-            plot_title,
-            12,
-            kWhite, 0.70,
-            kBlack, 1,
-            0.01
+            ndc_x0 + 0.03, ndc_y0 - 0.16,
+            "Work in Progress", title_lines, 12,
+            kWhite, 0.70, kBlack, 0, 0.01
         );
     }
 

@@ -21,6 +21,34 @@ namespace PlotStyler {
 
     std::string matchLabels(const std::string& name, const std::string& pattern);
 
+    struct LVSettings {
+        double v_amp_eta1;
+        double v_amp_eta2;
+        double v_th;
+    };
+    inline static const std::map<int, LVSettings>& getLVLookupTable() {
+        static const std::map<int, LVSettings> lv_table = {
+            {1, {1.35, 1.50, 2.20}},
+            {2, {1.25, 1.40, 2.20}},
+            {3, {1.45, 1.60, 2.20}},
+            {4, {1.15, 1.30, 2.20}},
+            {5, {1.55, 1.70, 2.20}},
+            {6, {1.05, 1.20, 2.20}},
+            {7, {1.25, 1.50, 2.20}},
+            {78, {1.30, 1.30, 1.80}},
+        };
+        return lv_table;
+    }
+    inline static const std::map<double, int>& getFilterLookupTable() {
+        static const std::map<double, int> filter_table = {
+            {3.3, 538},
+            {6.9, 364},
+            {10.0, 225},
+            {0.0, 0}
+        };
+        return filter_table;
+    }
+
     std::tuple<std::vector<std::string>, std::string,
     std::string, std::vector<std::string>> compilePlotLabels(
         const std::string& metric_name, TObject* obj);
@@ -30,8 +58,10 @@ namespace PlotStyler {
                   std::optional<double> default_max,
                   const DataCutoffs& cutoffs);
 
+    std::string moveSideContextToAxisTitle(std::string y_axis_label, std::vector<std::string>& title_lines);
     void enforceIntegerMinorTicks(TAxis* axis);
-
+    TGraph* findEfficiencyGraphForObject(TObject* obj);
+    void convertMultiGraphToEfficiencyScale(TMultiGraph* mg);
     StylerFnPtr getCustomStyler(PlotCategory category);
 
     // Styler routines
