@@ -184,8 +184,10 @@ namespace PlotStyler {
     {
         std::vector<std::string> out_title_lines;
         std::string out_xaxis = "High Voltage [V]", out_yaxis;
-        std::vector<std::string> title_parts;
-        std::vector<std::string> title_parts_extended;
+        std::vector<std::string> global_context;
+        std::vector<std::string> geometry_context;
+        std::vector<std::string> measurement_context;
+        std::vector<std::string> voltage_context;
 
         // -------------------------------------------------------------------------
         // Determine Y-Axis based on metric keywords
@@ -214,68 +216,128 @@ namespace PlotStyler {
 
         std::smatch match;
 
-        // Heatmap Prefix
-        if (metric_name.find("h2d_") == 0) {
-            title_parts.push_back("Heatmap");
+        // Track Reconstruction & Beam Context
+        static const std::regex reco_re("(?:^|_)(beam_region|before_reco|after_reco)(?:_|$)");
+
+        std::sregex_iterator next(metric_name.begin(), metric_name.end(), reco_re);
+        std::sregex_iterator end;
+
+        bool has_beam_region = false;
+        bool has_after_reco = false;
+        bool has_before_reco = false;
+
+        while (next != end) {
+            std::string matched_keyword = (*next)[1].str();
+            if (matched_keyword == "beam_region") {
+                has_beam_region = true;
+            } else if (matched_keyword == "after_reco") {
+                has_after_reco = true;
+            } else if (matched_keyword == "before_reco") {
+                has_before_reco = true;
+            }
+            ++next;
+        }
+        if (has_beam_region) global_context.push_back("Beam Spot Region");
+        if (has_after_reco) global_context.push_back("After Track Reco");
+        else if (has_before_reco) global_context.push_back("Before Track Reco");
+
+        // Trigger Context
+        static const std::regex trigger_re("external|rpc|external_rpc");
+        if (std::regex_search(metric_name, match, trigger_re)) {
+            std::string m = match.str(0);
+            if (m == "external") global_context.push_back("External Trigger");
+            else if (m == "rpc") global_context.push_back("RPC Coincidence");
+            else if (m == "external_rpc") global_context.push_back("External Trigger & RPC Coincidence");
+        }
+
+        // Layer Pair Context (e.g., layer_pair_0_1 or layer_pair_0_1_layer_2 / layer2)
+        static const std::regex layer_pair_re("layer_pair_(\\d+)_(\\d+)(?:[ _]?layer[ _]?(\\d+))?");
+        static const std::regex single_layer_re("(?:^|_|\\b)layer[ _]?(\\d+)(?:$|_|\\b)");
+        if (std::regex_search(metric_name, match, layer_pair_re)) {
+            std::string pair_title = Form("#it{t}_{Layer %s} #minus #it{t}_{Layer %s}",
+                                        match[1].str().c_str(),
+                                        match[2].str().c_str());
+            geometry_context.push_back(pair_title);
+
+            if (match[3].matched) geometry_context.push_back("Layer " + match[3].str());
+        }
+        // Single Layer matching fallback
+        else if (std::regex_search(metric_name, match, single_layer_re)) {
+            geometry_context.push_back("Layer " + match[1].str());
+        }
+
+        // Side Context
+        int side = 0;
+        static const std::regex side_re("eta1|eta2|_or|_and");
+        if (std::regex_search(metric_name, match, side_re)) {
+            std::string m = match.str(0);
+            if (m == "eta1") {
+                geometry_context.push_back("Side #eta+");
+                side = 1;
+            }
+            else if (m == "eta2") {
+                geometry_context.push_back("Side #eta-");
+                side = 2;
+            }
+            else if (m == "_or")   geometry_context.push_back("OR(#eta+, #eta-)");
+            else if (m == "_and")  geometry_context.push_back("AND(#eta+, #eta-)");
         }
 
         // Mixture Context
         static const std::regex mixture_re("mix(?:ture)?[ _]?([a-zA-Z0-9]+)");
         if (std::regex_search(metric_name, match, mixture_re)) {
             std::string mixture = match[1].str();
-            title_parts.push_back(mixture + " Mixture");
+            measurement_context.push_back(mixture + " Mixture");
         }
 
-        // Layer Context
-        static const std::regex single_layer_re("layer(\\d+)");
-        if (std::regex_search(metric_name, match, single_layer_re)) {
-            title_parts.push_back("Layer " + match[1].str());
+        // Irradiation Context
+        static const std::regex filter_re("filter[ _]?(\\d+[._]\\d+|OFF)");
+        if (std::regex_search(metric_name, match, filter_re)) {
+            std::string val_str = match[1].str();
+            std::replace(val_str.begin(), val_str.end(), '_', '.');
+
+            if (val_str == "OFF") {
+                measurement_context.push_back("No Irradiation");
+            } else {
+                double filter_val = std::stod(val_str);
+                const auto& filter_table = getFilterLookupTable();
+
+                auto it = filter_table.find(filter_val);
+                if (it != filter_table.end()) {
+                    if (it->second == 0.0) {
+                        measurement_context.push_back("No Irradiation");
+                    } else {
+                        measurement_context.push_back(Form("Irradiation: %.0d Hz/cm^{2}", it->second));
+                    }
+                } else {
+                    measurement_context.push_back(Form("Filter %f", filter_val));
+                }
+            }
         }
 
-        // Side Context
-        static const std::regex side_re("eta1|eta2|_or|_and");
-        if (std::regex_search(metric_name, match, side_re)) {
-            std::string m = match.str(0);
-            if (m == "eta1")       title_parts.push_back("Side #eta+");
-            else if (m == "eta2")  title_parts.push_back("Side #eta-");
-            else if (m == "_or")   title_parts.push_back("OR(#eta+, #eta-)");
-            else if (m == "_and")  title_parts.push_back("AND(#eta+, #eta-)");
-        }
+        // Low Voltate Context
+        /*
+        static const std::regex lv_re("_lv_(\\d+)");
+        if (std::regex_search(metric_name, match, lv_re)) {
+            int lv_val = std::stoi(match[1].str());
+            const auto& lv_table = getLVLookupTable();
 
-        // Layer Pair Context
-        static const std::regex layer_pair_re("layer_(\\d)_(\\d)");
-        if (std::regex_search(metric_name, match, layer_pair_re)) {
-            std::string new_title = Form("#it{t}_{Layer %s} #minus #it{t}_{Layer %s}",
-                                         match[1].str().c_str(),
-                                         match[2].str().c_str());
-            title_parts.push_back(new_title);
+            auto it = lv_table.find(lv_val);
+            if (it != lv_table.end()) {
+                if (side == 1) voltage_context.push_back(Form("V_{Amp} = %.2f V, V_{Th} = %.2f V", it->second.v_amp_eta1, it->second.v_th));
+                else if (side == 2) voltage_context.push_back(Form("V_{Amp} = %.2f V, V_{Th} = %.2f V", it->second.v_amp_eta2, it->second.v_th));
+                else voltage_context.push_back(Form("V_{Amp} = %.2f/%.2f V, V_{Th} = %.2f V", it->second.v_amp_eta1, it->second.v_amp_eta2, it->second.v_th));
+            } else {
+                voltage_context.push_back(Form("LV Setting %d", lv_val));
+            }
         }
+        */
 
         // High Voltage Context
         static const std::regex hv_re("_hv_(\\d+)");
         if (std::regex_search(metric_name, match, hv_re)) {
-            title_parts.push_back("HV: " + match[1].str() + " V");
-        }
-
-        // Track Reconstruction & Beam Context
-        static const std::regex reco_re("^(beam_)?(track_)?(avg_tot|avg_multiplicity|eff|rate)_");
-        if (std::regex_search(metric_name, match, reco_re)) {
-
-            // match[1] is the (beam_) group
-            if (match[1].matched) {
-                title_parts_extended.push_back("Beam Spot Region");
-            }
-
-            // match[2] is the (track_) group
-            title_parts_extended.push_back(match[2].matched ? "After Track Reco" : "Before Track Reco");
-        }
-
-        // Trigger Context
-        static const std::regex trigger_re("external|rpc");
-        if (std::regex_search(metric_name, match, trigger_re)) {
-            std::string m = match.str(0);
-            if (m == "external") title_parts_extended.push_back("External Trigger");
-            else if (m == "rpc") title_parts_extended.push_back("RPC Coincidence");
+            double hv_v = std::stod(match[1].str());
+            voltage_context.push_back(Form("HV = %.0f V", hv_v));
         }
 
         auto joinParts = [](const std::vector<std::string>& parts, const std::string& delim) {
@@ -287,13 +349,18 @@ namespace PlotStyler {
             return result;
         };
 
-        // Assemble Extended Title (e.g., "After Track Reco: External Trigger)
-        if (!title_parts_extended.empty()) {
-            out_title_lines.push_back(joinParts(title_parts_extended, ": "));
+        // Assemble Title
+        if (!global_context.empty()) {
+            out_title_lines.push_back(joinParts(global_context, ": "));
         }
-        // Assemble Title (e.g., "Layers 0 & 1: Side #eta_{1}")
-        if (!title_parts.empty()) {
-            out_title_lines.push_back(joinParts(title_parts, ": "));
+        if (!measurement_context.empty()) {
+            out_title_lines.push_back(joinParts(measurement_context, ": "));
+        }
+        if (!geometry_context.empty()) {
+            out_title_lines.push_back(joinParts(geometry_context, ": "));
+        }
+        if (!voltage_context.empty()) {
+            out_title_lines.push_back(joinParts(voltage_context, ": "));
         }
 
         // -------------------------------------------------------------------------
@@ -303,19 +370,37 @@ namespace PlotStyler {
             TIter next(mg->GetListOfGraphs());
             TObject* obj;
 
+            const auto& filter_table = getFilterLookupTable();
+
             while ((obj = next())) {
 
                 if (auto gr = dynamic_cast<TGraph*>(obj)) {
                     std::string gr_name = gr->GetTitle();
-                    std::string layer = "", strip = "", mixture = "";
+                    std::string layer = "", strip = "", mixture = "", filter = "";
 
                     mixture = matchLabels(gr_name, "mix(?:ture)?[ _]?(\\w+)");
+                    filter = matchLabels(gr_name, "filter[ _]?(\\d+[._]\\d+|OFF)");
                     layer = matchLabels(gr_name, "layer(\\d+)");
                     strip = matchLabels(gr_name, "strip(\\d+)");
                     std::string legend_entry;
 
                     if (!mixture.empty()) {
                         legend_entry = mixture + " Mixture";
+                    }
+                    if (!filter.empty()) {
+                        if (filter == "OFF") {
+                            legend_entry = "No Irradiation";
+                        } else {
+                            std::replace(filter.begin(), filter.end(), '_', '.');
+                            auto it = filter_table.find(std::stod(filter));
+                            if (it != filter_table.end()) {
+                                legend_entry = "Irradiation: " + std::to_string(it->second) + " Hz/cm^{2}";
+
+                                measurement_context.push_back(Form("Irradiation: %.0d Hz/cm^{2}", it->second));
+                            } else {
+                                legend_entry = "Irradiation: " + filter;
+                            }
+                        }
                     }
                     if (!layer.empty()) {
                         legend_entry = "Layer " + layer;
@@ -538,6 +623,37 @@ namespace PlotStyler {
         }
     }
 
+    std::string moveSideContextToAxisTitle(std::string y_axis_label, std::vector<std::string>& title_lines) {
+        std::string side_suffix = "";
+        std::vector<std::pair<std::string, std::string>> side_map = {
+            {"Side #eta+", "#eta+"},
+            {"Side #eta-", "#eta-"},
+            {"OR(#eta+, #eta-)", "OR(#eta+, #eta-)"},
+            {"AND(#eta+, #eta-)", "AND(#eta+, #eta-)"}
+        };
+
+        for (auto& line : title_lines) {
+            for (const auto& [search_str, suffix] : side_map) {
+                size_t pos = line.find(search_str);
+                if (pos != std::string::npos) {
+                    side_suffix = suffix;
+
+                    // Remove the substring from the title line
+                    line.erase(pos, search_str.length());
+
+                    // Clean up any dangling delimiters (": ") left over from the erasure
+                    while (line.find(":  :") != std::string::npos) line.replace(line.find(":  :"), 4, ": ");
+                    while (line.find(": :") != std::string::npos) line.replace(line.find(": :"), 3, ":");
+                    if (line.find(": ") == 0) line.erase(0, 2);
+                    if (line.length() >= 2 && line.substr(line.length() - 2) == ": ") line.erase(line.length() - 2);
+                    break;
+                }
+            }
+        }
+        title_lines.erase(std::remove(title_lines.begin(), title_lines.end(), ""), title_lines.end());
+        return side_suffix;
+    }
+
     void enforceIntegerMinorTicks(TAxis* axis) {
         if (!axis) return;
 
@@ -584,7 +700,7 @@ namespace PlotStyler {
             TDirectory* eff_dir = group_dir->GetDirectory("efficiency_analysis");
             if (!eff_dir) return nullptr;
 
-            TObject* eff_obj = eff_dir->Get("eff_or_rpc");
+            TObject* eff_obj = eff_dir->Get("eff_or_rpc_after_reco");
             if (!eff_obj) return nullptr;
 
             if (auto g = dynamic_cast<TGraph*>(eff_obj)) return g;
@@ -625,7 +741,7 @@ namespace PlotStyler {
             TDirectory* eff_dir = group_dir->GetDirectory("efficiency_analysis");
             if (!eff_dir) return nullptr;
 
-            TObject* eff_obj = eff_dir->Get("eff_or_rpc");
+            TObject* eff_obj = eff_dir->Get("eff_or_rpc_after_reco");
             if (!eff_obj) return nullptr;
 
             if (auto g = dynamic_cast<TGraph*>(eff_obj)) return g;
@@ -849,42 +965,12 @@ namespace PlotStyler {
 
         // Extract title and axis labels from the object's title string
         auto mg = dynamic_cast<TMultiGraph*>(obj);
-        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), mg);
 
-        // Extract side context for y-axis & remove it from the header block
-        std::string side_suffix = "";
-        std::vector<std::pair<std::string, std::string>> side_map = {
-            {"Side #eta+", "#eta+"},
-            {"Side #eta-", "#eta-"},
-            {"OR(#eta+, #eta-)", "OR(#eta+, #eta-)"},
-            {"AND(#eta+, #eta-)", "AND(#eta+, #eta-)"}
-        };
-
-        for (auto& line : title_lines) {
-            for (const auto& [search_str, suffix] : side_map) {
-                size_t pos = line.find(search_str);
-                if (pos != std::string::npos) {
-                    side_suffix = suffix;
-
-                    // Remove the substring from the title line
-                    line.erase(pos, search_str.length());
-
-                    // Clean up any dangling delimiters (": ") left over from the erasure
-                    while (line.find(":  :") != std::string::npos) line.replace(line.find(":  :"), 4, ": ");
-                    while (line.find(": :") != std::string::npos) line.replace(line.find(": :"), 3, ":");
-                    if (line.find(": ") == 0) line.erase(0, 2);
-                    if (line.length() >= 2 && line.substr(line.length() - 2) == ": ") line.erase(line.length() - 2);
-                    break;
-                }
-            }
-        }
-
-        title_lines.erase(std::remove(title_lines.begin(), title_lines.end(), ""), title_lines.end());
+        std::string side_suffix = moveSideContextToAxisTitle(y_label, title_lines);
 
         // Override the Y-axis label with the extracted context
-        if (!side_suffix.empty()) {
-            y_label = "Efficiency " + side_suffix;
-        }
+        if (!side_suffix.empty()) y_label = "Efficiency " + side_suffix;
 
         obj->Draw("APE0");
 
