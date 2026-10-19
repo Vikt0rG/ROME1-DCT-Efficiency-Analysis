@@ -406,10 +406,10 @@ void getRate(TFile* input_file, RateResults& rate_results, bool in_valid_track_o
     std::array<long long, 3> total_hits_per_layer_and = {0, 0, 0};
 
     // Eta/Layer/Strip-specific counters
-    long long hits_per_strip_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
-    long long hits_per_strip_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
-    long long hits_per_strip_or[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
-    long long hits_per_strip_and[LAYER_COUNT][STRIPS_PER_LAYER] = {{0}};
+    long long hits_per_strip_eta1[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    long long hits_per_strip_eta2[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    long long hits_per_strip_or[LAYER_COUNT][STRIPS_PER_LAYER] = {};
+    long long hits_per_strip_and[LAYER_COUNT][STRIPS_PER_LAYER] = {};
     while (readerProcData.Next() && readerTrackData.Next()) {
         event_count += 1;
 
@@ -421,6 +421,8 @@ void getRate(TFile* input_file, RateResults& rate_results, bool in_valid_track_o
             for (size_t i = 0; i < n_hits; ++i) {
                 int layer = (*layers)[i];
                 int strip = perFileHelpers::remapStrip((*strips)[i]);
+
+                if (layer < 0 || layer >= LAYER_COUNT || strip < 0 || strip >= STRIPS_PER_LAYER) continue;
 
                 bool pass_track_cut = !in_valid_track_only || ((*in_valid_track_eta1)[i] || (*in_valid_track_eta2)[i]);
                 if (!pass_track_cut) continue;
