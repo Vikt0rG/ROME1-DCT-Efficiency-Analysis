@@ -272,11 +272,11 @@ namespace PlotStyler {
         if (std::regex_search(metric_name, match, side_re)) {
             std::string m = match.str(0);
             if (m == "eta1") {
-                geometry_context.push_back("Side #eta+");
+                ETA_INVERTED ? geometry_context.push_back("Side #eta-") : geometry_context.push_back("Side #eta+");
                 side = 1;
             }
             else if (m == "eta2") {
-                geometry_context.push_back("Side #eta-");
+                ETA_INVERTED ? geometry_context.push_back("Side #eta+") : geometry_context.push_back("Side #eta-");
                 side = 2;
             }
             else if (m == "_or")   geometry_context.push_back("OR(#eta+, #eta-)");
@@ -296,7 +296,9 @@ namespace PlotStyler {
             std::string val_str = match[1].str();
             std::replace(val_str.begin(), val_str.end(), '_', '.');
 
-            if (val_str == "OFF") {
+            if (IS_COSMICS_RUN) {
+                measurement_context.push_back("Cosmic Rays");
+            } else if (val_str == "OFF") {
                 measurement_context.push_back("No Irradiation");
             } else {
                 double filter_val = std::stod(val_str);
@@ -414,8 +416,8 @@ namespace PlotStyler {
             }
         } else if (auto stack = dynamic_cast<THStack*>(obj)) {
             if (metric_name.find("tot") != std::string::npos) {
-                legend_entries.push_back("Side #eta+");
-                legend_entries.push_back("Side #eta-");
+                legend_entries.push_back(ETA_INVERTED ? "Side #eta-" : "Side #eta+");
+                legend_entries.push_back(ETA_INVERTED ? "Side #eta+" : "Side #eta-");
             } else if (metric_name.find("strip") != std::string::npos) {
                 if (stack->GetHists()) {
                     TIter next(stack->GetHists());
@@ -2888,9 +2890,9 @@ namespace PlotStyler {
         pad1->Modified();
         pad1->Update();
 
-        std::vector<std::string> legend_entries = {" Side #eta+", " Side #eta-"};
+        std::vector<std::string> legend_entries = { ETA_INVERTED ? "Side #eta-" : "Side #eta+", ETA_INVERTED ? "Side #eta+" : "Side #eta-" };
         double legend_y = header ? header->GetY1NDC() - 0.05 : 0.70;
-        double leg_width = 0.32;
+        double leg_width = 0.36;
         double leg_height = histograms.size() * 0.04;
 
         TLegend* leg = new TLegend(ndc_x0 - 0.05 - leg_width, legend_y - leg_height, ndc_x0 - 0.05, legend_y);
@@ -2941,7 +2943,7 @@ namespace PlotStyler {
             rx->SetTickLength(0.06);
         }
         if (ry) {
-            ry->SetTitle("#eta+ / #eta-");
+            ry->SetTitle(ETA_INVERTED ? "#eta- / #eta+" : "#eta+ / #eta-");
             ry->SetTitleFont(42);
             ry->SetLabelFont(42);
             ry->SetTitleSize(0.14);

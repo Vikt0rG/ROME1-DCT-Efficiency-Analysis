@@ -603,7 +603,7 @@ void plotCS(TFile* input_file) {
 
     const int nConfigs = 2;
     const char* side_context[nConfigs] = {"eta1", "eta2"};
-    const char* comments[nConfigs] = {"Side #eta+", "Side #eta-"};
+    const char* comments[nConfigs] = { ETA_INVERTED ? "Side #eta-" : "Side #eta+", ETA_INVERTED ? "Side #eta+" : "Side #eta-" };
 
     std::string filter_str = Form("%.1f", _metadata.filter);
     std::replace(filter_str.begin(), filter_str.end(), '.', '_');
@@ -980,7 +980,7 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
                 filter_str.c_str(),
                 _metadata.scanned_hv
             );
-            std::string stack_e1_title = Form("Layer %d: Side #eta+: %s", layer, pair.title_modifier.c_str());
+            std::string stack_e1_title = Form("Layer %d: Side #eta%s: %s", layer, ETA_INVERTED ? "-" : "+", pair.title_modifier.c_str());
 
             auto* stack_e1 = new THStack(stack_e1_name.c_str(), stack_e1_title.c_str());
             stack_e1->Add(h_e1_primary);
@@ -1001,7 +1001,7 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
                 filter_str.c_str(),
                 _metadata.scanned_hv
             );
-            std::string stack_e2_title = Form("Layer %d: Side #eta-: %s", layer, pair.title_modifier.c_str());
+            std::string stack_e2_title = Form("Layer %d: Side #eta%s: %s", layer, ETA_INVERTED ? "+" : "-", pair.title_modifier.c_str());
 
             auto* stack_e2 = new THStack(stack_e2_name.c_str(), stack_e2_title.c_str());
             stack_e2->Add(h_e2_primary);
@@ -1014,7 +1014,7 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
     // Store stacks combining layers
     for (int c = 0; c < nConfigs; ++c) {
         std::string cat = categories[c];
-        std::string side_label = (cat.find("eta1") != std::string::npos) ? "Side #eta+" : "Side #eta-";
+        std::string side_label = (cat.find("eta1") != std::string::npos) ? (ETA_INVERTED ? "Side #eta+" : "Side #eta-") : (ETA_INVERTED ? "Side #eta-" : "Side #eta+");
         std::string stack_name = Form(
             "stack_tot_layers_%s_%s_lv_%d_filter_%s_hv_%.0f",
             cat.c_str(),
@@ -1085,8 +1085,10 @@ void plotToTVsStrip(TFile* input_file) {
         "tot_eta1_after_reco", "tot_eta2_after_reco"
     };
     const char* comments[nConfigs] = {
-        "Side #eta+: Before Track Reco", "Side #eta-: Before Track Reco",
-        "Side #eta+: After Track Reco", "Side #eta-: After Track Reco"
+        ETA_INVERTED ? "Side #eta-: Before Track Reco" : "Side #eta+: Before Track Reco",
+        ETA_INVERTED ? "Side #eta+: Before Track Reco" : "Side #eta-: Before Track Reco",
+        ETA_INVERTED ? "Side #eta-: After Track Reco" : "Side #eta+: After Track Reco",
+        ETA_INVERTED ? "Side #eta+: After Track Reco" : "Side #eta-: After Track Reco"
     };
 
     std::string filter_str = Form("%.1f", _metadata.filter);
@@ -1176,12 +1178,15 @@ void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest) {
     const char* categories[nConfigs] = {
         "tot_eta1_dt_strip_before_reco", "tot_eta2_dt_strip_before_reco",
         "tot_eta1_dt_strip_after_reco", "tot_eta2_dt_strip_after_reco",
-        "tot_eta1_dt_strip_beam", "tot_eta2_dt_strip_beam"
+        "tot_eta1_dt_strip_beam_region", "tot_eta2_dt_strip_beam_region"
     };
     const char* comments[nConfigs] = {
-        "Side #eta+: Before Track Reco", "Side #eta-: Before Track Reco",
-        "Side #eta+: After Track Reco", "Side #eta-: After Track Reco",
-        "Side #eta+: Beam Spot Region", "Side #eta-: Beam Spot Region"
+        ETA_INVERTED ? "Side #eta-: Before Track Reco" : "Side #eta+: Before Track Reco",
+        ETA_INVERTED ? "Side #eta+: Before Track Reco" : "Side #eta-: Before Track Reco",
+        ETA_INVERTED ? "Side #eta-: After Track Reco" : "Side #eta+: After Track Reco",
+        ETA_INVERTED ? "Side #eta+: After Track Reco" : "Side #eta-: After Track Reco",
+        ETA_INVERTED ? "Side #eta-: Beam Spot Region" : "Side #eta+: Beam Spot Region",
+        ETA_INVERTED ? "Side #eta+: Beam Spot Region" : "Side #eta-: Beam Spot Region"
     };
 
     std::string filter_str = Form("%.1f", _metadata.filter);
@@ -1295,8 +1300,10 @@ void plotMultiplicity(TFile* input_file) {
         "mult_eta1_after_reco",  "mult_eta2_after_reco"
     };
     const char* comments[nConfigs] = {
-        "Side #eta+: Before Track Reco", "Side #eta-: Before Track Reco",
-        "Side #eta+: After Track Reco", "Side #eta-: After Track Reco"
+        ETA_INVERTED ? "Side #eta-: Before Track Reco" : "Side #eta+: Before Track Reco",
+        ETA_INVERTED ? "Side #eta+: Before Track Reco" : "Side #eta-: Before Track Reco",
+        ETA_INVERTED ? "Side #eta-: After Track Reco" : "Side #eta+: After Track Reco",
+        ETA_INVERTED ? "Side #eta+: After Track Reco" : "Side #eta-: After Track Reco"
     };
 
     std::string filter_str = Form("%.1f", _metadata.filter);
@@ -1524,8 +1531,10 @@ void plotDelay(TFile* input_file) {
         "delay_eta1_after_reco",  "delay_eta2_after_reco"
     };
     const char* comments[nConfigs] = {
-        "Side #eta+: Before Track Reco", "Side #eta-: Before Track Reco",
-        "Side #eta+: After Track Reco", "Side #eta-: After Track Reco"
+        ETA_INVERTED ? "Side #eta-: Before Track Reco" : "Side #eta+: Before Track Reco",
+        ETA_INVERTED ? "Side #eta+: Before Track Reco" : "Side #eta-: Before Track Reco",
+        ETA_INVERTED ? "Side #eta-: After Track Reco" : "Side #eta+: After Track Reco",
+        ETA_INVERTED ? "Side #eta+: After Track Reco" : "Side #eta-: After Track Reco"
     };
 
     std::string filter_str = Form("%.1f", _metadata.filter);
@@ -1826,7 +1835,7 @@ void plotToFs(TFile* input_file) {
                 filter_str.c_str(),
                 _metadata.scanned_hv
             ),
-            Form("Side #eta+: %s;ToF [ns];Entries", pair_labels[i].c_str()),
+            Form("Side #eta%s: %s;ToF [ns];Entries", ETA_INVERTED ? "-" : "+", pair_labels[i].c_str()),
             n_bins1, x_min1, x_max1
         );
 
@@ -1840,7 +1849,7 @@ void plotToFs(TFile* input_file) {
                 filter_str.c_str(),
                 _metadata.scanned_hv
             ),
-            Form("Side #eta-: %s;ToF [ns];Entries", pair_labels[i].c_str()),
+            Form("Side #eta%s: %s;ToF [ns];Entries", ETA_INVERTED ? "-" : "+", pair_labels[i].c_str()),
             n_bins2, x_min2, x_max2
         );
 

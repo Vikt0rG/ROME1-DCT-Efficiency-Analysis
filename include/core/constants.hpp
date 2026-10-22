@@ -20,6 +20,7 @@ struct ColumnsShift {
 #if TEST_BEAM
     // -------------------------------------------------------------------------
     // TEST BEAM CONFIGURATION
+    // ETA_INVERTED = false means that eta1 corresponds to eta+ side
     // -------------------------------------------------------------------------
     inline const std::vector<std::tuple<int, int, int>> DEAD_STRIPS = {{0, 7, 1}};
     constexpr std::array<ColumnsShift, 1> COLUMN_SHIFTS = {{{16, 31, -8}}};
@@ -37,9 +38,13 @@ struct ColumnsShift {
     constexpr int DEFAULT_DT_MIN        = 0;
     constexpr int DEFAULT_DT_MAX        = 20;
 
+    constexpr bool IS_COSMICS_RUN       = false;
+    constexpr bool ETA_INVERTED         = false;
+
 #else
     // -------------------------------------------------------------------------
     // COSMICS CONFIGURATION
+    // ETA_INVERTED = true means that eta1 corresponds to eta- side
     // -------------------------------------------------------------------------
         constexpr bool USE_EXTERNAL_TRIGGER = true;
     constexpr int N_BINS_DT             = 22;
@@ -62,6 +67,8 @@ struct ColumnsShift {
     constexpr int DEFAULT_DT_MIN        = -200;
     constexpr int DEFAULT_DT_MAX        = -100;
 
+    constexpr bool IS_COSMICS_RUN       = true;
+    constexpr bool ETA_INVERTED         = true;
 #endif
 
 // =============================================================================
@@ -86,6 +93,7 @@ constexpr double TIME_TICK_NS        = 0.833;   // Time resolution of the DCT in
 // Physical constraints and bounds
 constexpr double TOT_ROI_MIN         = 4.0;
 constexpr double TOT_ROI_MAX         = 20.0;
+constexpr double TR_FIT_CUTOFF_EFF   = 0.25;    // Minimum efficiency threshold for valid TR fit
 
 // Suffixes and labels for plotting and analysis
 inline const std::array<std::string, LAYER_PAIR_COUNT> LAYER_PAIR_SUFFIXES = {"0_1", "0_2", "1_2"};
