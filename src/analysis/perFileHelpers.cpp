@@ -1148,25 +1148,23 @@ void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest) {
     }
     tot_dt_strip_dir->cd();
 
-    TTree* input_data_tree = dynamic_cast<TTree*>(input_file->Get("InputData"));
     TTree* proc_tree = dynamic_cast<TTree*>(input_file->Get("ProcessedData"));
     TTree* track_tree = dynamic_cast<TTree*>(input_file->Get("TrackReconstruction"));
-    if (!input_data_tree || !proc_tree || !track_tree) {
+    if (!proc_tree || !track_tree) {
         std::cerr << "Error: Invalid trees for plotToTVsDtVsStrip analysis." << std::endl;
         return;
     }
 
-    TTreeReader readerInputData(input_data_tree);
     TTreeReader readerProcData(proc_tree);
     TTreeReader readerTrackData(track_tree);
 
-    TTreeReaderValue<std::vector<int>> raw_time1(readerInputData, "hit_raw_time1");
-    TTreeReaderValue<std::vector<int>> raw_time2(readerInputData, "hit_raw_time2");
     TTreeReaderValue<std::vector<int>> strips(readerProcData, "proc_strip");
     TTreeReaderValue<std::vector<int>> layers(readerProcData, "proc_layer");
     TTreeReaderValue<std::vector<int>> dts(readerProcData, "proc_dt_time1_time2");
     TTreeReaderValue<std::vector<int>> proc_tot1(readerProcData, "proc_tot1");
     TTreeReaderValue<std::vector<int>> proc_tot2(readerProcData, "proc_tot2");
+    TTreeReaderValue<std::vector<bool>> has_valid_time_eta1(readerProcData, "has_valid_time_eta1");
+    TTreeReaderValue<std::vector<bool>> has_valid_time_eta2(readerProcData, "has_valid_time_eta2");
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
@@ -1207,7 +1205,7 @@ void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest) {
         }
     }
 
-    while (readerInputData.Next() && readerProcData.Next() && readerTrackData.Next()) {
+    while (readerProcData.Next() && readerTrackData.Next()) {
         const size_t n_hits = std::min({strips->size(), layers->size(), dts->size(), proc_tot1->size(), proc_tot2->size()});
         for (size_t i = 0; i < n_hits; ++i) {
             int layer = (*layers)[i];
@@ -1224,16 +1222,16 @@ void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest) {
                                      std::make_pair(strip, dt)) != region_of_interest.beam_region.end();
 
             // Before Reco
-            if ((*raw_time1)[i] != 0) profile_histograms["tot_eta1_dt_strip_before_reco"][layer]->Fill(strip, dt, tot1_ns);
-            if ((*raw_time2)[i] != 0) profile_histograms["tot_eta2_dt_strip_before_reco"][layer]->Fill(strip, dt, tot2_ns);
+            if ((*has_valid_time_eta1)[i] != 0) profile_histograms["tot_eta1_dt_strip_before_reco"][layer]->Fill(strip, dt, tot1_ns);
+            if ((*has_valid_time_eta2)[i] != 0) profile_histograms["tot_eta2_dt_strip_before_reco"][layer]->Fill(strip, dt, tot2_ns);
 
             // After Reco
-            if ((*raw_time1)[i] != 0 && valid_track) profile_histograms["tot_eta1_dt_strip_after_reco"][layer]->Fill(strip, dt, tot1_ns);
-            if ((*raw_time2)[i] != 0 && valid_track) profile_histograms["tot_eta2_dt_strip_after_reco"][layer]->Fill(strip, dt, tot2_ns);
+            if ((*has_valid_time_eta1)[i] != 0 && valid_track) profile_histograms["tot_eta1_dt_strip_after_reco"][layer]->Fill(strip, dt, tot1_ns);
+            if ((*has_valid_time_eta2)[i] != 0 && valid_track) profile_histograms["tot_eta2_dt_strip_after_reco"][layer]->Fill(strip, dt, tot2_ns);
 
             // Beam Region
-            if ((*raw_time1)[i] != 0 && in_beam) profile_histograms["tot_eta1_dt_strip_beam_region"][layer]->Fill(strip, dt, tot1_ns);
-            if ((*raw_time2)[i] != 0 && in_beam) profile_histograms["tot_eta2_dt_strip_beam_region"][layer]->Fill(strip, dt, tot2_ns);
+            if ((*has_valid_time_eta1)[i] != 0 && in_beam) profile_histograms["tot_eta1_dt_strip_beam_region"][layer]->Fill(strip, dt, tot1_ns);
+            if ((*has_valid_time_eta2)[i] != 0 && in_beam) profile_histograms["tot_eta2_dt_strip_beam_region"][layer]->Fill(strip, dt, tot2_ns);
         }
     }
 
