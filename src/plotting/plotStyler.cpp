@@ -58,11 +58,11 @@ namespace PlotStyler {
         {"time_resolution_strip",   TMultiGraph::Class(),          PlotCategory::TimeResolutionStripVsHV},
         {"eff",                     TGraphAsymmErrors::Class(),    PlotCategory::Efficiency},
         {"eff",                     TMultiGraph::Class(),          PlotCategory::EfficiencyVsHV},
-        {"avg_cluster_size",        TMultiGraph::Class(),          PlotCategory::MeanClusterSizeVsHV},
+        {"avg_cluster_size_layers", TMultiGraph::Class(),          PlotCategory::MeanClusterSizeVsHV},
         {"rate_layers",             TMultiGraph::Class(),          PlotCategory::RateVsHV},
         {"rate_strips",             TMultiGraph::Class(),          PlotCategory::RateStripVsHV},
-        {"avg_tot_layer_eta",       TMultiGraph::Class(),          PlotCategory::AvgToTLayerVsHV},
-        {"avg_tot_strip_eta",       TMultiGraph::Class(),          PlotCategory::AvgToTStripVsHV},
+        {"avg_tot_layers_eta",      TMultiGraph::Class(),          PlotCategory::AvgToTLayerVsHV},
+        {"avg_tot_strips_eta",      TMultiGraph::Class(),          PlotCategory::AvgToTStripVsHV},
         {"avg_multiplicity",        TMultiGraph::Class(),          PlotCategory::AvgMultVsHV},
         {"stack_delay",             THStack::Class(),              PlotCategory::DelayDistribution},
         {"stack_avg_mult",          THStack::Class(),              PlotCategory::AvgMultStrip},
@@ -250,19 +250,18 @@ namespace PlotStyler {
             else if (m == "external_rpc") global_context.push_back("External Trigger & RPC Coincidence");
         }
 
-        // Layer Pair Context (e.g., layer_pair_0_1 or layer_pair_0_1_layer_2 / layer2)
-        static const std::regex layer_pair_re("layer_pair_(\\d+)_(\\d+)(?:[ _]?layer[ _]?(\\d+))?");
-        static const std::regex single_layer_re("(?:^|_|\\b)layer[ _]?(\\d+)(?:$|_|\\b)");
+        // Layer Pair Context
+        static const std::regex layer_pair_re("layer_pair_(\\d+)_(\\d+)");
         if (std::regex_search(metric_name, match, layer_pair_re)) {
             std::string pair_title = Form("#it{t}_{Layer %s} #minus #it{t}_{Layer %s}",
                                         match[1].str().c_str(),
                                         match[2].str().c_str());
             geometry_context.push_back(pair_title);
-
-            if (match[3].matched) geometry_context.push_back("Layer " + match[3].str());
         }
-        // Single Layer matching fallback
-        else if (std::regex_search(metric_name, match, single_layer_re)) {
+
+        // Scanned/Single Layer Context
+        static const std::regex single_layer_re("layer[ _]?(\\d+)");
+        if (std::regex_search(metric_name, match, single_layer_re)) {
             geometry_context.push_back("Layer " + match[1].str());
         }
 

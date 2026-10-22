@@ -62,6 +62,66 @@ namespace Utilities {
         std::strftime(timestamp, sizeof(timestamp), "%d-%m-%Y_%H-%M-%S", &now_tm);
         return std::string(timestamp);
     }
+
+    MetadataConstness analyzeTreeMetadata(TTree* summary_tree) {
+        MetadataConstness meta;
+
+        TTreeReader reader(summary_tree);
+        TTreeReaderValue<std::string> mixture(reader, "mixture");
+        TTreeReaderValue<double> filter(reader, "filter");
+        TTreeReaderValue<int> lv_setting(reader, "lv_setting");
+        TTreeReaderValue<int> scanned_layer(reader, "scanned_layer");
+
+        bool first_entry = true;
+
+        while (reader.Next()) {
+            if (first_entry) {
+                meta.constant_mixture = *mixture;
+                meta.constant_filter = *filter;
+                meta.constant_lv = *lv_setting;
+                meta.constant_layer = *scanned_layer;
+                first_entry = false;
+                continue;
+            }
+
+            if (meta.mixture_is_constant && *mixture != meta.constant_mixture) {
+                meta.mixture_is_constant = false;
+            }
+            if (meta.filter_is_constant && std::abs(*filter - meta.constant_filter) > 1e-5) {
+                meta.filter_is_constant = false;
+            }
+            if (meta.lv_is_constant && *lv_setting != meta.constant_lv) {
+                meta.lv_is_constant = false;
+            }
+            if (meta.layer_is_constant && *scanned_layer != meta.constant_layer) {
+                meta.layer_is_constant = false;
+            }
+        }
+
+        return meta;
+    }
+
+    std::string formatConstantMetadataSuffix(const MetadataConstness& meta) {
+        std::string suffix = "";
+
+        // Append metadata information to the suffix if constant
+        // Layer
+        if (meta.layer_is_constant) suffix += Form("_layer%d", meta.constant_layer);
+
+        // Mixture
+        if (meta.mixture_is_constant && !meta.constant_mixture.empty()) suffix += "_" + meta.constant_mixture;
+
+        // LV Setting
+        if (meta.lv_is_constant) suffix += Form("_lv_%d", meta.constant_lv);
+
+        // Filter
+        if (meta.filter_is_constant) {
+            std::string filter_str = Form("%.1f", meta.constant_filter);
+            std::replace(filter_str.begin(), filter_str.end(), '.', '_');
+            suffix += "_filter_" + filter_str;
+        }
+        return suffix;
+    }
 }   // namespace Utilities
 
 namespace CrossGroupHelpers {
@@ -445,6 +505,10 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
 
     TTreeReader readerSummary(summary_tree);
 
+    using namespace Utilities;
+    MetadataConstness meta_status = analyzeTreeMetadata(summary_tree);
+    std::string meta_suffix = formatConstantMetadataSuffix(meta_status);
+
     TTreeReaderValue<std::string> group_name(readerSummary, "group_name");
     TTreeReaderValue<int> scanned_layer(readerSummary, "scanned_layer");
     TTreeReaderValue<double> scanned_hv(readerSummary, "scanned_hv");
@@ -505,19 +569,19 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
 
         // Extract Scalar Metrics (0D)
         for (size_t i{0}; i < scalar_metrics.size(); ++i) {
-            const auto& metric_name = scalar_metrics[i];
             if (scalar_values[i]->GetSetupStatus() == 0) {
-                current_scan.scalar_x[metric_name].push_back(scan_hv);
-                current_scan.scalar_y[metric_name].push_back(**scalar_values[i]);
+                std::string decorated_metric_name = scalar_metrics[i] + meta_suffix;
+                current_scan.scalar_x[decorated_metric_name].push_back(scan_hv);
+                current_scan.scalar_y[decorated_metric_name].push_back(**scalar_values[i]);
             }
         }
 
         // Extract Global Metrics (1D Graphs)
         for (size_t i{0}; i < global_metrics.size(); ++i) {
-            const auto& metric_name = global_metrics[i];
+            std::string decorated_metric_name = global_metrics[i] + meta_suffix;
 
             if (global_values[i]->GetSetupStatus() == 0) {
-                auto& series = current_scan.global_metrics[metric_name];
+                auto& series = current_scan.global_metrics[decorated_metric_name];
 
                 series.x.push_back(scan_hv);
                 series.y.push_back(**global_values[i]);
@@ -529,16 +593,16 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
 
         // Extract Raw Metrics (2D Heatmaps)
         for (size_t i{0}; i < raw_metrics.size(); ++i) {
-            const auto& metric_name = raw_metrics[i];
+            std::string decorated_metric_name = raw_metrics[i] + meta_suffix;
 
             if (raw_arrays[i]->GetSetupStatus() == 0) {
-                current_scan.raw_tof_data[metric_name][scan_hv] = **raw_arrays[i];
+                current_scan.raw_tof_data[decorated_metric_name][scan_hv] = **raw_arrays[i];
             }
         }
 
         // Extract Layer Metrics (1D)
         for (size_t i{0}; i < layer_metrics.size(); ++i) {
-            const auto& metric_name = layer_metrics[i];
+            std::string decorated_metric_name = layer_metrics[i] + meta_suffix;
             if (layer_arrays[i]->GetSetupStatus() != 0) continue;
 
             const auto& vals = *layer_arrays[i];
@@ -549,7 +613,7 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
 
                 double x_value = (layer == scan_lyr) ? scan_hv : oth_hv;
 
-                auto& layer_series = current_scan.layer_metrics[metric_name];
+                auto& layer_series = current_scan.layer_metrics[decorated_metric_name];
                 layer_series.x[layer].push_back(x_value);
                 layer_series.y[layer].push_back(vals[layer]);
 
@@ -562,7 +626,7 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
         for (size_t i{0}; i < strip_layer_metrics.size(); ++i) {
             if (strip_arrays[i]->GetSetupStatus() != 0) continue;
 
-            const auto& metric_name = strip_layer_metrics[i];
+            std::string decorated_metric_name = strip_layer_metrics[i] + meta_suffix;
             const auto& vals = *strip_arrays[i];
             const auto& errs = *strip_error_arrays[i];
 
@@ -574,7 +638,7 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
 
                     if (std::isnan(vals[flat_idx])) continue;
 
-                    auto& strip_series = current_scan.strip_metrics[metric_name][layer][strip];
+                    auto& strip_series = current_scan.strip_metrics[decorated_metric_name][layer][strip];
                     strip_series.x.push_back(x_value);
                     strip_series.y.push_back(vals[flat_idx]);
                     strip_series.y_error_low.push_back(errs[flat_idx * 2]);
@@ -591,13 +655,14 @@ std::map<std::string, MetricsData> DataPlotter::extractScanData(
             const auto& errs = *strip_tof_error_arrays[i];
 
             int pair_idx = i / 2;
-            std::string base_metric = (i % 2 == 0) ? "time_resolution_strip_eta1" : "time_resolution_strip_eta2";
+            std::string base_metric = (i % 2 == 0) ? "time_resolution_strips_eta1" : "time_resolution_strips_eta2";
+            std::string decorated_metric_name = base_metric + meta_suffix;
 
             for (size_t strip{0}; strip < STRIPS_PER_LAYER; ++strip) {
                 if (strip >= vals.GetSize()) break;
                 if (std::isnan(vals[strip])) continue;
 
-                auto& strip_series = current_scan.strip_metrics[base_metric][pair_idx][strip];
+                auto& strip_series = current_scan.strip_metrics[decorated_metric_name][pair_idx][strip];
                 strip_series.x.push_back(scan_hv);
                 strip_series.y.push_back(vals[strip]);
                 strip_series.y_error_low.push_back(errs[strip * 2]);
@@ -686,14 +751,14 @@ void DataPlotter::plotGlobalMetrics(TDirectory* scan_dir, const MetricsData& sca
         std::string hist_name = "h2d_" + metric_name;
         std::string hist_title = metric_name + ";High Voltage [V];Time of Flight [ns];Entries";
 
-        double x_min = 4500.0;
+        double x_min = hv_data_map.begin()->first;
         double x_max = hv_data_map.rbegin()->first;
         int n_bins_x = std::max(1, static_cast<int>(std::ceil((x_max - x_min) / 100.0)));
         x_max = x_min + (n_bins_x * 100.0);
 
-        int n_bins_y = 13;
-        double y_min = -6.5 * TIME_TICK_NS;
-        double y_max =  6.5 * TIME_TICK_NS;
+        int n_bins_y = 2 * MAX_TIME_WINDOW + 1;
+        double y_min = -(MAX_TIME_WINDOW + 0.5) * TIME_TICK_NS;
+        double y_max = (MAX_TIME_WINDOW + 0.5) * TIME_TICK_NS;
 
         TH2D* heatmap = new TH2D(hist_name.c_str(), hist_title.c_str(), 
                                  n_bins_x, x_min, x_max,

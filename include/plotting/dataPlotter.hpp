@@ -26,6 +26,25 @@ namespace Utilities {
     /// @brief Utility function to get a timestamp string for naming output files
     /// @return A string with the current timestamp in the format "DD-MM-YYYY_HH-MM-SS"
     std::string getTimestamp();
+
+    /// @brief Utility function to analyze metadata constness across a TTree of measurement entries
+    struct MetadataConstness {
+        bool mixture_is_constant = true;
+        bool filter_is_constant = true;
+        bool lv_is_constant = true;
+        bool layer_is_constant = true;
+
+        std::string constant_mixture;
+        double constant_filter = 0.0;
+        int constant_lv = 0;
+        int constant_layer = 0;
+    };
+
+    /// @brief Analyze the metadata constness across a TTree of measurement entries
+    MetadataConstness analyzeTreeMetadata(TTree* summary_tree);
+
+    /// @brief Format a string suffix based on the constness of metadata
+    std::string formatConstantMetadataSuffix(const MetadataConstness& meta);
 }   // namespace Utilities
 
 /// @namespace CrossGroupHelpers
