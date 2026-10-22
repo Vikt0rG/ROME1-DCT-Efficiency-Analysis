@@ -674,6 +674,31 @@ namespace PlotStyler {
         }
     };
 
+    TGraph* getEffFromDir(TDirectory* group_dir) {
+        if (!group_dir) return nullptr;
+        TDirectory* eff_dir = group_dir->GetDirectory("efficiency_analysis");
+        if (!eff_dir) return nullptr;
+
+        const std::string target_prefix = "eff_or_rpc_after_reco";
+        TIter next_key(eff_dir->GetListOfKeys());
+        TKey* key = nullptr;
+
+        while ((key = static_cast<TKey*>(next_key()))) {
+            std::string key_name = key->GetName();
+            if (key_name.rfind(target_prefix, 0) == 0) {
+                TObject* eff_obj = key->ReadObj();
+                if (auto g = dynamic_cast<TGraph*>(eff_obj)) return g;
+                if (auto eff_mg = dynamic_cast<TMultiGraph*>(eff_obj)) {
+                    if (eff_mg->GetListOfGraphs() && eff_mg->GetListOfGraphs()->GetSize() > 0) {
+                        return dynamic_cast<TGraph*>(eff_mg->GetListOfGraphs()->At(0));
+                    }
+                }
+                delete eff_obj;
+            }
+        }
+        return nullptr;
+    };
+
     TGraph* findEfficiencyGraphForObject(TObject* obj) {
         if (!obj) return nullptr;
         TFile* file = gDirectory ? gDirectory->GetFile() : nullptr;
@@ -695,23 +720,6 @@ namespace PlotStyler {
         } else {
             return nullptr;
         }
-
-        auto getEffFromDir = [](TDirectory* group_dir) -> TGraph* {
-            if (!group_dir) return nullptr;
-            TDirectory* eff_dir = group_dir->GetDirectory("efficiency_analysis");
-            if (!eff_dir) return nullptr;
-
-            TObject* eff_obj = eff_dir->Get("eff_or_rpc_after_reco");
-            if (!eff_obj) return nullptr;
-
-            if (auto g = dynamic_cast<TGraph*>(eff_obj)) return g;
-            if (auto mg = dynamic_cast<TMultiGraph*>(eff_obj)) {
-                if (mg->GetListOfGraphs() && mg->GetListOfGraphs()->GetSize() > 0) {
-                    return dynamic_cast<TGraph*>(mg->GetListOfGraphs()->At(0));
-                }
-            }
-            return nullptr;
-        };
 
         TIter next_top(file->GetListOfKeys());
         TKey* top_key = nullptr;
@@ -736,23 +744,6 @@ namespace PlotStyler {
 
         TFile* file = gDirectory ? gDirectory->GetFile() : nullptr;
         if (!file) return;
-
-        auto getEffFromDir = [](TDirectory* group_dir) -> TGraph* {
-            if (!group_dir) return nullptr;
-            TDirectory* eff_dir = group_dir->GetDirectory("efficiency_analysis");
-            if (!eff_dir) return nullptr;
-
-            TObject* eff_obj = eff_dir->Get("eff_or_rpc_after_reco");
-            if (!eff_obj) return nullptr;
-
-            if (auto g = dynamic_cast<TGraph*>(eff_obj)) return g;
-            if (auto eff_mg = dynamic_cast<TMultiGraph*>(eff_obj)) {
-                if (eff_mg->GetListOfGraphs() && eff_mg->GetListOfGraphs()->GetSize() > 0) {
-                    return dynamic_cast<TGraph*>(eff_mg->GetListOfGraphs()->At(0));
-                }
-            }
-            return nullptr;
-        };
 
         TIter next_gr(mg->GetListOfGraphs());
         TObject* gr_obj = nullptr;
@@ -1104,14 +1095,9 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 + 0.03,
-            ndc_y0 - 0.09,            // Coordinates for the header box
-            "Work in Progress",       // Status string
-            title_lines,              // Title string
-            12,                       // Alignment
-            kWhite, 0.70,             // semi-transparent white background
-            kBlack, 1,                // Black 1px border line
-            0.01                      // Inner padding
+            ndc_x0 + 0.03, ndc_y0 - 0.14,
+            "Work in Progress", title_lines, 12,
+            kWhite, 0.70, kBlack, 0, 0.01
         );
 
         canvas->Modified();
@@ -1257,14 +1243,9 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 + 0.03,
-            ndc_y0 - 0.10,
-            "Work in Progress",
-            title_lines,
-            12,
-            kWhite, 0.70,
-            kBlack, 0,
-            0.01
+            ndc_x0 + 0.03, ndc_y0 - 0.14,
+            "Work in Progress", title_lines, 12,
+            kWhite, 0.70, kBlack, 0, 0.01
         );
 
         canvas->Modified();
@@ -1411,14 +1392,9 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 + 0.03,
-            ndc_y0 - 0.09,            // Coordinates for the header box
-            "Work in Progress",       // Status string
-            title_lines,              // Title string
-            12,                       // Alignment
-            kWhite, 0.70,             // semi-transparent white background
-            kBlack, 0,                // No border line
-            0.01                      // Inner padding
+            ndc_x0 + 0.03, ndc_y0 - 0.14,
+            "Work in Progress", title_lines, 12,
+            kWhite, 0.70, kBlack, 0, 0.01
         );
 
         canvas->Modified();
@@ -1644,50 +1620,105 @@ namespace PlotStyler {
     void styleAvgTRVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
         auto mg = dynamic_cast<TMultiGraph*>(obj);
         if (!mg) return;
-        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+
+        // PASS 1: Filter out points with efficiency below the threshold
+        TMultiGraph* filtered_mg = new TMultiGraph();
+        filtered_mg->SetName(mg->GetName());
+        filtered_mg->SetTitle(mg->GetTitle());
+
+        double global_min_x = std::numeric_limits<double>::max();
+        double global_max_x = std::numeric_limits<double>::lowest();
+
+        if (mg->GetListOfGraphs()) {
+            TIter next_filter(mg->GetListOfGraphs());
+            TObject* gr_obj;
+
+            while ((gr_obj = next_filter())) {
+                auto gr = dynamic_cast<TGraph*>(gr_obj);
+                if (!gr || gr->GetN() == 0) continue;
+
+                TGraph* eff_gr = findEfficiencyGraphForObject(gr);
+                TF1* eff_fit = (eff_gr && eff_gr->GetListOfFunctions() && !eff_gr->GetListOfFunctions()->IsEmpty())
+                                ? dynamic_cast<TF1*>(eff_gr->GetListOfFunctions()->Last())
+                                : nullptr;
+
+                TGraphErrors* filtered_gr = new TGraphErrors();
+                filtered_gr->SetName(gr->GetName());
+                filtered_gr->SetTitle(gr->GetTitle());
+
+                int original_n = gr->GetN();
+                double* x_vals = gr->GetX();
+                double* y_vals = gr->GetY();
+                double* ey_vals = gr->GetEY();
+
+                int valid_pt_idx = 0;
+                for (int i = 0; i < original_n; ++i) {
+                    double hv = x_vals[i];
+                    double eff_val = 1.0; // Fallback if no efficiency graph is available
+
+                    if (eff_gr) eff_val = eff_fit ? eff_fit->Eval(hv) : eff_gr->Eval(hv);
+
+                    // Keep only points meeting the efficiency threshold
+                    if (eff_val >= TR_FIT_CUTOFF_EFF) {
+                        filtered_gr->SetPoint(valid_pt_idx, hv, y_vals[i]);
+                        if (ey_vals) {
+                            filtered_gr->SetPointError(valid_pt_idx, 0.0, ey_vals[i]);
+                        }
+                        valid_pt_idx++;
+
+                        global_min_x = std::min(global_min_x, hv);
+                        global_max_x = std::max(global_max_x, hv);
+                    }
+                }
+
+                if (filtered_gr->GetN() > 0) {
+                    filtered_mg->Add(filtered_gr, "P");
+                } else {
+                    delete filtered_gr;
+                }
+            }
+        }
+
+        // Fallback in case no points survived filtering
+        if (!filtered_mg->GetListOfGraphs() || filtered_mg->GetListOfGraphs()->GetSize() == 0) {
+            delete filtered_mg;
+            return;
+        }
+
+        // PASS 2: Default styling
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), filtered_mg);
 
         canvas->cd();
-        mg->Draw("AP0Z");
+        filtered_mg->Draw("AP0Z");
         canvas->Update();
 
-        double fit_x_max = 6000.0;
-
         // Set axis ranges and labels
-        if (TH1* frame = mg->GetHistogram()) {
+        if (TH1* frame = filtered_mg->GetHistogram()) {
             if (TAxis* xAxis = frame->GetXaxis()) {
-                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 5200.0});
+                setRange(filtered_mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {});
                 xAxis->SetTitle(x_label.c_str());
-                fit_x_max = xAxis->GetXmax();
             }
 
             if (TAxis* yAxis = frame->GetYaxis()) {
-                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 5200.0});
+                setRange(filtered_mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {});
                 yAxis->SetTitle(y_label.c_str());
             }
         }
 
-        applyATLASStyle(obj, canvas);
+        applyATLASStyle(filtered_mg, canvas);
         canvas->cd();
 
         const std::vector<Color_t> palette = {
             kAzure + 2, kGreen + 2, kOrange + 10, kMagenta + 2, kYellow - 3, kCyan - 4
         };
 
-        if (mg->GetListOfGraphs()) {
+        if (filtered_mg->GetListOfGraphs()) {
 
-            double global_max_x = 0.0;
-            TIter next_max(mg->GetListOfGraphs());
-            TObject* gr_obj_max;
-            while ((gr_obj_max = next_max())) {
-                if (auto gr = dynamic_cast<TGraph*>(gr_obj_max)) {
-                    global_max_x = std::max(global_max_x, TMath::MaxElement(gr->GetN(), gr->GetX()));
-                }
-            }
+            // Set bounds across the filtered dataset range
+            double fit_x_min = global_min_x - 150.0;
+            double fit_x_max_x = global_max_x + 150.0;
 
-            double fit_x_min = 5000.0;
-            double end_x = std::min(fit_x_max, global_max_x) + 50.0;
-
-            TIter next(mg->GetListOfGraphs());
+            TIter next(filtered_mg->GetListOfGraphs());
             TObject* gr_obj;
             int color_idx = 0;
 
@@ -1706,9 +1737,9 @@ namespace PlotStyler {
 
                     // Prevent ROOT's global function registry from deleting fits during batch runs
                     std::string fit_name = Form("fit_pol1_%p_%d", (void*)gr, color_idx);
-                    TF1* fit = new TF1(fit_name.c_str(), "pol1", fit_x_min, end_x);
+                    TF1* fit = new TF1(fit_name.c_str(), "pol1", fit_x_min, fit_x_max_x);
 
-                    TFitResultPtr r = gr->Fit(fit, "Q0SR", "", fit_x_min, end_x);
+                    TFitResultPtr r = gr->Fit(fit, "Q0SR", "", fit_x_min, fit_x_max_x);
 
                     if (static_cast<int>(r) == 0) {
                         double p0 = r->Parameter(0);
@@ -1723,7 +1754,7 @@ namespace PlotStyler {
                         double scatter_scale = (ndf > 0 && (chi2 / ndf) > 1.0) ? std::sqrt(chi2 / ndf) : 1.0;
 
                         int n_points = 200;
-                        double step = (end_x - fit_x_min) / n_points;
+                        double step = (fit_x_max_x - fit_x_min) / n_points;
                         TGraphErrors* band = new TGraphErrors(n_points);
 
                         for (int i = 0; i < n_points; ++i) {
@@ -1753,7 +1784,7 @@ namespace PlotStyler {
                     color_idx++;
                 }
             }
-            mg->Draw("P0Z");
+            filtered_mg->Draw("P0Z");
         }
 
         canvas->RedrawAxis();
@@ -1778,8 +1809,24 @@ namespace PlotStyler {
         canvas->Update();
 
         double legend_y = header->GetY1NDC() - 0.02;
-        int alignment = 33;
-        drawATLASLegend(obj, legend_entries, ndc_x0, legend_y, alignment, "pef");
+        double leg_width = 0.20;
+        double leg_height = legend_entries.size() * 0.04;
+
+        TLegend* leg = new TLegend(ndc_x0 - 0.05 - leg_width, legend_y - leg_height, ndc_x0 - 0.05, legend_y);
+        leg->SetBorderSize(0);
+        leg->SetLineColor(kWhite);
+        leg->SetFillStyle(1001);
+        leg->SetFillColorAlpha(kWhite, 0.5);
+        leg->SetTextFont(42);
+        leg->SetTextSize(0.04);
+
+        if (filtered_mg->GetListOfGraphs()) {
+            for (size_t i = 0; i < legend_entries.size() && i < static_cast<size_t>(filtered_mg->GetListOfGraphs()->GetSize()); ++i) {
+                TGraph* gr = dynamic_cast<TGraph*>(filtered_mg->GetListOfGraphs()->At(i));
+                leg->AddEntry(gr, legend_entries[i].c_str(), "pef");
+            }
+        }
+        leg->Draw();
 
         canvas->Modified();
         canvas->Update();
@@ -2978,8 +3025,6 @@ namespace PlotStyler {
         auto h2d = dynamic_cast<TH2F*>(obj);
         if (!h2d) return;
 
-        canvas->SetWindowSize(800, 800);
-        canvas->SetCanvasSize(800, 800);
         canvas->cd();
 
         TPad* pad1 = new TPad("pad1", "pad1", 0.0, 0.0, 1.0, 1.0);
@@ -3039,7 +3084,7 @@ namespace PlotStyler {
             Objects::hatchedRegion(pad1, TOT_ROI_MAX, u_xmax, u_ymin, u_ymax, 3244);
 
             double x_ndc = (TOT_ROI_MAX - pad1->GetX1()) / (pad1->GetX2() - pad1->GetX1());
-            double y_ndc = 0.10;
+            double y_ndc = 0.20;
             x_ndc += 0.015;
 
             TLatex* roi_text_x = new TLatex();
@@ -3224,9 +3269,9 @@ namespace PlotStyler {
         pad1->Modified();
         pad1->Update();
 
-        std::vector<std::string> legend_entries = {" First hit", " Secondary hits"};
+        std::vector<std::string> legend_entries = {"First hit", "Secondary hits"};
         double legend_y = header ? header->GetY1NDC() - 0.05 : 0.70;
-        double leg_width = 0.45;
+        double leg_width = 0.50;
         double leg_height = histograms.size() * 0.04;
 
         TLegend* leg = new TLegend(ndc_x0 - 0.05 - leg_width, legend_y - leg_height, ndc_x0 - 0.05, legend_y);
@@ -3445,9 +3490,9 @@ namespace PlotStyler {
         pad1->Modified();
         pad1->Update();
 
-        std::vector<std::string> legend_entries = {" Layer 0", " Layer 1", " Layer 2"};
+        std::vector<std::string> legend_entries = {"Layer 0", "Layer 1", "Layer 2"};
         double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
-        double leg_width = 0.32;
+        double leg_width = 0.38;
         double leg_height = histograms.size() * 0.04;
 
         TLegend* leg = new TLegend(ndc_x0 - 0.05 - leg_width, legend_y - leg_height, ndc_x0 - 0.05, legend_y);
