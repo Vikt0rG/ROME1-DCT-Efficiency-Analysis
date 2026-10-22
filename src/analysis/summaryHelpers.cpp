@@ -65,12 +65,12 @@ void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, Measureme
     // Cluster size results
     summary_tree->Branch("avg_cluster_size_eta1", &data.cluster_size_results.avg_cluster_size_eta1);
     summary_tree->Branch("avg_cluster_size_eta2", &data.cluster_size_results.avg_cluster_size_eta2);
-    summary_tree->Branch("avg_cluster_size_eta1_layers", &data.cluster_size_results.avg_cluster_size_eta1_layers, "avg_cluster_size_eta1_layers[3]/D");
-    summary_tree->Branch("avg_cluster_size_eta2_layers", &data.cluster_size_results.avg_cluster_size_eta2_layers, "avg_cluster_size_eta2_layers[3]/D");
+    summary_tree->Branch("avg_cluster_size_layers_eta1", &data.cluster_size_results.avg_cluster_size_eta1_layers, "avg_cluster_size_layers_eta1[3]/D");
+    summary_tree->Branch("avg_cluster_size_layers_eta2", &data.cluster_size_results.avg_cluster_size_eta2_layers, "avg_cluster_size_layers_eta2[3]/D");
     summary_tree->Branch("avg_cluster_size_eta1_error", &data.cluster_size_results.avg_cluster_size_eta1_error, "avg_cluster_size_eta1_error[2]/D");
     summary_tree->Branch("avg_cluster_size_eta2_error", &data.cluster_size_results.avg_cluster_size_eta2_error, "avg_cluster_size_eta2_error[2]/D");
-    summary_tree->Branch("avg_cluster_size_eta1_layers_error", &data.cluster_size_results.avg_cluster_size_eta1_layers_error, "avg_cluster_size_eta1_layers_error[6]/D");
-    summary_tree->Branch("avg_cluster_size_eta2_layers_error", &data.cluster_size_results.avg_cluster_size_eta2_layers_error, "avg_cluster_size_eta2_layers_error[6]/D");
+    summary_tree->Branch("avg_cluster_size_layers_eta1_error", &data.cluster_size_results.avg_cluster_size_eta1_layers_error, "avg_cluster_size_layers_eta1_error[6]/D");
+    summary_tree->Branch("avg_cluster_size_layers_eta2_error", &data.cluster_size_results.avg_cluster_size_eta2_layers_error, "avg_cluster_size_layers_eta2_error[6]/D");
 
     // Rate results
     summary_tree->Branch("rate_eta1_before_reco", &data.rate_results.rate_eta1);
@@ -128,45 +128,45 @@ void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, Measureme
     summary_tree->Branch("rate_strips_and_after_reco_error", &data.rate_results_tracks.rate_strips_and_error, Form("rate_strips_and_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
     // ToT results
-    summary_tree->Branch("avg_tot_layer_eta1_before_reco", &data.tot_results.avg_tot_eta1_layer, Form("avg_tot_layer_eta1_before_reco[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("avg_tot_layer_eta2_before_reco", &data.tot_results.avg_tot_eta2_layer, Form("avg_tot_layer_eta2_before_reco[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("avg_tot_layer_eta1_before_reco_error", &data.tot_results.avg_tot_eta1_layer_error, Form("avg_tot_layer_eta1_before_reco_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("avg_tot_layer_eta2_before_reco_error", &data.tot_results.avg_tot_eta2_layer_error, Form("avg_tot_layer_eta2_before_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("avg_tot_layers_eta1_before_reco", &data.tot_results.avg_tot_eta1_layer, Form("avg_tot_layers_eta1_before_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("avg_tot_layers_eta2_before_reco", &data.tot_results.avg_tot_eta2_layer, Form("avg_tot_layers_eta2_before_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("avg_tot_layers_eta1_before_reco_error", &data.tot_results.avg_tot_eta1_layer_error, Form("avg_tot_layers_eta1_before_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("avg_tot_layers_eta2_before_reco_error", &data.tot_results.avg_tot_eta2_layer_error, Form("avg_tot_layers_eta2_before_reco_error[%d]/D", LAYER_COUNT * 2));
 
-    summary_tree->Branch("avg_tot_layer_eta1_after_reco", &data.tot_results_tracks.avg_tot_eta1_layer, Form("avg_tot_layer_eta1_after_reco[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("avg_tot_layer_eta2_after_reco", &data.tot_results_tracks.avg_tot_eta2_layer, Form("avg_tot_layer_eta2_after_reco[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("avg_tot_layer_eta1_after_reco_error", &data.tot_results_tracks.avg_tot_eta1_layer_error, Form("avg_tot_layer_eta1_after_reco_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("avg_tot_layer_eta2_after_reco_error", &data.tot_results_tracks.avg_tot_eta2_layer_error, Form("avg_tot_layer_eta2_after_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("avg_tot_layers_eta1_after_reco", &data.tot_results_tracks.avg_tot_eta1_layer, Form("avg_tot_layers_eta1_after_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("avg_tot_layers_eta2_after_reco", &data.tot_results_tracks.avg_tot_eta2_layer, Form("avg_tot_layers_eta2_after_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("avg_tot_layers_eta1_after_reco_error", &data.tot_results_tracks.avg_tot_eta1_layer_error, Form("avg_tot_layers_eta1_after_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("avg_tot_layers_eta2_after_reco_error", &data.tot_results_tracks.avg_tot_eta2_layer_error, Form("avg_tot_layers_eta2_after_reco_error[%d]/D", LAYER_COUNT * 2));
 
-    summary_tree->Branch("beam_region_avg_tot_layer_eta1_before_reco", &data.tot_results_beam.avg_tot_eta1_layer, Form("beam_region_avg_tot_layer_eta1_before_reco[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("beam_region_avg_tot_layer_eta2_before_reco", &data.tot_results_beam.avg_tot_eta2_layer, Form("beam_region_avg_tot_layer_eta2_before_reco[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("beam_region_avg_tot_layer_eta1_before_reco_error", &data.tot_results_beam.avg_tot_eta1_layer_error, Form("beam_region_avg_tot_layer_eta1_before_reco_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("beam_region_avg_tot_layer_eta2_before_reco_error", &data.tot_results_beam.avg_tot_eta2_layer_error, Form("beam_region_avg_tot_layer_eta2_before_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("beam_region_avg_tot_layers_eta1_before_reco", &data.tot_results_beam.avg_tot_eta1_layer, Form("beam_region_avg_tot_layers_eta1_before_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("beam_region_avg_tot_layers_eta2_before_reco", &data.tot_results_beam.avg_tot_eta2_layer, Form("beam_region_avg_tot_layers_eta2_before_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("beam_region_avg_tot_layers_eta1_before_reco_error", &data.tot_results_beam.avg_tot_eta1_layer_error, Form("beam_region_avg_tot_layers_eta1_before_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("beam_region_avg_tot_layers_eta2_before_reco_error", &data.tot_results_beam.avg_tot_eta2_layer_error, Form("beam_region_avg_tot_layers_eta2_before_reco_error[%d]/D", LAYER_COUNT * 2));
 
-    summary_tree->Branch("beam_region_avg_tot_layer_eta1_after_reco", &data.tot_results_beam_track.avg_tot_eta1_layer, Form("beam_region_avg_tot_layer_eta1_after_reco[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("beam_region_avg_tot_layer_eta2_after_reco", &data.tot_results_beam_track.avg_tot_eta2_layer, Form("beam_region_avg_tot_layer_eta2_after_reco[%d]/D", LAYER_COUNT));
-    summary_tree->Branch("beam_region_avg_tot_layer_eta1_after_reco_error", &data.tot_results_beam_track.avg_tot_eta1_layer_error, Form("beam_region_avg_tot_layer_eta1_after_reco_error[%d]/D", LAYER_COUNT * 2));
-    summary_tree->Branch("beam_region_avg_tot_layer_eta2_after_reco_error", &data.tot_results_beam_track.avg_tot_eta2_layer_error, Form("beam_region_avg_tot_layer_eta2_after_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("beam_region_avg_tot_layers_eta1_after_reco", &data.tot_results_beam_track.avg_tot_eta1_layer, Form("beam_region_avg_tot_layers_eta1_after_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("beam_region_avg_tot_layers_eta2_after_reco", &data.tot_results_beam_track.avg_tot_eta2_layer, Form("beam_region_avg_tot_layers_eta2_after_reco[%d]/D", LAYER_COUNT));
+    summary_tree->Branch("beam_region_avg_tot_layers_eta1_after_reco_error", &data.tot_results_beam_track.avg_tot_eta1_layer_error, Form("beam_region_avg_tot_layers_eta1_after_reco_error[%d]/D", LAYER_COUNT * 2));
+    summary_tree->Branch("beam_region_avg_tot_layers_eta2_after_reco_error", &data.tot_results_beam_track.avg_tot_eta2_layer_error, Form("beam_region_avg_tot_layers_eta2_after_reco_error[%d]/D", LAYER_COUNT * 2));
 
-    summary_tree->Branch("avg_tot_strip_eta1_before_reco", &data.tot_results.avg_tot_eta1, Form("avg_tot_strip_eta1_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_tot_strip_eta2_before_reco", &data.tot_results.avg_tot_eta2, Form("avg_tot_strip_eta2_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_tot_strip_eta1_before_reco_error", &data.tot_results.avg_tot_eta1_error, Form("avg_tot_strip_eta1_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("avg_tot_strip_eta2_before_reco_error", &data.tot_results.avg_tot_eta2_error, Form("avg_tot_strip_eta2_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_tot_strips_eta1_before_reco", &data.tot_results.avg_tot_eta1, Form("avg_tot_strips_eta1_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_tot_strips_eta2_before_reco", &data.tot_results.avg_tot_eta2, Form("avg_tot_strips_eta2_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_tot_strips_eta1_before_reco_error", &data.tot_results.avg_tot_eta1_error, Form("avg_tot_strips_eta1_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_tot_strips_eta2_before_reco_error", &data.tot_results.avg_tot_eta2_error, Form("avg_tot_strips_eta2_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
-    summary_tree->Branch("avg_tot_strip_eta1_after_reco", &data.tot_results_tracks.avg_tot_eta1, Form("avg_tot_strip_eta1_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_tot_strip_eta2_after_reco", &data.tot_results_tracks.avg_tot_eta2, Form("avg_tot_strip_eta2_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("avg_tot_strip_eta1_after_reco_error", &data.tot_results_tracks.avg_tot_eta1_error, Form("avg_tot_strip_eta1_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("avg_tot_strip_eta2_after_reco_error", &data.tot_results_tracks.avg_tot_eta2_error, Form("avg_tot_strip_eta2_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_tot_strips_eta1_after_reco", &data.tot_results_tracks.avg_tot_eta1, Form("avg_tot_strips_eta1_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_tot_strips_eta2_after_reco", &data.tot_results_tracks.avg_tot_eta2, Form("avg_tot_strips_eta2_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("avg_tot_strips_eta1_after_reco_error", &data.tot_results_tracks.avg_tot_eta1_error, Form("avg_tot_strips_eta1_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("avg_tot_strips_eta2_after_reco_error", &data.tot_results_tracks.avg_tot_eta2_error, Form("avg_tot_strips_eta2_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
-    summary_tree->Branch("beam_region_avg_tot_strip_eta1_before_reco", &data.tot_results_beam.avg_tot_eta1, Form("beam_region_avg_tot_strip_eta1_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("beam_region_avg_tot_strip_eta2_before_reco", &data.tot_results_beam.avg_tot_eta2, Form("beam_region_avg_tot_strip_eta2_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("beam_region_avg_tot_strip_eta1_before_reco_error", &data.tot_results_beam.avg_tot_eta1_error, Form("beam_region_avg_tot_strip_eta1_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("beam_region_avg_tot_strip_eta2_before_reco_error", &data.tot_results_beam.avg_tot_eta2_error, Form("beam_region_avg_tot_strip_eta2_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("beam_region_avg_tot_strips_eta1_before_reco", &data.tot_results_beam.avg_tot_eta1, Form("beam_region_avg_tot_strips_eta1_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("beam_region_avg_tot_strips_eta2_before_reco", &data.tot_results_beam.avg_tot_eta2, Form("beam_region_avg_tot_strips_eta2_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("beam_region_avg_tot_strips_eta1_before_reco_error", &data.tot_results_beam.avg_tot_eta1_error, Form("beam_region_avg_tot_strips_eta1_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("beam_region_avg_tot_strips_eta2_before_reco_error", &data.tot_results_beam.avg_tot_eta2_error, Form("beam_region_avg_tot_strips_eta2_before_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
-    summary_tree->Branch("beam_region_avg_tot_strip_eta1_after_reco", &data.tot_results_beam_track.avg_tot_eta1, Form("beam_region_avg_tot_strip_eta1_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("beam_region_avg_tot_strip_eta2_after_reco", &data.tot_results_beam_track.avg_tot_eta2, Form("beam_region_avg_tot_strip_eta2_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
-    summary_tree->Branch("beam_region_avg_tot_strip_eta1_after_reco_error", &data.tot_results_beam_track.avg_tot_eta1_error, Form("beam_region_avg_tot_strip_eta1_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
-    summary_tree->Branch("beam_region_avg_tot_strip_eta2_after_reco_error", &data.tot_results_beam_track.avg_tot_eta2_error, Form("beam_region_avg_tot_strip_eta2_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("beam_region_avg_tot_strips_eta1_after_reco", &data.tot_results_beam_track.avg_tot_eta1, Form("beam_region_avg_tot_strips_eta1_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("beam_region_avg_tot_strips_eta2_after_reco", &data.tot_results_beam_track.avg_tot_eta2, Form("beam_region_avg_tot_strips_eta2_after_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
+    summary_tree->Branch("beam_region_avg_tot_strips_eta1_after_reco_error", &data.tot_results_beam_track.avg_tot_eta1_error, Form("beam_region_avg_tot_strips_eta1_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
+    summary_tree->Branch("beam_region_avg_tot_strips_eta2_after_reco_error", &data.tot_results_beam_track.avg_tot_eta2_error, Form("beam_region_avg_tot_strips_eta2_after_reco_error[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER * 2));
 
     // Multiplicity results
     summary_tree->Branch("avg_multiplicity_eta1_before_reco", &data.multiplicity_results.avg_multiplicity_eta1, Form("avg_multiplicity_eta1_before_reco[%d][%d]/D", LAYER_COUNT, STRIPS_PER_LAYER));
@@ -181,24 +181,24 @@ void setupBranches(TTree* summary_tree, MeasurementMetadata& metadata, Measureme
 
     // ToF results
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
-        summary_tree->Branch(Form("time_of_flight_layer_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.time_of_flight_eta1[i]);
-        summary_tree->Branch(Form("time_of_flight_layer_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.time_of_flight_eta2[i]);
+        summary_tree->Branch(Form("time_of_flight_layer_pair_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.time_of_flight_eta1[i]);
+        summary_tree->Branch(Form("time_of_flight_layer_pair_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.time_of_flight_eta2[i]);
 
-        summary_tree->Branch(Form("avg_time_of_flight_layer_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.avg_time_of_flight_eta1[i]);
-        summary_tree->Branch(Form("avg_time_of_flight_layer_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.avg_time_of_flight_eta2[i]);
+        summary_tree->Branch(Form("avg_time_of_flight_layer_pair_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.avg_time_of_flight_eta1[i]);
+        summary_tree->Branch(Form("avg_time_of_flight_layer_pair_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.avg_time_of_flight_eta2[i]);
 
-        summary_tree->Branch(Form("avg_time_of_flight_layer_%s_eta1_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.avg_time_of_flight_eta1_error[i], Form("avg_time_of_flight_layer_%s_eta1_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
-        summary_tree->Branch(Form("avg_time_of_flight_layer_%s_eta2_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.avg_time_of_flight_eta2_error[i], Form("avg_time_of_flight_layer_%s_eta2_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
+        summary_tree->Branch(Form("avg_time_of_flight_layer_pair_%s_eta1_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.avg_time_of_flight_eta1_error[i], Form("avg_time_of_flight_layer_pair_%s_eta1_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
+        summary_tree->Branch(Form("avg_time_of_flight_layer_pair_%s_eta2_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.tof_results.avg_time_of_flight_eta2_error[i], Form("avg_time_of_flight_layer_pair_%s_eta2_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
 
-        summary_tree->Branch(Form("time_resolution_layer_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_global_eta1[i]);
-        summary_tree->Branch(Form("time_resolution_layer_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_global_eta2[i]);
-        summary_tree->Branch(Form("time_resolution_layer_%s_eta1_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_global_eta1_error[i], Form("time_resolution_layer_%s_eta1_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
-        summary_tree->Branch(Form("time_resolution_layer_%s_eta2_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_global_eta2_error[i], Form("time_resolution_layer_%s_eta2_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
+        summary_tree->Branch(Form("time_resolution_layer_pair_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_global_eta1[i]);
+        summary_tree->Branch(Form("time_resolution_layer_pair_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_global_eta2[i]);
+        summary_tree->Branch(Form("time_resolution_layer_pair_%s_eta1_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_global_eta1_error[i], Form("time_resolution_layer_pair_%s_eta1_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
+        summary_tree->Branch(Form("time_resolution_layer_pair_%s_eta2_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_global_eta2_error[i], Form("time_resolution_layer_pair_%s_eta2_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), 2));
 
-        summary_tree->Branch(Form("time_resolution_layer_%s_strip_eta1", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_strip_eta1[i], Form("time_resolution_layer_%s_strip_eta1[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), STRIPS_PER_LAYER));
-        summary_tree->Branch(Form("time_resolution_layer_%s_strip_eta2", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_strip_eta2[i], Form("time_resolution_layer_%s_strip_eta2[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), STRIPS_PER_LAYER));
-        summary_tree->Branch(Form("time_resolution_layer_%s_strip_eta1_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_strip_eta1_error[i], Form("time_resolution_layer_%s_strip_eta1_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), STRIPS_PER_LAYER * 2));
-        summary_tree->Branch(Form("time_resolution_layer_%s_strip_eta2_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_strip_eta2_error[i], Form("time_resolution_layer_%s_strip_eta2_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), STRIPS_PER_LAYER * 2));
+        summary_tree->Branch(Form("time_resolution_strips_layer_pair_%s_eta1", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_strip_eta1[i], Form("time_resolution_strips_layer_pair_%s_eta1[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), STRIPS_PER_LAYER));
+        summary_tree->Branch(Form("time_resolution_strips_layer_pair_%s_eta2", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_strip_eta2[i], Form("time_resolution_strips_layer_pair_%s_eta2[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), STRIPS_PER_LAYER));
+        summary_tree->Branch(Form("time_resolution_strips_layer_pair_%s_eta1_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_strip_eta1_error[i], Form("time_resolution_strips_layer_pair_%s_eta1_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), STRIPS_PER_LAYER * 2));
+        summary_tree->Branch(Form("time_resolution_strips_layer_pair_%s_eta2_error", LAYER_PAIR_SUFFIXES[i].c_str()), &data.time_resolution_results.time_resolution_strip_eta2_error[i], Form("time_resolution_strips_layer_pair_%s_eta2_error[%d]/D", LAYER_PAIR_SUFFIXES[i].c_str(), STRIPS_PER_LAYER * 2));
     }
 }
 

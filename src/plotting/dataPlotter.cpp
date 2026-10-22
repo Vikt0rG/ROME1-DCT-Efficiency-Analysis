@@ -316,10 +316,10 @@ namespace {
     const std::vector<std::string> global_metrics = []() {
         std::vector<std::string> metrics;
         for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
-            metrics.push_back("avg_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1");
-            metrics.push_back("avg_time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta2");
-            metrics.push_back("time_resolution_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1");
-            metrics.push_back("time_resolution_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta2");
+            metrics.push_back("avg_time_of_flight_layer_pair_" + LAYER_PAIR_SUFFIXES[i] + "_eta1");
+            metrics.push_back("avg_time_of_flight_layer_pair_" + LAYER_PAIR_SUFFIXES[i] + "_eta2");
+            metrics.push_back("time_resolution_layer_pair_" + LAYER_PAIR_SUFFIXES[i] + "_eta1");
+            metrics.push_back("time_resolution_layer_pair_" + LAYER_PAIR_SUFFIXES[i] + "_eta2");
         }
         return metrics;
     }();
@@ -329,13 +329,13 @@ namespace {
         "eff_eta1_rpc_before_reco", "eff_eta2_rpc_before_reco", "eff_or_rpc_before_reco", "eff_and_rpc_before_reco",
         "eff_eta1_external_after_reco", "eff_eta2_external_after_reco", "eff_or_external_after_reco", "eff_and_external_after_reco",
         "eff_eta1_rpc_after_reco", "eff_eta2_rpc_after_reco", "eff_or_rpc_after_reco", "eff_and_rpc_after_reco",
-        "avg_cluster_size_eta1_layers", "avg_cluster_size_eta2_layers",
+        "avg_cluster_size_layers_eta1", "avg_cluster_size_layers_eta2",
         "rate_layers_eta1_before_reco", "rate_layers_eta2_before_reco", "rate_layers_or_before_reco", "rate_layers_and_before_reco",
         "rate_layers_eta1_after_reco", "rate_layers_eta2_after_reco", "rate_layers_or_after_reco", "rate_layers_and_after_reco",
-        "avg_tot_layer_eta1_before_reco", "avg_tot_layer_eta2_before_reco",
-        "avg_tot_layer_eta1_after_reco", "avg_tot_layer_eta2_after_reco",
-        "beam_region_avg_tot_layer_eta1_before_reco", "beam_region_avg_tot_layer_eta2_before_reco",
-        "beam_region_avg_tot_layer_eta1_after_reco", "beam_region_avg_tot_layer_eta2_after_reco"
+        "avg_tot_layers_eta1_before_reco", "avg_tot_layers_eta2_before_reco",
+        "avg_tot_layers_eta1_after_reco", "avg_tot_layers_eta2_after_reco",
+        "beam_region_avg_tot_layers_eta1_before_reco", "beam_region_avg_tot_layers_eta2_before_reco",
+        "beam_region_avg_tot_layers_eta1_after_reco", "beam_region_avg_tot_layers_eta2_after_reco"
     };
 
     const std::vector<std::string> scalar_metrics = {
@@ -347,10 +347,10 @@ namespace {
     const std::vector<std::string> strip_layer_metrics = {
         "rate_strips_eta1_before_reco", "rate_strips_eta2_before_reco", "rate_strips_or_before_reco", "rate_strips_and_before_reco",
         "rate_strips_eta1_after_reco", "rate_strips_eta2_after_reco", "rate_strips_or_after_reco", "rate_strips_and_after_reco",
-        "avg_tot_strip_eta1_before_reco", "avg_tot_strip_eta2_before_reco",
-        "avg_tot_strip_eta1_after_reco", "avg_tot_strip_eta2_after_reco",
-        "beam_region_avg_tot_strip_eta1_before_reco", "beam_region_avg_tot_strip_eta2_before_reco",
-        "beam_region_avg_tot_strip_eta1_after_reco", "beam_region_avg_tot_strip_eta2_after_reco",
+        "avg_tot_strips_eta1_before_reco", "avg_tot_strips_eta2_before_reco",
+        "avg_tot_strips_eta1_after_reco", "avg_tot_strips_eta2_after_reco",
+        "beam_region_avg_tot_strips_eta1_before_reco", "beam_region_avg_tot_strips_eta2_before_reco",
+        "beam_region_avg_tot_strips_eta1_after_reco", "beam_region_avg_tot_strips_eta2_after_reco",
         "avg_multiplicity_eta1_before_reco", "avg_multiplicity_eta2_before_reco",
         "avg_multiplicity_eta1_after_reco", "avg_multiplicity_eta2_after_reco"
     };
@@ -358,8 +358,8 @@ namespace {
     const std::vector<std::string> strip_layer_pair_metrics = []() {
         std::vector<std::string> metrics;
         for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
-            metrics.push_back("time_resolution_layer_" + LAYER_PAIR_SUFFIXES[i] + "_strip_eta1");
-            metrics.push_back("time_resolution_layer_" + LAYER_PAIR_SUFFIXES[i] + "_strip_eta2");
+            metrics.push_back("time_resolution_strips_layer_pair_" + LAYER_PAIR_SUFFIXES[i] + "_eta1");
+            metrics.push_back("time_resolution_strips_layer_pair_" + LAYER_PAIR_SUFFIXES[i] + "_eta2");
         }
         return metrics;
     }();
@@ -367,8 +367,8 @@ namespace {
     const std::vector<std::string> raw_metrics = []() {
         std::vector<std::string> metrics;
         for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
-            metrics.push_back("time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta1");
-            metrics.push_back("time_of_flight_layer_" + LAYER_PAIR_SUFFIXES[i] + "_eta2");
+            metrics.push_back("time_of_flight_layer_pair_" + LAYER_PAIR_SUFFIXES[i] + "_eta1");
+            metrics.push_back("time_of_flight_layer_pair_" + LAYER_PAIR_SUFFIXES[i] + "_eta2");
         }
         return metrics;
     }();
@@ -411,7 +411,8 @@ TDirectory* DataPlotter::setupScanDirectories(TDirectory* config_dir, const std:
 
     // (Multi)Graphs for Global Metrics
     PathUtils::ensureDirectory(scan_dir, "efficiency_analysis");
-    PathUtils::ensureDirectory(scan_dir, "cluster_analysis");
+    PathUtils::ensureDirectory(scan_dir, "cluster_global_analysis");
+    PathUtils::ensureDirectory(scan_dir, "cluster_layers_analysis");
     PathUtils::ensureDirectory(scan_dir, "rate_global_analysis");
     PathUtils::ensureDirectory(scan_dir, "rate_layers_analysis");
     PathUtils::ensureDirectory(scan_dir, "rate_strips_analysis");
@@ -615,7 +616,7 @@ void DataPlotter::plotScalarMetrics(TDirectory* scan_dir, const MetricsData& sca
     if (!scan_dir) return;
 
     TDirectory* rate_global_dir = scan_dir->GetDirectory("rate_global_analysis");
-    TDirectory* clus_dir = scan_dir->GetDirectory("cluster_analysis");
+    TDirectory* cluster_global_dir = scan_dir->GetDirectory("cluster_global_analysis");
 
     for (const auto& [metric_name, x_vals] : scan_data.scalar_x) {
         if (x_vals.empty()) continue;
@@ -625,7 +626,7 @@ void DataPlotter::plotScalarMetrics(TDirectory* scan_dir, const MetricsData& sca
         if (metric_name.find("rate") != std::string::npos) {
             target_dir = rate_global_dir;
         } else if (metric_name.find("cluster") != std::string::npos) {
-            target_dir = clus_dir;
+            target_dir = cluster_global_dir;
         }
 
         if (!target_dir) continue;
@@ -769,7 +770,7 @@ void DataPlotter::plotLayerMetrics(
 
     // Grab the pre-created subdirectories
     TDirectory* eff_dir  = scan_dir->GetDirectory("efficiency_analysis");
-    TDirectory* clus_dir = scan_dir->GetDirectory("cluster_analysis");
+    TDirectory* clus_dir = scan_dir->GetDirectory("cluster_layers_analysis");
     TDirectory* nois_dir = scan_dir->GetDirectory("rate_layers_analysis");
     TDirectory* tot_dir  = scan_dir->GetDirectory("tot_layers_analysis");
 
@@ -778,13 +779,13 @@ void DataPlotter::plotLayerMetrics(
         TDirectory* metric_dir = scan_dir; // default fallback
         bool is_eff_metric = false;
 
-        if (metric_name.rfind("eff_", 0) == 0 || metric_name.rfind("track_eff_", 0) == 0) {
+        if (metric_name.rfind("eff_", 0) == 0) {
             metric_dir = eff_dir;
             is_eff_metric = true;
         }
-        else if (metric_name.rfind("avg_cluster", 0) == 0) metric_dir = clus_dir;
-        else if (metric_name.find("rate") != std::string::npos) metric_dir = nois_dir;
-        else if (metric_name.find("tot") != std::string::npos) metric_dir = tot_dir;
+        else if (metric_name.find("avg_cluster_size_layers") != std::string::npos) metric_dir = clus_dir;
+        else if (metric_name.find("rate_layers") != std::string::npos) metric_dir = nois_dir;
+        else if (metric_name.find("avg_tot_layers") != std::string::npos) metric_dir = tot_dir;
 
         if (!metric_dir) continue;
         metric_dir->cd();
@@ -834,7 +835,7 @@ void DataPlotter::plotLayerMetrics(
                 nullptr, nullptr, y_err_low.data(), y_err_high.data()
             );
 
-            std::string graph_name = Form("%s_layer%d", metric_name.c_str(), layer);
+            std::string graph_name = Form(metric_name.c_str());
             layer_graph->SetName(graph_name.c_str());
             layer_graph->SetTitle(Form("Layer %d", layer));
             layer_graph->SetMarkerStyle(20 + layer);
@@ -873,10 +874,10 @@ void DataPlotter::plotStripMetrics(TDirectory* scan_dir, const MetricsData& scan
         TDirectory* metric_dir = scan_dir;
         bool is_tof_metric = false;
 
-        if (metric_name.find("rate") != std::string::npos) metric_dir = nois_dir;
-        else if (metric_name.find("tot") != std::string::npos) metric_dir = tot_dir;
-        else if (metric_name.find("multiplicity") != std::string::npos) metric_dir = mult_dir;
-        else if (metric_name.find("time_resolution") != std::string::npos) {
+        if (metric_name.find("rate_strips") != std::string::npos) metric_dir = nois_dir;
+        else if (metric_name.find("avg_tot_strips") != std::string::npos) metric_dir = tot_dir;
+        else if (metric_name.find("avg_multiplicity") != std::string::npos) metric_dir = mult_dir;
+        else if (metric_name.find("time_resolution_strips") != std::string::npos) {
             metric_dir = tof_dir;
             is_tof_metric = true;
         }
@@ -900,9 +901,9 @@ void DataPlotter::plotStripMetrics(TDirectory* scan_dir, const MetricsData& scan
 
             std::string layer_folder = "layer" + std::to_string(layer_idx);
             if (is_tof_metric) {
-                if (layer_idx == 0) layer_folder = "layer_0_1";
-                else if (layer_idx == 1) layer_folder = "layer_0_2";
-                else if (layer_idx == 2) layer_folder = "layer_1_2";
+                if (layer_idx == 0) layer_folder = "layer_pair_0_1";
+                else if (layer_idx == 1) layer_folder = "layer_pair_0_2";
+                else if (layer_idx == 2) layer_folder = "layer_pair_1_2";
             }
 
             TDirectory* l_dir = PathUtils::ensureDirectory(metric_dir, layer_folder.c_str());

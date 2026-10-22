@@ -707,7 +707,7 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
     const char* categories[nConfigs] = {
         "tot_eta1_before_reco", "tot_eta2_before_reco",
         "tot_eta1_after_reco",  "tot_eta2_after_reco",
-        "tot_eta1_beam",        "tot_eta2_beam"
+        "tot_eta1_beam_region", "tot_eta2_beam_region"
     };
     const char* comments[nConfigs] = {
         "Before Track Reco", "Before Track Reco",
@@ -722,8 +722,8 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
         "tot_eta2_primary_before_reco", "tot_eta2_secondary_before_reco",
         "tot_eta1_primary_after_reco",  "tot_eta1_secondary_after_reco",
         "tot_eta2_primary_after_reco",  "tot_eta2_secondary_after_reco",
-        "tot_eta1_primary_beam",        "tot_eta1_secondary_beam",
-        "tot_eta2_primary_beam",        "tot_eta2_secondary_beam"
+        "tot_eta1_primary_beam_region", "tot_eta1_secondary_beam_region",
+        "tot_eta2_primary_beam_region", "tot_eta2_secondary_beam_region"
     };
 
     std::string filter_str = Form("%.1f", _metadata.filter);
@@ -848,7 +848,7 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
                     double prim_tot = primary_tot_eta1[key];
                     h2d_tot_corr["tot_eta1_before_reco"][layer]->Fill(prim_tot, tot1_ns);
                     if (valid_track) h2d_tot_corr["tot_eta1_after_reco"][layer]->Fill(prim_tot, tot1_ns);
-                    if (in_beam) h2d_tot_corr["tot_eta1_beam"][layer]->Fill(prim_tot, tot1_ns);
+                    if (in_beam) h2d_tot_corr["tot_eta1_beam_region"][layer]->Fill(prim_tot, tot1_ns);
                 }
 
                 if (valid_track) {
@@ -856,8 +856,8 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
                     strip_histograms["tot_eta1_" + tag_eta1 + "_after_reco"][layer]->Fill(tot1_ns);
                 }
                 if (in_beam) {
-                    strip_histograms["tot_eta1_beam"][layer]->Fill(tot1_ns);
-                    strip_histograms["tot_eta1_" + tag_eta1 + "_beam"][layer]->Fill(tot1_ns);
+                    strip_histograms["tot_eta1_beam_region"][layer]->Fill(tot1_ns);
+                    strip_histograms["tot_eta1_" + tag_eta1 + "_beam_region"][layer]->Fill(tot1_ns);
                 }
             }
 
@@ -873,7 +873,7 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
                     double prim_tot = primary_tot_eta2[key];
                     h2d_tot_corr["tot_eta2_before_reco"][layer]->Fill(prim_tot, tot2_ns);
                     if (valid_track) h2d_tot_corr["tot_eta2_after_reco"][layer]->Fill(prim_tot, tot2_ns);
-                    if (in_beam) h2d_tot_corr["tot_eta2_beam"][layer]->Fill(prim_tot, tot2_ns);
+                    if (in_beam) h2d_tot_corr["tot_eta2_beam_region"][layer]->Fill(prim_tot, tot2_ns);
                 }
 
                 if (valid_track) {
@@ -881,8 +881,8 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
                     strip_histograms["tot_eta2_" + tag_eta2 + "_after_reco"][layer]->Fill(tot2_ns);
                 }
                 if (in_beam) {
-                    strip_histograms["tot_eta2_beam"][layer]->Fill(tot2_ns);
-                    strip_histograms["tot_eta2_" + tag_eta2 + "_beam"][layer]->Fill(tot2_ns);
+                    strip_histograms["tot_eta2_beam_region"][layer]->Fill(tot2_ns);
+                    strip_histograms["tot_eta2_" + tag_eta2 + "_beam_region"][layer]->Fill(tot2_ns);
                 }
             }
         }
@@ -928,7 +928,7 @@ void plotToT(TFile* input_file, const RoI& region_of_interest) {
     std::vector<StackPairing> pairings = {
         {"tot_eta1_before_reco", "tot_eta2_before_reco", "before_reco", "Before Track Reco"},
         {"tot_eta1_after_reco",  "tot_eta2_after_reco",  "after_reco",  "After Track Reco"},
-        {"tot_eta1_beam",        "tot_eta2_beam",        "beam",        "Beam Spot Region"}
+        {"tot_eta1_beam_region", "tot_eta2_beam_region", "beam_region", "Beam Spot Region"}
     };
 
     // Store stacks combining both sides (eta1 vs eta2 per layer)
@@ -1236,8 +1236,8 @@ void plotToTVsDtVsStrip(TFile* input_file, const RoI& region_of_interest) {
             if ((*raw_time2)[i] != 0 && valid_track) profile_histograms["tot_eta2_dt_strip_after_reco"][layer]->Fill(strip, dt, tot2_ns);
 
             // Beam Region
-            if ((*raw_time1)[i] != 0 && in_beam) profile_histograms["tot_eta1_dt_strip_beam"][layer]->Fill(strip, dt, tot1_ns);
-            if ((*raw_time2)[i] != 0 && in_beam) profile_histograms["tot_eta2_dt_strip_beam"][layer]->Fill(strip, dt, tot2_ns);
+            if ((*raw_time1)[i] != 0 && in_beam) profile_histograms["tot_eta1_dt_strip_beam_region"][layer]->Fill(strip, dt, tot1_ns);
+            if ((*raw_time2)[i] != 0 && in_beam) profile_histograms["tot_eta2_dt_strip_beam_region"][layer]->Fill(strip, dt, tot2_ns);
         }
     }
 
@@ -1816,14 +1816,21 @@ void plotToFs(TFile* input_file) {
 
     double bin_width = TIME_TICK_NS;
     for (int i = 0; i < LAYER_PAIR_COUNT; ++i) {
-        auto [x_min1, x_max1] = perFileHelpers::getPercentileRange(raw_tof1_data[i], 0.0, 1.0);
-        auto [x_min2, x_max2] = perFileHelpers::getPercentileRange(raw_tof2_data[i], 0.0, 1.0);
+        auto [raw_min1, raw_max1] = perFileHelpers::getPercentileRange(raw_tof1_data[i], 0.0, 1.0);
+        auto [raw_min2, raw_max2] = perFileHelpers::getPercentileRange(raw_tof2_data[i], 0.0, 1.0);
 
-        int n_bins1 = std::max(1, static_cast<int>(std::round((x_max1 - x_min1) / bin_width)));
-        int n_bins2 = std::max(1, static_cast<int>(std::round((x_max2 - x_min2) / bin_width)));
+        int min_tick1 = static_cast<int>(std::floor(raw_min1 / bin_width));
+        int max_tick1 = static_cast<int>(std::ceil(raw_max1 / bin_width));
+        int min_tick2 = static_cast<int>(std::floor(raw_min2 / bin_width));
+        int max_tick2 = static_cast<int>(std::ceil(raw_max2 / bin_width));
 
-        x_max1 = x_min1 + n_bins1 * bin_width;
-        x_max2 = x_min2 + n_bins2 * bin_width;
+        int n_bins1 = std::max(1, max_tick1 - min_tick1 + 1);
+        int n_bins2 = std::max(1, max_tick2 - min_tick2 + 1);
+
+        double x_min1 = (min_tick1 - 0.5) * bin_width;
+        double x_max1 = (max_tick1 + 0.5) * bin_width;
+        double x_min2 = (min_tick2 - 0.5) * bin_width;
+        double x_max2 = (max_tick2 + 0.5) * bin_width;
 
         TH1F* h_tof1 = new TH1F(
             Form(
