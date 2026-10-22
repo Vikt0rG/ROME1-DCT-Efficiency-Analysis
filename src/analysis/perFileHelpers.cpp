@@ -446,16 +446,11 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
                 n_bins_x, x_min_strip, x_max_strip,
                 n_bins_y, dt_min_ticks, dt_max_ticks
             );
-
-
-
             dt_strip_histograms[reco_status[c]][layer] = hist;
         }
     }
 
-    long long n_events = 0;
     while (readerProcData.Next() && readerTrackData.Next()) {
-        n_events++;
 
         const size_t n_hits = std::min({strips->size(), layers->size(), dts->size()});
         for (size_t i = 0; i < n_hits; ++i) {
@@ -521,6 +516,7 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
     double dt_bin_width_ns = TIME_TICK_NS;
     double dy_cm = (SIGNAL_SPEED * dt_bin_width_ns) / 2.0;
 
+    int n_events = dynamic_cast<TTree*>(input_file->Get("InputData"))->GetEntries();
     double cell_area_cm2 = dx_cm * dy_cm;
     double total_exposure = n_events * TRIGGER_TIME_WINDOW * cell_area_cm2;
 

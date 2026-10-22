@@ -391,7 +391,7 @@ void getRate(TFile* input_file, RateResults& rate_results, bool in_valid_track_o
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta1(readerTrackData, "in_valid_track_eta1");
     TTreeReaderValue<std::vector<bool>> in_valid_track_eta2(readerTrackData, "in_valid_track_eta2");
 
-    long long event_count = 0;
+    int event_count = dynamic_cast<TTree*>(input_file->Get("InputData"))->GetEntries();
 
     // Global counters
     long long total_hits_eta1 = 0;
@@ -411,7 +411,6 @@ void getRate(TFile* input_file, RateResults& rate_results, bool in_valid_track_o
     long long hits_per_strip_or[LAYER_COUNT][STRIPS_PER_LAYER] = {};
     long long hits_per_strip_and[LAYER_COUNT][STRIPS_PER_LAYER] = {};
     while (readerProcData.Next() && readerTrackData.Next()) {
-        event_count += 1;
 
         // Process Rates
         if (proc_time1.GetSetupStatus() == 0 && proc_time2.GetSetupStatus() == 0 &&
