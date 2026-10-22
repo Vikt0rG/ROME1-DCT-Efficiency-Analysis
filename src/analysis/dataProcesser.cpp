@@ -69,6 +69,7 @@ void DataProcesser::setupOutputFile() {
 // Utility function to setup branches for all trees in the output file
 void DataProcesser::setupBranches() {
     // Branch definitions for raw data tree
+    _input_data_tree->Branch("n_raw_events", &_n_raw_events);
     _input_data_tree->Branch("hit_clk", &hit_clk);
     _input_data_tree->Branch("hit_channel", &hit_channel);
     _input_data_tree->Branch("hit_raw_bcid", &hit_raw_bcid);
@@ -603,6 +604,20 @@ void DataProcesser::processDataFiledump(const std::string& file_path) {
     std::vector<int> event_clks;
     std::vector<int> event_words;
 
+    // Helper lambda to flush the current event into the TTree
+    auto flushCurrentEvent = [&]() {
+        if (!in_event) return;
+
+        // Process words if there are any (for noise events, event_words is empty)
+        for (size_t i = 0; i < event_words.size(); ++i) {
+            processSingleWord(event_clks[i], event_words[i]);
+        }
+
+        // Always fill the tree so every event header gets an entry
+        _input_data_tree->Fill();
+        _n_raw_events++;
+    };
+
     while (infile >> token) {
         if (token.length() <= 512) {
             continue;
@@ -610,31 +625,20 @@ void DataProcesser::processDataFiledump(const std::string& file_path) {
 
         std::string header = token.substr(0, 2);
         if (header == "0a") {
-            // PASS 2: Loop over all so far accumulated words from this event and fill the InputData tree with raw hit information
-            if (in_event && !event_words.empty()) {
+            // Flush and Fill previous event before resetting containers
+            flushCurrentEvent();
 
-                // Extract raw hit information from the words and push back into raw data vectors
-                for (size_t i = 0; i < event_words.size(); ++i) {
-                    processSingleWord(event_clks[i], event_words[i]);
-                }
-
-                // After processing all words for this event, fill the InputData tree with the accumulated raw hit data
-                if (event_words.size() > 0) {
-                    _input_data_tree->Fill();    // Fill the tree with raw hit data for this event after processing all words
-                }
-            }
-
-            // Prepare for the next event
-            in_event = true;        // Set flag to indicate we are now processing an event
-            clk = 0;                // Reset clock counter at the start of each event
-            event_clks.clear();     // Clear event clocks for the new event
-            event_words.clear();    // Clear event words for the new event
-            clearRawDataVectors();  // Clear raw data vectors for the new event
+            // Prepare for the new event
+            in_event = true;
+            clk = 0;
+            event_clks.clear();
+            event_words.clear();
+            clearRawDataVectors();
         }
 
-        if (!in_event) continue; // Skip any words until we encounter the first "0a" header indicating the start of an event
+        if (!in_event) continue;
 
-        // PASS 1: Extract words for this event and accumulate them in event_words and event_clks
+        // Extract words for this event
         for (int i = 0; i < 2 * 128; i++) {
             const size_t offset = static_cast<size_t>(i) * 8 + 2;
             if (offset + 8 > token.length()) {
@@ -670,16 +674,8 @@ void DataProcesser::processDataFiledump(const std::string& file_path) {
         }
     }
 
-    // Process any remaining event at the end of file
-    if (!event_words.empty()) {
-        // PASS 2.5: Process the last event if the file does not end with a new event header
-        for (size_t i = 0; i < event_words.size(); ++i) {
-            processSingleWord(event_clks[i], event_words[i]);
-        }
-        if (event_words.size() > 0) {
-            _input_data_tree->Fill();
-        }
-    }
+    // Flush and Fill the final event in the file (even if empty)
+    flushCurrentEvent();
 
     infile.close();
 }

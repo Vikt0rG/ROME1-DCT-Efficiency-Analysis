@@ -171,6 +171,7 @@ private:
 
     // Raw data vectors and structs
     DCTWord _dct_word;
+    int _n_raw_events = 0;
     std::vector<int> hit_clk, hit_channel, hit_raw_bcid;
     std::vector<int> hit_raw_time1, hit_raw_time2, hit_rise;
 
