@@ -14,7 +14,8 @@ struct ColumnsShift {
 // =============================================================================
 // RUN ENVIRONMENT SWITCH: Set to 1 for TEST_BEAM or 0 for COSMICS
 // =============================================================================
-#define TEST_BEAM 1
+#define TEST_BEAM 0
+#define BIS2 1
 
 #if TEST_BEAM
     // -------------------------------------------------------------------------
@@ -40,14 +41,19 @@ struct ColumnsShift {
     // -------------------------------------------------------------------------
     // COSMICS CONFIGURATION
     // -------------------------------------------------------------------------
-    inline const std::vector<std::tuple<int, int, int>> DEAD_STRIPS = {};
-    constexpr std::array<ColumnsShift, 1> COLUMN_SHIFTS = {};
+        constexpr bool USE_EXTERNAL_TRIGGER = true;
+    constexpr int N_BINS_DT             = 22;
 
-    constexpr bool USE_EXTERNAL_TRIGGER = true;
-    constexpr int N_BINS_DT             = 26;
-
-    constexpr int STRIPS_PER_LAYER      = 48;
-    constexpr double DETECTOR_LENGTH_CM = 180.0;
+    #if BIS2
+        constexpr int STRIPS_PER_LAYER  = 40;
+        constexpr std::array<ColumnsShift, 1> COLUMN_SHIFTS = {{8, 47, -8}};
+        inline const std::vector<std::tuple<int, int, int>> DEAD_STRIPS = {};
+    #else
+        constexpr int STRIPS_PER_LAYER  = 48;
+        constexpr std::array<ColumnsShift, 1> COLUMN_SHIFTS = {};
+        inline const std::vector<std::tuple<int, int, int>> DEAD_STRIPS = {};
+    #endif
+    constexpr double DETECTOR_LENGTH_CM = 160.0;
 
     constexpr int MIN_TRACK_LENGTH      = 2;
     constexpr int MAX_STRIP_WINDOW      = 2;
@@ -74,8 +80,8 @@ constexpr int MAX_STRIP_DISTANCE     = 1;       // Maximum strip separation in a
 constexpr int TRIGGER_CHANNEL        = 143;
 constexpr int EMPTY_WORD             = 0x5555555;
 constexpr int BC_FRAME_SIZE          = 128;
-constexpr double TRIGGER_TIME_WINDOW = 400e-9; // 400 ns
-constexpr double TIME_TICK_NS        = 0.833;  // Time resolution of the DCT in ns
+constexpr double TRIGGER_TIME_WINDOW = 400e-9;  // 400 ns
+constexpr double TIME_TICK_NS        = 0.833;   // Time resolution of the DCT in ns
 
 // Physical constraints and bounds
 constexpr double TOT_ROI_MIN         = 4.0;
