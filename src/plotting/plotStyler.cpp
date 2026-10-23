@@ -325,14 +325,13 @@ namespace PlotStyler {
 
             auto it = lv_table.find(lv_val);
             if (it != lv_table.end()) {
-                if (side == 1) voltage_context.push_back(Form("V_{Amp} = %.2f V, V_{Th} = %.2f V", it->second.v_amp_eta1, it->second.v_th));
-                else if (side == 2) voltage_context.push_back(Form("V_{Amp} = %.2f V, V_{Th} = %.2f V", it->second.v_amp_eta2, it->second.v_th));
-                else voltage_context.push_back(Form("V_{Amp} = %.2f/%.2f V, V_{Th} = %.2f V", it->second.v_amp_eta1, it->second.v_amp_eta2, it->second.v_th));
+                if (side == 1) voltage_context.push_back(Form("V_{Amp} = %.2f V", it->second.v_amp_eta1));
+                else if (side == 2) voltage_context.push_back(Form("V_{Amp} = %.2f V", it->second.v_amp_eta2));
+                else voltage_context.push_back(Form("V_{Amp} = %.2f/%.2f V", it->second.v_amp_eta1, it->second.v_amp_eta2));
             } else {
                 voltage_context.push_back(Form("LV Setting %d", lv_val));
             }
         }
-        */
 
         // High Voltage Context
         static const std::regex hv_re("_hv_(\\d+)");
@@ -354,11 +353,11 @@ namespace PlotStyler {
         if (!global_context.empty()) {
             out_title_lines.push_back(joinParts(global_context, ": "));
         }
-        if (!measurement_context.empty()) {
-            out_title_lines.push_back(joinParts(measurement_context, ": "));
-        }
         if (!geometry_context.empty()) {
             out_title_lines.push_back(joinParts(geometry_context, ": "));
+        }
+        if (!measurement_context.empty()) {
+            out_title_lines.push_back(joinParts(measurement_context, ": "));
         }
         if (!voltage_context.empty()) {
             out_title_lines.push_back(joinParts(voltage_context, ": "));
