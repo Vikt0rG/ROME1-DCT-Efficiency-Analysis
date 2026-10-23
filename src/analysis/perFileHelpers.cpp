@@ -53,10 +53,11 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
 
     const int n_bins_x = STRIPS_PER_LAYER;
 
+    static_assert(N_BINS_DT % 2 == 0, "N_BINS_DT must be even");
     const int n_bins_y = N_BINS_DT;
     const int dt_max_ticks = n_bins_y / 2;
     const int dt_min_ticks = -dt_max_ticks;
-    const double dt_range_ticks = dt_max_ticks - dt_min_ticks;
+    const int dt_range_ticks = dt_max_ticks - dt_min_ticks;
 
     // Standard raw array allocation matching dynamic n_bins_y
     std::vector<std::vector<std::vector<int>>> passed_counts(LAYER_COUNT, std::vector<std::vector<int>>(STRIPS_PER_LAYER, std::vector<int>(n_bins_y, 0)));
@@ -64,6 +65,40 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
 
     std::vector<std::vector<std::vector<int>>> track_passed_counts(LAYER_COUNT, std::vector<std::vector<int>>(STRIPS_PER_LAYER, std::vector<int>(n_bins_y, 0)));
     std::vector<std::vector<std::vector<int>>> track_total_counts(LAYER_COUNT, std::vector<std::vector<int>>(STRIPS_PER_LAYER, std::vector<int>(n_bins_y, 0)));
+
+    using CellGrid = std::vector<std::vector<std::vector<bool>>>;
+    using Counts   = std::vector<std::vector<std::vector<int>>>;
+
+    // True if 'layer' has a hit anywhere in the (strip, dt) neighbourhood
+    auto anyHitNear = [&](const CellGrid& hits, int layer, int strip, int dt) {
+        const int s_lo = std::max(0, strip - STRIP_WINDOW);
+        const int s_hi = std::min(STRIPS_PER_LAYER - 1, strip + STRIP_WINDOW);
+        const int d_lo = std::max(0, dt - DT_WINDOW);
+        const int d_hi = std::min(n_bins_y - 1, dt + DT_WINDOW);
+        for (int s = s_lo; s <= s_hi; ++s)
+            for (int d = d_lo; d <= d_hi; ++d)
+                if (hits[layer][s][d]) return true;
+        return false;
+    };
+
+    struct LayerRole { int anchor; int partner; };
+    const std::array<LayerRole, 3> roles = {{ {1, 2}, {0, 2}, {1, 0} }};
+
+    auto accumulateEfficiency = [&](const CellGrid& hits, Counts& total, Counts& passed) {
+        for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
+            for (int dt = 0; dt < n_bins_y; ++dt) {
+                for (int probe = 0; probe < LAYER_COUNT; ++probe) {
+                    const auto [anchor, partner] = roles[probe];
+
+                    if (!hits[anchor][strip][dt]) continue;               // need anchor hit in this cell
+                    if (!anyHitNear(hits, partner, strip, dt)) continue;  // need partner hit nearby
+
+                    total[probe][strip][dt]++;
+                    if (anyHitNear(hits, probe, strip, dt)) passed[probe][strip][dt]++;
+                }
+            }
+        }
+    };
 
     int event_idx = 0;
 
@@ -110,11 +145,11 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
             if (dt1_trig >= DEFAULT_DT_MIN && dt1_trig <= DEFAULT_DT_MAX &&
                 dt2_trig >= DEFAULT_DT_MIN && dt2_trig <= DEFAULT_DT_MAX) 
             {
-                double dt_ticks = static_cast<double>((*dts)[i]);
+                int dt_ticks = (*dts)[i];
 
                 // Linear Mapping Formula: Maps signed values to [0, n_bins_y - 1]
                 if (dt_ticks >= dt_min_ticks && dt_ticks < dt_max_ticks) {
-                    int dt_idx = static_cast<int>(((dt_ticks - dt_min_ticks) / dt_range_ticks) * n_bins_y);
+                    int dt_idx = ((dt_ticks - dt_min_ticks) * n_bins_y) / dt_range_ticks;
                     dt_idx = std::clamp(dt_idx, 0, n_bins_y - 1);
 
                     cell_hits[layer][strip][dt_idx] = true;
@@ -126,46 +161,9 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
             }
         }
 
-        // Tag-and-Probe Coincidence Computation across the coarse cells
-        for (int strip = 0; strip < STRIPS_PER_LAYER; ++strip) {
-            for (int dt = 0; dt < n_bins_y; ++dt) {
-                // Raw cell hits
-                bool h0 = cell_hits[0][strip][dt];
-                bool h1 = cell_hits[1][strip][dt];
-                bool h2 = cell_hits[2][strip][dt];
-
-                if (h1 && h2) {
-                    total_counts[0][strip][dt]++;
-                    if (h0) passed_counts[0][strip][dt]++;
-                }
-                if (h0 && h2) {
-                    total_counts[1][strip][dt]++;
-                    if (h1) passed_counts[1][strip][dt]++;
-                }
-                if (h0 && h1) {
-                    total_counts[2][strip][dt]++;
-                    if (h2) passed_counts[2][strip][dt]++;
-                }
-
-                // Track cell hits
-                bool th0 = track_cell_hits[0][strip][dt];
-                bool th1 = track_cell_hits[1][strip][dt];
-                bool th2 = track_cell_hits[2][strip][dt];
-
-                if (th1 && th2) {
-                    track_total_counts[0][strip][dt]++;
-                    if (th0) track_passed_counts[0][strip][dt]++;
-                }
-                if (th0 && th2) {
-                    track_total_counts[1][strip][dt]++;
-                    if (th1) track_passed_counts[1][strip][dt]++;
-                }
-                if (th0 && th1) {
-                    track_total_counts[2][strip][dt]++;
-                    if (th2) track_passed_counts[2][strip][dt]++;
-                }
-            }
-        }
+        // Anchored tag-and-probe with +-1 strip / +-1 dt neighbourhood matching
+        accumulateEfficiency(cell_hits,       total_counts,       passed_counts);
+        accumulateEfficiency(track_cell_hits, track_total_counts, track_passed_counts);
     }
 
     // Physical bounds in cm centered at 0
@@ -200,7 +198,7 @@ void plotEfficiencyMap(TFile* input_file, bool use_external_trigger = false) {
                     _metadata.lv_setting,
                     filter_str.c_str(),
                     _metadata.scanned_hv),
-                Form("Efficiency Map: Layer %d: %s;X [cm];Y [cm];Efficiency", layer, cfg.title_tag.c_str()),
+                Form("Efficiency Map: Layer %d: %s;#eta [cm];#phi [cm];Efficiency", layer, cfg.title_tag.c_str()),
                 n_bins_x, x_min_cm, x_max_cm,
                 n_bins_y, y_min_cm, y_max_cm
             );
@@ -544,7 +542,7 @@ void plotDtVsStrip(TFile* input_file, RoI& region_of_interest) {
                         filter_str.c_str(),
                         _metadata.scanned_hv
                     ),
-                    Form("Rate Map: Layer %d: %s;X [cm];Y [cm];Rate [Hz/cm^{2}]", layer, comments[c]),
+                    Form("Rate Map: Layer %d: %s;#eta [cm];#phi [cm];Rate [Hz/cm^{2}]", layer, comments[c]),
                     n_bins_x, x_min_cm, x_max_cm,
                     n_bins_y, y_min_cm, y_max_cm
                 );

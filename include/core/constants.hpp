@@ -95,5 +95,9 @@ constexpr double TOT_ROI_MIN         = 4.0;
 constexpr double TOT_ROI_MAX         = 20.0;
 constexpr double TR_FIT_CUTOFF_EFF   = 0.25;    // Minimum efficiency threshold for valid TR fit
 
+// Anchor/Partner/Probe approach for efficiency map
+constexpr int STRIP_WINDOW          = 1;        // Maximum strip deviation of the anchor w.r.t. the probe
+constexpr int DT_WINDOW             = 1;        // Maximum time deviation of the anchor w.r.t. the probe [Ticks]
+
 // Suffixes and labels for plotting and analysis
 inline const std::array<std::string, LAYER_PAIR_COUNT> LAYER_PAIR_SUFFIXES = {"0_1", "0_2", "1_2"};
