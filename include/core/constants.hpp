@@ -79,16 +79,21 @@ constexpr int LAYER_COUNT            = 3;       // Number of detector layers (L0
 constexpr int LAYER_PAIR_COUNT       = 3;       // Number of unique layer pairs (L0-L1, L0-L2, L1-L2)
 constexpr double STRIP_WIDTH_CM      = 2.5;     // Width of each strip in cm
 
-// Clusterization constants
-constexpr int CLUSTER_TIME_WINDOW    = 18;      // Time window for cluster formation (18 ticks = 15 ns)
-constexpr int MAX_STRIP_DISTANCE     = 1;       // Maximum strip separation in a cluster
-
 // DCT protocol constants
 constexpr int TRIGGER_CHANNEL        = 143;
 constexpr int EMPTY_WORD             = 0x5555555;
 constexpr int BC_FRAME_SIZE          = 128;
 constexpr double TRIGGER_TIME_WINDOW = 400e-9;  // 400 ns
 constexpr double TIME_TICK_NS        = 0.833;   // Time resolution of the DCT in ns
+
+// =============================================================================
+// ANALYSIS & PLOTTING CONSTANTS
+// =============================================================================
+#define USE_STD_FOR_RATE 1
+
+// Clusterization constants
+constexpr int CLUSTER_TIME_WINDOW    = 18;      // Time window for cluster formation (18 ticks = 15 ns)
+constexpr int MAX_STRIP_DISTANCE     = 1;       // Maximum strip separation in a cluster
 
 // Physical constraints and bounds
 constexpr double TOT_ROI_MIN         = 4.0;
@@ -101,3 +106,11 @@ constexpr int DT_WINDOW             = 1;        // Maximum time deviation of the
 
 // Suffixes and labels for plotting and analysis
 inline const std::array<std::string, LAYER_PAIR_COUNT> LAYER_PAIR_SUFFIXES = {"0_1", "0_2", "1_2"};
+
+constexpr bool ATLAS_LOGO           = false;    // Whether to include the ATLAS logo in plots
+
+#if USE_STD_FOR_RATE
+    const std::string DEF_RATE_MIX  = "STD";    // Use rate of the standard mixture for all filters
+#else
+    constexpr std::string RATE_MIX  = "";       // Use rate of the specific mixture for each filter
+#endif
