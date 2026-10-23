@@ -25,7 +25,7 @@ namespace ATLASStyler {
         const std::string& status = "", const std::vector<std::string>& subtitle_parts = {""}, short alignment = 33,
         Color_t fillColor = 0, double fillAlpha = 0.70,
         Color_t borderColor = 1, int borderWidth = 1,
-        double innerPadding = 0.01);
+        double innerPadding = 0.01, std::optional<double> lineSpacing = std::nullopt);
 
     inline TPaveText* drawATLASHeaderBlock(
         double ndc_x, double ndc_y,
@@ -34,7 +34,7 @@ namespace ATLASStyler {
         short alignment,
         Color_t fillColor, double fillAlpha,
         Color_t borderColor, int borderWidth,
-        double innerPadding)
+        double innerPadding, std::optional<double> lineSpacing = std::nullopt)
     {
         return drawATLASHeaderBlock(
             ndc_x, ndc_y, status, 

@@ -14,6 +14,7 @@
 
 #include "ATLASStyler.hpp"
 #include "plotTypes.hpp"
+#include "constants.hpp"
 
 namespace PlotterHelpers {
 namespace ATLASStyler {
@@ -144,14 +145,17 @@ namespace ATLASStyler {
         short alignment,
         Color_t fillColor, double fillAlpha,
         Color_t borderColor, int borderWidth,
-        double innerPadding)
+        double innerPadding, std::optional<double> lineSpacing)
     {
         if (!gPad) return nullptr;
 
         // Construct text strings
-        std::string line1 = "#bf{#it{ATLAS Muon}}";
-        if (!status.empty()) {
-            line1 += " " + status;
+        std::string atlas_logo = "";
+        if (ATLAS_LOGO) {
+            atlas_logo += "#bf{#it{ATLAS Muon}}";
+            if (!status.empty()) {
+                atlas_logo += " " + status;
+            }
         }
 
         // Measure actual text width dynamically on gPad using a dummy TLatex
@@ -171,7 +175,8 @@ namespace ATLASStyler {
 
         // Filter out empty lines and calculate the maximum width dynamically
         std::vector<std::string> valid_titles;
-        double max_text_width = getWidthNDC(line1);
+        double max_text_width = 0.0;
+        if (ATLAS_LOGO) max_text_width = getWidthNDC(atlas_logo);
 
         for (const auto& t : subtitle_parts) {
             if (!t.empty()) {
@@ -180,8 +185,8 @@ namespace ATLASStyler {
             }
         }
 
-        int num_lines = 1 + valid_titles.size();
-        double line_height = 0.038;
+        int num_lines = (ATLAS_LOGO ? 1 : 0) + valid_titles.size();
+        double line_height = 0.038 * (lineSpacing.value_or(1.0));
 
         // Calculate total box dimensions including padding
         double box_width  = max_text_width + (2.0 * innerPadding);
@@ -221,8 +226,10 @@ namespace ATLASStyler {
         pave->SetTextSize(0.035);
 
         // Add the top ATLAS label line
-        TText* t1 = pave->AddText(line1.c_str());
-        if (t1) t1->SetTextColor(kBlack);
+        if (ATLAS_LOGO) {
+            TText* t1 = pave->AddText(atlas_logo.c_str());
+            if (t1) t1->SetTextColor(kBlack);
+        }
 
         // Iterate and add all valid title lines sequentially
         for (const auto& t : valid_titles) {
