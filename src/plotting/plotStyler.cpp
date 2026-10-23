@@ -283,13 +283,15 @@ namespace PlotStyler {
         }
 
         // Mixture Context
+        std::string mixture = "";   // use for lookup tables
         static const std::regex mixture_re("mix(?:ture)?[ _]?([a-zA-Z0-9]+)");
         if (std::regex_search(metric_name, match, mixture_re)) {
-            std::string mixture = match[1].str();
+            mixture = match[1].str();
             measurement_context.push_back(mixture + " Mixture");
         }
 
         // Irradiation Context
+        if (!DEF_RATE_MIX.empty()) mixture = DEF_RATE_MIX;  // override if default fallback is provided
         static const std::regex filter_re("filter[ _]?(\\d+[._]\\d+|OFF)");
         if (std::regex_search(metric_name, match, filter_re)) {
             std::string val_str = match[1].str();
@@ -303,21 +305,19 @@ namespace PlotStyler {
                 double filter_val = std::stod(val_str);
                 const auto& filter_table = getFilterLookupTable();
 
-                auto it = filter_table.find(filter_val);
-                if (it != filter_table.end()) {
-                    if (it->second == 0.0) {
-                        measurement_context.push_back("No Irradiation");
-                    } else {
-                        measurement_context.push_back(Form("Irradiation: %.0d Hz/cm^{2}", it->second));
+                if (auto mixture_it = filter_table.find(mixture); mixture_it != filter_table.end()) {
+                    if (auto it = mixture_it->second.find(filter_val); it != mixture_it->second.end()) {
+                        if (it->second == 0.0) {
+                            measurement_context.push_back("No Irradiation");
+                        } else {
+                            measurement_context.push_back(Form("Irradiation: %.0d Hz/cm^{2}", it->second));
+                        }
                     }
-                } else {
-                    measurement_context.push_back(Form("Filter %f", filter_val));
                 }
             }
         }
 
         // Low Voltate Context
-        /*
         static const std::regex lv_re("_lv_(\\d+)");
         if (std::regex_search(metric_name, match, lv_re)) {
             int lv_val = std::stoi(match[1].str());
@@ -393,11 +393,16 @@ namespace PlotStyler {
                             legend_entry = "No Irradiation";
                         } else {
                             std::replace(filter.begin(), filter.end(), '_', '.');
-                            auto it = filter_table.find(std::stod(filter));
-                            if (it != filter_table.end()) {
-                                legend_entry = "Irradiation: " + std::to_string(it->second) + " Hz/cm^{2}";
+                            double filter_val = std::stod(filter);
 
-                                measurement_context.push_back(Form("Irradiation: %.0d Hz/cm^{2}", it->second));
+                            if (auto mixture_it = filter_table.find(mixture); mixture_it != filter_table.end()) {
+                                if (auto it =  mixture_it->second.find(filter_val); it !=  mixture_it->second.end()) {
+                                    int rate = it->second;
+                                    legend_entry = "Irradiation: " + std::to_string(rate) + " Hz/cm^{2}";
+                                    measurement_context.push_back(Form("Irradiation: %d Hz/cm^{2}", rate));
+                                } else {
+                                    legend_entry = "Irradiation: " + filter;
+                                }
                             } else {
                                 legend_entry = "Irradiation: " + filter;
                             }

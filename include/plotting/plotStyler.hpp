@@ -21,6 +21,7 @@ namespace PlotStyler {
 
     std::string matchLabels(const std::string& name, const std::string& pattern);
 
+    using FilterLookupTable = std::map<std::string, std::map<double, int>>;
     struct LVSettings {
         double v_amp_eta1;
         double v_amp_eta2;
@@ -39,12 +40,9 @@ namespace PlotStyler {
         };
         return lv_table;
     }
-    inline static const std::map<double, int>& getFilterLookupTable() {
-        static const std::map<double, int> filter_table = {
-            {3.3, 538},
-            {6.9, 364},
-            {10.0, 225},
-            {0.0, 0}
+    inline static const FilterLookupTable& getFilterLookupTable() {
+        static const FilterLookupTable filter_table = {
+            { "STD", { {3.3, 538}, {6.9, 364}, {10.0, 225}, {0.0, 0} } }
         };
         return filter_table;
     }
