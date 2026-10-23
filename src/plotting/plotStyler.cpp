@@ -79,7 +79,7 @@ namespace PlotStyler {
         {PlotCategory::Efficiency,                  &styleEfficiency},
         {PlotCategory::EfficiencyVsHV,              &styleEfficiencyVsHV},
         {PlotCategory::MeanClusterSizeVsHV,         &styleAvgClusterSizeVsHV},
-        {PlotCategory::RateVsHV,                    &styleRateVsEff},
+        {PlotCategory::RateVsHV,                    &styleRateVsHV},
         {PlotCategory::RateStripVsHV,               &styleRateStripVsHV},
         {PlotCategory::CSDistribution,              &styleCSDistribution},
         {PlotCategory::ToFDistribution,             &styleToFDistribution},
@@ -1336,36 +1336,38 @@ namespace PlotStyler {
     }
 
     void styleRateVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
-
-        // Extract title and axis labels from the object's title string
         auto mg = dynamic_cast<TMultiGraph*>(obj);
-        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
+        if (!mg) return;
 
-        obj->Draw("AP0Z");
+        TMultiGraph* filtered_mg = filterMultiGraphByEfficiency(mg, 0.0);
+        if (!filtered_mg) return;
+        convertMultiGraphToHVWPScale(filtered_mg);
+
+        auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetName(), mg);
+
+        std::string suffix = moveSideContextToAxisTitle(y_label, title_lines);
+        if (!suffix.empty()) y_label = "Rate " + suffix + " [Hz/cm^{2}]";
+
+        filtered_mg->Draw("AP0Z");
 
         // Set axis ranges and labels
-        if (mg && mg->GetHistogram()) {
-            if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
-                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 4550.0});
-                xAxis->SetTitle(x_label.c_str());
+        if (filtered_mg->GetHistogram()) {
+            if (TAxis* xAxis = filtered_mg->GetHistogram()->GetXaxis()) {
+                setRange(filtered_mg, xAxis, AxisType::X, std::nullopt, std::nullopt);
+                xAxis->SetTitle("HV - HV_{WP} [V]");
             }
-            if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
-                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 4550.0});
+            if (TAxis* yAxis = filtered_mg->GetHistogram()->GetYaxis()) {
+                setRange(filtered_mg, yAxis, AxisType::Y, std::nullopt, std::nullopt);
                 yAxis->SetTitle(y_label.c_str());
             }
         }
 
         // Set color and marker style for the graphs in the multigraph
         const std::vector<Color_t> palette = {
-            kAzure + 2,
-            kGreen + 2,
-            kOrange + 10,
-            kMagenta + 2,
-            kYellow - 3,
-            kCyan - 4
+            kAzure + 2, kGreen + 2, kOrange + 10, kMagenta + 2, kYellow - 3, kCyan - 4
         };
-        if (mg && mg->GetListOfGraphs()) {
-            TIter next(mg->GetListOfGraphs());
+        if (filtered_mg && filtered_mg->GetListOfGraphs()) {
+            TIter next(filtered_mg->GetListOfGraphs());
             TObject* gr_obj;
             int color_idx = 0;
             while ((gr_obj = next())) {
@@ -1383,7 +1385,7 @@ namespace PlotStyler {
             }
         }
 
-        applyATLASStyle(obj, canvas);
+        applyATLASStyle(filtered_mg, canvas);
 
         canvas->Modified();
         canvas->Update();
@@ -1392,21 +1394,16 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 + 0.03,
-            ndc_y0 - 0.09,            // Coordinates for the header box
-            "Work in Progress",       // Status string
-            title_lines,              // Title string
-            12,                       // Alignment
-            kWhite, 0.70,             // semi-transparent white background
-            kBlack, 0,                // No border line
-            0.01                      // Inner padding
+            ndc_x0 + 0.03, ndc_y0 - 0.03,
+            "Work in Progress", title_lines, 13,
+            kWhite, 0.70, kBlack, 0, 0.01
         );
 
         canvas->Modified();
         canvas->Update();
 
         double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
-        drawATLASLegend(obj, legend_entries, ndc_x0 + 0.03, legend_y, 13);
+        drawATLASLegend(filtered_mg, legend_entries, ndc_x0 + 0.03, legend_y, 13);
 
         canvas->Modified();
         canvas->Update();
