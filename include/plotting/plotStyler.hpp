@@ -46,6 +46,17 @@ namespace PlotStyler {
         };
         return filter_table;
     }
+    inline static const std::map<std::string, double> getHVLookupTable() {
+        static const std::map<std::string, double> hv_table = {
+            { "STD",  5700.0 },
+            { "ECO1", 5700.0 },
+            { "ECO2", 6000.0 },
+            { "ECO3", 7700.0 },
+            { "ECO4", 8000.0 },
+            { "ECO5", 7100.0 }
+        };
+        return hv_table;
+    }
 
     std::tuple<std::vector<std::string>, std::string,
     std::string, std::vector<std::string>> compilePlotLabels(

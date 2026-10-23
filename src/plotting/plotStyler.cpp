@@ -78,7 +78,7 @@ namespace PlotStyler {
     static const std::vector<std::pair<PlotCategory, StylerFnPtr>> styler_map = {
         {PlotCategory::Efficiency,                  &styleEfficiency},
         {PlotCategory::EfficiencyVsHV,              &styleEfficiencyVsHV},
-        {PlotCategory::MeanClusterSizeVsHV,         &styleAvgClusterSizeVsEff},
+        {PlotCategory::MeanClusterSizeVsHV,         &styleAvgClusterSizeVsHV},
         {PlotCategory::RateVsHV,                    &styleRateVsEff},
         {PlotCategory::RateStripVsHV,               &styleRateStripVsHV},
         {PlotCategory::CSDistribution,              &styleCSDistribution},
@@ -708,18 +708,12 @@ namespace PlotStyler {
         TFile* file = gDirectory ? gDirectory->GetFile() : nullptr;
         if (!file) return nullptr;
 
-        std::string obj_name = obj->GetName();
-        std::string obj_title = "";
-        if (auto named = dynamic_cast<TNamed*>(obj)) {
-            obj_title = named->GetTitle();
-        }
-        std::string full_id = obj_name + " " + obj_title;
-
         // Extract group token cleanly (e.g., "group_mixECO1" from "rate_strips_eta2_group_mixECO1_layer2")
+        std::string obj_name = obj->GetName();
         std::string target_group = "";
         std::smatch match;
 
-        if (std::regex_search(full_id, match, std::regex("(group_[A-Za-z0-9_]+?)(?=_layer|$)"))) {
+        if (std::regex_search(obj_name, match, std::regex("(group_[A-Za-z0-9_]+?)(?=_layer|$)"))) {
             target_group = match[1].str();
         } else {
             return nullptr;
@@ -741,6 +735,95 @@ namespace PlotStyler {
             }
         }
         return nullptr;
+    }
+
+    void convertMultiGraphToHVWPScale(TMultiGraph* mg) {
+        if (!mg || !mg->GetListOfGraphs()) return;
+
+        auto findMixtureKey = [](const std::string& str) -> std::string {
+            static const std::regex mixture_re("mix(?:ture)?[ _]?([a-zA-Z0-9]+)");
+            std::smatch match;
+            if (std::regex_search(str, match, mixture_re)) {
+                return match[1].str();
+            }
+            return "";
+        };
+
+        const auto& table = getHVLookupTable();
+        const std::string mg_key = findMixtureKey(mg->GetTitle());
+
+        TIter next(mg->GetListOfGraphs());
+        TObject* obj = nullptr;
+
+        while ((obj = next())) {
+            auto gr = dynamic_cast<TGraph*>(obj);
+            if (!gr) continue;
+
+            std::string key = findMixtureKey(gr->GetName());
+            if (key.empty()) key = findMixtureKey(gr->GetTitle());
+            if (key.empty()) key = mg_key;
+
+            if (key.empty()) {
+                std::cout << "[WARNING convertMultiGraphToHVWPScale] No mixture found for graph: "
+                          << gr->GetName() << std::endl;
+                continue;
+            }
+
+            const double hv_wp = table.at(key);
+            const int n_points = gr->GetN();
+            double* x_vals = gr->GetX();
+            double* y_vals = gr->GetY();
+
+            for (int i = 0; i < n_points; ++i) gr->SetPoint(i, x_vals[i] - hv_wp, y_vals[i]);
+                if (auto ae = dynamic_cast<TGraphAsymmErrors*>(gr)) {
+                    for (int i = 0; i < n_points; ++i) {
+                        const double lo = ae->GetErrorXlow(i);
+                        const double hi = ae->GetErrorXhigh(i);
+                        ae->SetPointEXlow(i, hi);
+                        ae->SetPointEXhigh(i, lo);
+                    }
+                }
+        }
+    }
+
+    TMultiGraph* filterMultiGraphByEfficiency(TMultiGraph* mg, double cutoff) {
+        if (!mg || !mg->GetListOfGraphs()) return nullptr;
+
+        auto* out = new TMultiGraph();
+        out->SetName(mg->GetName());
+        out->SetTitle(mg->GetTitle());
+
+        TIter next(mg->GetListOfGraphs());
+        TObject* obj = nullptr;
+        while ((obj = next())) {
+            auto gr = dynamic_cast<TGraph*>(obj);
+            if (!gr || gr->GetN() == 0) continue;
+
+            TGraph* eff_gr = findEfficiencyGraphForObject(gr);
+            TF1* eff_fit = (eff_gr && eff_gr->GetListOfFunctions() && !eff_gr->GetListOfFunctions()->IsEmpty())
+                            ? dynamic_cast<TF1*>(eff_gr->GetListOfFunctions()->Last())
+                            : nullptr;
+
+            auto* clone = static_cast<TGraph*>(gr->Clone());
+            clone->GetListOfFunctions()->Delete();
+
+            for (int i = clone->GetN() - 1; i >= 0; --i) {
+                double x = 0.0, y = 0.0;
+                clone->GetPoint(i, x, y);
+                double eff = 1.0;
+                if (eff_gr) eff = eff_fit ? eff_fit->Eval(x) : eff_gr->Eval(x);
+                if (eff < cutoff) clone->RemovePoint(i);
+            }
+
+            if (clone->GetN() > 0) out->Add(clone, "P");
+            else delete clone;
+        }
+
+        if (!out->GetListOfGraphs() || out->GetListOfGraphs()->GetSize() == 0) {
+            delete out;
+            return nullptr;
+        }
+        return out;
     }
 
     void convertMultiGraphToEfficiencyScale(TMultiGraph* mg) {
@@ -1115,36 +1198,35 @@ namespace PlotStyler {
     }
 
     void styleAvgClusterSizeVsHV(TObject* obj, TCanvas* canvas, TClass* cl) {
-
-        // Extract title and axis labels from the object's title string
         auto mg = dynamic_cast<TMultiGraph*>(obj);
+        if (!mg) return;
+
+        TMultiGraph* filtered_mg = filterMultiGraphByEfficiency(mg, TR_FIT_CUTOFF_EFF);
+        if (!filtered_mg) return;
+        convertMultiGraphToHVWPScale(filtered_mg);
+
         auto [title_lines, x_label, y_label, legend_entries] = compilePlotLabels(obj->GetTitle(), mg);
 
-        obj->Draw("AP0Z");
+        canvas->cd();
+        filtered_mg->Draw("AP0Z");
 
-        // Set axis ranges and labels
-        if (mg && mg->GetHistogram()) {
-            if (TAxis* xAxis = mg->GetHistogram()->GetXaxis()) {
-                setRange(mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {.x_min = 5200.0});
-                xAxis->SetTitle(x_label.c_str());
+        if (filtered_mg->GetHistogram()) {
+            if (TAxis* xAxis = filtered_mg->GetHistogram()->GetXaxis()) {
+                setRange(filtered_mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {});
+                xAxis->SetTitle("HV - HV_{WP} [V]");
             }
-            if (TAxis* yAxis = mg->GetHistogram()->GetYaxis()) {
-                setRange(mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {.x_min = 5200.0});
+            if (TAxis* yAxis = filtered_mg->GetHistogram()->GetYaxis()) {
+                setRange(filtered_mg, yAxis, AxisType::Y, std::nullopt, std::nullopt, {});
                 yAxis->SetTitle(y_label.c_str());
             }
         }
 
         // Set color and marker style for the graphs in the multigraph
         const std::vector<Color_t> palette = {
-            kAzure + 2,
-            kGreen + 2,
-            kOrange + 10,
-            kMagenta + 2,
-            kYellow - 3,
-            kCyan - 4
+            kAzure + 2, kGreen + 2, kOrange + 10, kMagenta + 2, kYellow - 3, kCyan - 4
         };
-        if (mg && mg->GetListOfGraphs()) {
-            TIter next(mg->GetListOfGraphs());
+        if (filtered_mg && filtered_mg->GetListOfGraphs()) {
+            TIter next(filtered_mg->GetListOfGraphs());
             TObject* gr_obj;
             int color_idx = 0;
             while ((gr_obj = next())) {
@@ -1162,8 +1244,7 @@ namespace PlotStyler {
             }
         }
 
-        applyATLASStyle(obj, canvas);
-
+        applyATLASStyle(filtered_mg, canvas);
         canvas->Modified();
         canvas->Update();
 
@@ -1171,22 +1252,14 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 + 0.03,
-            ndc_y0 - 0.09,            // Coordinates for the header box
-            "Work in Progress",       // Status string
-            title_lines,              // Title string
-            12,                       // Alignment
-            kWhite, 0.70,             // semi-transparent white background
-            kBlack, 0,                // No border line
-            0.01                      // Inner padding
+            ndc_x0 + 0.03, ndc_y0 - 0.09, "Work in Progress",
+            title_lines, 13, kWhite, 0.70, kBlack, 0, 0.01, 0.85
         );
-
         canvas->Modified();
         canvas->Update();
 
         double legend_y = header ? header->GetY1NDC() - 0.04 : 0.70;
-        drawATLASLegend(obj, legend_entries, ndc_x0 + 0.03, legend_y, 13);
-
+        drawATLASLegend(filtered_mg, legend_entries, ndc_x0 + 0.03, legend_y, 13);
         canvas->Modified();
         canvas->Update();
     }
@@ -1625,61 +1698,19 @@ namespace PlotStyler {
         auto mg = dynamic_cast<TMultiGraph*>(obj);
         if (!mg) return;
 
-        // PASS 1: Filter out points with efficiency below the threshold
-        TMultiGraph* filtered_mg = new TMultiGraph();
-        filtered_mg->SetName(mg->GetName());
-        filtered_mg->SetTitle(mg->GetTitle());
+        // PASS 1: cut low-efficiency points (needs raw HV), then shift to the working-point scale
+        TMultiGraph* filtered_mg = filterMultiGraphByEfficiency(mg, TR_FIT_CUTOFF_EFF);
+        if (!filtered_mg) return;
+        convertMultiGraphToHVWPScale(filtered_mg);
 
         double global_min_x = std::numeric_limits<double>::max();
         double global_max_x = std::numeric_limits<double>::lowest();
-
-        if (mg->GetListOfGraphs()) {
-            TIter next_filter(mg->GetListOfGraphs());
-            TObject* gr_obj;
-
-            while ((gr_obj = next_filter())) {
-                auto gr = dynamic_cast<TGraph*>(gr_obj);
-                if (!gr || gr->GetN() == 0) continue;
-
-                TGraph* eff_gr = findEfficiencyGraphForObject(gr);
-                TF1* eff_fit = (eff_gr && eff_gr->GetListOfFunctions() && !eff_gr->GetListOfFunctions()->IsEmpty())
-                                ? dynamic_cast<TF1*>(eff_gr->GetListOfFunctions()->Last())
-                                : nullptr;
-
-                TGraphErrors* filtered_gr = new TGraphErrors();
-                filtered_gr->SetName(gr->GetName());
-                filtered_gr->SetTitle(gr->GetTitle());
-
-                int original_n = gr->GetN();
-                double* x_vals = gr->GetX();
-                double* y_vals = gr->GetY();
-                double* ey_vals = gr->GetEY();
-
-                int valid_pt_idx = 0;
-                for (int i = 0; i < original_n; ++i) {
-                    double hv = x_vals[i];
-                    double eff_val = 1.0; // Fallback if no efficiency graph is available
-
-                    if (eff_gr) eff_val = eff_fit ? eff_fit->Eval(hv) : eff_gr->Eval(hv);
-
-                    // Keep only points meeting the efficiency threshold
-                    if (eff_val >= TR_FIT_CUTOFF_EFF) {
-                        filtered_gr->SetPoint(valid_pt_idx, hv, y_vals[i]);
-                        if (ey_vals) {
-                            filtered_gr->SetPointError(valid_pt_idx, 0.0, ey_vals[i]);
-                        }
-                        valid_pt_idx++;
-
-                        global_min_x = std::min(global_min_x, hv);
-                        global_max_x = std::max(global_max_x, hv);
-                    }
-                }
-
-                if (filtered_gr->GetN() > 0) {
-                    filtered_mg->Add(filtered_gr, "P");
-                } else {
-                    delete filtered_gr;
-                }
+        TIter next_range(filtered_mg->GetListOfGraphs());
+        while (TObject* o = next_range()) {
+            auto gr = static_cast<TGraph*>(o);
+            for (int i = 0; i < gr->GetN(); ++i) {
+                global_min_x = std::min(global_min_x, gr->GetX()[i]);
+                global_max_x = std::max(global_max_x, gr->GetX()[i]);
             }
         }
 
@@ -1700,7 +1731,7 @@ namespace PlotStyler {
         if (TH1* frame = filtered_mg->GetHistogram()) {
             if (TAxis* xAxis = frame->GetXaxis()) {
                 setRange(filtered_mg, xAxis, AxisType::X, std::nullopt, std::nullopt, {});
-                xAxis->SetTitle(x_label.c_str());
+                xAxis->SetTitle("HV - HV_{WP} [V]");
             }
 
             if (TAxis* yAxis = frame->GetYaxis()) {
@@ -1799,21 +1830,15 @@ namespace PlotStyler {
         double ndc_y0 = 1.0 - canvas->GetTopMargin();
 
         TPaveText* header = drawATLASHeaderBlock(
-            ndc_x0 - 0.03,
-            ndc_y0 - 0.09,
-            "Work in Progress",
-            title_lines,
-            32,
-            kWhite, 0.70,
-            kBlack, 0,
-            0.01
+            ndc_x0 - 0.03, ndc_y0 - 0.03, "Work in Progress",
+            title_lines, 33, kWhite, 0.70, kBlack, 0, 0.01
         );
 
         canvas->Modified();
         canvas->Update();
 
         double legend_y = header->GetY1NDC() - 0.02;
-        double leg_width = 0.20;
+        double leg_width = 0.25;
         double leg_height = legend_entries.size() * 0.04;
 
         TLegend* leg = new TLegend(ndc_x0 - 0.05 - leg_width, legend_y - leg_height, ndc_x0 - 0.05, legend_y);
